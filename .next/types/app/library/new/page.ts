@@ -1,8 +1,8 @@
-// File: D:\DEV\Python\Narra\src\app\library\page.tsx
-import * as entry from '../../../../src/app/library/page.js'
+// File: D:\DEV\Python\Narra\src\app\library\new\page.tsx
+import * as entry from '../../../../../src/app/library/new/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
-type TEntry = typeof import('../../../../src/app/library/page.js')
+type TEntry = typeof import('../../../../../src/app/library/new/page.js')
 
 // Check that the entry is a valid entry
 checkFields<Diff<{

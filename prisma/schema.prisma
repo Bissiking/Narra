@@ -44,11 +44,11 @@ model Project {
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
 
-  ownerId String @db.Uuid @map("owner_id")
+  ownerId String @map("owner_id") @db.Uuid
   owner   User   @relation(fields: [ownerId], references: [id])
 
   genres ProjectGenre[]
-  tags   EntityTag[] @relation("TaggedProject")
+  tags   EntityTag[]    @relation("TaggedProject")
 
   narrativeNodes NarrativeNode[]
   scenes         Scene[]
@@ -66,7 +66,7 @@ model Project {
 
 model ProjectGenre {
   id        String  @id @default(uuid()) @db.Uuid
-  projectId String  @db.Uuid @map("project_id")
+  projectId String  @map("project_id") @db.Uuid
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   genre     String
 
@@ -80,10 +80,10 @@ model ProjectGenre {
 
 model NarrativeNode {
   id        String  @id @default(uuid()) @db.Uuid
-  projectId String  @db.Uuid @map("project_id")
+  projectId String  @map("project_id") @db.Uuid
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  parentId String?         @db.Uuid @map("parent_id")
+  parentId String?         @map("parent_id") @db.Uuid
   parent   NarrativeNode?  @relation("NodeHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children NarrativeNode[] @relation("NodeHierarchy")
 
@@ -111,19 +111,19 @@ model NarrativeNode {
 
 model Scene {
   id        String  @id @default(uuid()) @db.Uuid
-  projectId String  @db.Uuid @map("project_id")
+  projectId String  @map("project_id") @db.Uuid
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  nodeId String?        @db.Uuid @map("node_id")
+  nodeId String?        @map("node_id") @db.Uuid
   node   NarrativeNode? @relation(fields: [nodeId], references: [id], onDelete: SetNull)
 
   title     String
-  status    String @default("draft")
-  order     Int    @default(0)
-  wordCount Int    @default(0) @map("word_count")
+  status    String  @default("draft")
+  order     Int     @default(0)
+  wordCount Int     @default(0) @map("word_count")
   notes     String?
 
-  locationId String?   @db.Uuid @map("location_id")
+  locationId String?   @map("location_id") @db.Uuid
   location   Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
 
   createdAt DateTime  @default(now()) @map("created_at")
@@ -131,9 +131,9 @@ model Scene {
   deletedAt DateTime? @map("deleted_at")
 
   blocks         SceneBlock[]
-  tags           EntityTag[]     @relation("TaggedScene")
+  tags           EntityTag[]      @relation("TaggedScene")
   characters     SceneCharacter[]
-  timelineEvents TimelineEvent[] @relation("TimelineScenes")
+  timelineEvents TimelineEvent[]  @relation("TimelineScenes")
 
   @@index([projectId])
   @@index([nodeId])
@@ -143,9 +143,9 @@ model Scene {
 
 model SceneCharacter {
   id          String    @id @default(uuid()) @db.Uuid
-  sceneId     String    @db.Uuid @map("scene_id")
+  sceneId     String    @map("scene_id") @db.Uuid
   scene       Scene     @relation(fields: [sceneId], references: [id], onDelete: Cascade)
-  characterId String    @db.Uuid @map("character_id")
+  characterId String    @map("character_id") @db.Uuid
   character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@unique([sceneId, characterId])
@@ -158,14 +158,14 @@ model SceneCharacter {
 
 model SceneBlock {
   id      String @id @default(uuid()) @db.Uuid
-  sceneId String @db.Uuid @map("scene_id")
+  sceneId String @map("scene_id") @db.Uuid
   scene   Scene  @relation(fields: [sceneId], references: [id], onDelete: Cascade)
 
   type    String
   content String
   order   Int    @default(0)
 
-  characterId String?    @db.Uuid @map("character_id")
+  characterId String?    @map("character_id") @db.Uuid
   character   Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)
   emotion     String?
   position    String?
@@ -184,7 +184,7 @@ model SceneBlock {
 
 model Character {
   id        String  @id @default(uuid()) @db.Uuid
-  projectId String  @db.Uuid @map("project_id")
+  projectId String  @map("project_id") @db.Uuid
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   firstName   String? @map("first_name")
@@ -216,7 +216,7 @@ model Character {
 
   organizationMemberships OrganizationMember[]
   timelineEvents          TimelineEventCharacter[]
-  tags                    EntityTag[] @relation("TaggedCharacter")
+  tags                    EntityTag[]              @relation("TaggedCharacter")
 
   @@index([projectId])
   @@index([deletedAt])
@@ -225,9 +225,9 @@ model Character {
 
 model CharacterRelation {
   id              String    @id @default(uuid()) @db.Uuid
-  fromCharacterId String    @db.Uuid @map("from_character_id")
+  fromCharacterId String    @map("from_character_id") @db.Uuid
   fromCharacter   Character @relation("FromCharacter", fields: [fromCharacterId], references: [id], onDelete: Cascade)
-  toCharacterId   String    @db.Uuid @map("to_character_id")
+  toCharacterId   String    @map("to_character_id") @db.Uuid
   toCharacter     Character @relation("ToCharacter", fields: [toCharacterId], references: [id], onDelete: Cascade)
 
   type          String
@@ -248,10 +248,10 @@ model CharacterRelation {
 
 model Location {
   id        String  @id @default(uuid()) @db.Uuid
-  projectId String  @db.Uuid @map("project_id")
+  projectId String  @map("project_id") @db.Uuid
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  parentId String?    @db.Uuid @map("parent_id")
+  parentId String?    @map("parent_id") @db.Uuid
   parent   Location?  @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children Location[] @relation("LocationHierarchy")
 
@@ -269,7 +269,7 @@ model Location {
 
   scenes         Scene[]
   timelineEvents TimelineEvent[]
-  tags           EntityTag[] @relation("TaggedLocation")
+  tags           EntityTag[]     @relation("TaggedLocation")
 
   @@index([projectId])
   @@index([parentId])
@@ -283,7 +283,7 @@ model Location {
 
 model Organization {
   id        String  @id @default(uuid()) @db.Uuid
-  projectId String  @db.Uuid @map("project_id")
+  projectId String  @map("project_id") @db.Uuid
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   name        String
@@ -310,9 +310,9 @@ model Organization {
 
 model OrganizationMember {
   id             String       @id @default(uuid()) @db.Uuid
-  organizationId String       @db.Uuid @map("organization_id")
+  organizationId String       @map("organization_id") @db.Uuid
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  characterId    String       @db.Uuid @map("character_id")
+  characterId    String       @map("character_id") @db.Uuid
   character      Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   role        String?
@@ -330,9 +330,9 @@ model OrganizationMember {
 
 model OrganizationRelation {
   id        String       @id @default(uuid()) @db.Uuid
-  fromOrgId String       @db.Uuid @map("from_org_id")
+  fromOrgId String       @map("from_org_id") @db.Uuid
   fromOrg   Organization @relation("FromOrg", fields: [fromOrgId], references: [id], onDelete: Cascade)
-  toOrgId   String       @db.Uuid @map("to_org_id")
+  toOrgId   String       @map("to_org_id") @db.Uuid
   toOrg     Organization @relation("ToOrg", fields: [toOrgId], references: [id], onDelete: Cascade)
 
   type        String
@@ -352,7 +352,7 @@ model OrganizationRelation {
 
 model LoreEntry {
   id        String  @id @default(uuid()) @db.Uuid
-  projectId String  @db.Uuid @map("project_id")
+  projectId String  @map("project_id") @db.Uuid
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   title    String
@@ -377,12 +377,12 @@ model LoreEntry {
 
 model LoreLink {
   id         String    @id @default(uuid()) @db.Uuid
-  fromLoreId String    @db.Uuid @map("from_lore_id")
+  fromLoreId String    @map("from_lore_id") @db.Uuid
   fromLore   LoreEntry @relation("FromLore", fields: [fromLoreId], references: [id], onDelete: Cascade)
-  toLoreId   String    @db.Uuid @map("to_lore_id")
+  toLoreId   String    @map("to_lore_id") @db.Uuid
   toLore     LoreEntry @relation("ToLore", fields: [toLoreId], references: [id], onDelete: Cascade)
 
-  type        String @default("related")
+  type        String   @default("related")
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
 
@@ -396,7 +396,7 @@ model LoreLink {
 
 model TimelineEvent {
   id        String  @id @default(uuid()) @db.Uuid
-  projectId String  @db.Uuid @map("project_id")
+  projectId String  @map("project_id") @db.Uuid
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   title         String
@@ -405,7 +405,7 @@ model TimelineEvent {
   sortKey       String? @map("sort_key")
   order         Int     @default(0)
 
-  locationId String?   @db.Uuid @map("location_id")
+  locationId String?   @map("location_id") @db.Uuid
   location   Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
 
   createdAt DateTime  @default(now()) @map("created_at")
@@ -413,8 +413,8 @@ model TimelineEvent {
   deletedAt DateTime? @map("deleted_at")
 
   characters    TimelineEventCharacter[]
-  organizations Organization[] @relation("TimelineOrgs")
-  scenes        Scene[]        @relation("TimelineScenes")
+  organizations Organization[]           @relation("TimelineOrgs")
+  scenes        Scene[]                  @relation("TimelineScenes")
 
   @@index([projectId])
   @@index([projectId, sortKey])
@@ -424,9 +424,9 @@ model TimelineEvent {
 
 model TimelineEventCharacter {
   id              String        @id @default(uuid()) @db.Uuid
-  timelineEventId String        @db.Uuid @map("timeline_event_id")
+  timelineEventId String        @map("timeline_event_id") @db.Uuid
   timelineEvent   TimelineEvent @relation(fields: [timelineEventId], references: [id], onDelete: Cascade)
-  characterId     String        @db.Uuid @map("character_id")
+  characterId     String        @map("character_id") @db.Uuid
   character       Character     @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   role String?
@@ -441,7 +441,7 @@ model TimelineEventCharacter {
 
 model Media {
   id        String  @id @default(uuid()) @db.Uuid
-  projectId String  @db.Uuid @map("project_id")
+  projectId String  @map("project_id") @db.Uuid
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   filename     String
@@ -474,12 +474,12 @@ model Media {
 // ============================================================
 
 model Tag {
-  id        String @id @default(uuid()) @db.Uuid
-  projectId String @db.Uuid @map("project_id")
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id") @db.Uuid
   name      String
   color     String?
 
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime    @default(now()) @map("created_at")
   entities  EntityTag[]
 
   @@unique([projectId, name])
@@ -489,31 +489,31 @@ model Tag {
 
 model EntityTag {
   id    String @id @default(uuid()) @db.Uuid
-  tagId String @db.Uuid @map("tag_id")
+  tagId String @map("tag_id") @db.Uuid
   tag   Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   entityType String @map("entity_type")
   entityId   String @map("entity_id")
 
-  projectId String?  @db.Uuid @map("project_id")
+  projectId String?  @map("project_id") @db.Uuid
   project   Project? @relation("TaggedProject", fields: [projectId], references: [id], onDelete: Cascade)
 
-  sceneId String? @db.Uuid @map("scene_id")
+  sceneId String? @map("scene_id") @db.Uuid
   scene   Scene?  @relation("TaggedScene", fields: [sceneId], references: [id], onDelete: Cascade)
 
-  characterId String?    @db.Uuid @map("character_id")
+  characterId String?    @map("character_id") @db.Uuid
   character   Character? @relation("TaggedCharacter", fields: [characterId], references: [id], onDelete: Cascade)
 
-  locationId String?   @db.Uuid @map("location_id")
+  locationId String?   @map("location_id") @db.Uuid
   location   Location? @relation("TaggedLocation", fields: [locationId], references: [id], onDelete: Cascade)
 
-  organizationId String?       @db.Uuid @map("organization_id")
+  organizationId String?       @map("organization_id") @db.Uuid
   organization   Organization? @relation("TaggedOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
 
-  loreEntryId String?    @db.Uuid @map("lore_entry_id")
+  loreEntryId String?    @map("lore_entry_id") @db.Uuid
   loreEntry   LoreEntry? @relation("TaggedLore", fields: [loreEntryId], references: [id], onDelete: Cascade)
 
-  mediaId String? @db.Uuid @map("media_id")
+  mediaId String? @map("media_id") @db.Uuid
   media   Media?  @relation("TaggedMedia", fields: [mediaId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now()) @map("created_at")
