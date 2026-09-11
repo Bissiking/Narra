@@ -3,6 +3,19 @@ import { db } from "@/lib/db";
 import { createProjectSchema } from "@/lib/validations";
 import { slugify } from "@/lib/utils";
 
+const DEV_USER_EMAIL = "demo@narra.app";
+
+async function getDevelopmentUser() {
+  return db.user.upsert({
+    where: { email: DEV_USER_EMAIL },
+    update: {},
+    create: {
+      email: DEV_USER_EMAIL,
+      name: "Démo",
+    },
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -15,6 +28,9 @@ export async function POST(request: NextRequest) {
       slug = `${slug}-${Date.now()}`;
     }
 
+    // Temporary development owner until authentication is connected.
+    const owner = await getDevelopmentUser();
+
     const project = await db.project.create({
       data: {
         name: data.name,
@@ -22,8 +38,7 @@ export async function POST(request: NextRequest) {
         description: data.description,
         type: data.type,
         status: data.status,
-        // TODO: Get actual user ID from auth
-        ownerId: "00000000-0000-0000-0000-000000000000",
+        ownerId: owner.id,
         genres: data.genres
           ? {
               create: data.genres.map((genre) => ({ genre })),
