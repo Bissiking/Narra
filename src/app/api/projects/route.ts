@@ -1,35 +1,30 @@
+// src/app/api/projects/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createProjectSchema } from "@/lib/validations";
 import { slugify } from "@/lib/utils";
-
-const DEV_USER_EMAIL = "demo@narra.app";
-
-async function getDevelopmentUser() {
-  return db.user.upsert({
-    where: { email: DEV_USER_EMAIL },
-    update: {},
-    create: {
-      email: DEV_USER_EMAIL,
-      name: "Démo",
-    },
-  });
-}
+import { getSessionFromRequest } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
+    const session = getSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ error: "Authentification requise" }, { status: 401 });
+    }
+
     const body = await request.json();
     const data = createProjectSchema.parse(body);
 
-    // Generate unique slug
     let slug = slugify(data.name);
     const existing = await db.project.findUnique({ where: { slug } });
     if (existing) {
       slug = `${slug}-${Date.now()}`;
     }
 
-    // Temporary development owner until authentication is connected.
-    const owner = await getDevelopmentUser();
+    const owner = await db.user.findUnique({ where: { id: session.userId } });
+    if (!owner) {
+      return NextResponse.json({ error: "Session utilisateur invalide" }, { status: 401 });
+    }
 
     const project = await db.project.create({
       data: {
@@ -68,10 +63,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const session = getSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ error: "Authentification requise" }, { status: 401 });
+    }
+
     const projects = await db.project.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, ownerId: session.userId },
       include: {
         genres: true,
         _count: {
