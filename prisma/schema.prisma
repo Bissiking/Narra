@@ -1,0 +1,523 @@
+// Narra — Prisma Schema
+// Base de données narrative pour œuvres de fiction
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// UTILISATEURS
+// ============================================================
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  avatarUrl     String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  projects      Project[]
+
+  @@map("users")
+}
+
+// ============================================================
+// PROJETS
+// ============================================================
+
+model Project {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String
+  slug          String    @unique
+  description   String?
+  coverUrl      String?   @map("cover_url")
+  type          String    @default("story")     // story, novel, screenplay, vn, comic, universe
+  status        String    @default("idea")      // idea, writing, paused, completed, archived
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  ownerId       String    @map("owner_id")
+  owner         User      @relation(fields: [ownerId], references: [id])
+
+  genres        ProjectGenre[]
+  tags          EntityTag[]
+
+  // Entités narratives
+  narrativeNodes    NarrativeNode[]
+  scenes            Scene[]
+  characters        Character[]
+  locations         Location[]
+  organizations     Organization[]
+  loreEntries       LoreEntry[]
+  timelineEvents    TimelineEvent[]
+  media             Media[]
+
+  @@index([ownerId])
+  @@index([deletedAt])
+  @@map("projects")
+}
+
+model ProjectGenre {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id")
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  genre     String
+
+  @@unique([projectId, genre])
+  @@map("project_genres")
+}
+
+// ============================================================
+// STRUCTURE NARRATIVE (arborescence générique)
+// ============================================================
+
+model NarrativeNode {
+  id            String    @id @default(uuid()) @db.Uuid
+  projectId     String    @map("project_id")
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  parentId      String?   @map("parent_id")
+  parent        NarrativeNode? @relation("NodeHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children      NarrativeNode[] @relation("NodeHierarchy")
+
+  type          String    // saga, arc, volume, chapter, part, act, episode, block, custom
+  title         String
+  description   String?
+  order         Int       @default(0)
+  depth         Int       @default(0)
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  scenes        Scene[]
+
+  @@index([projectId])
+  @@index([parentId])
+  @@index([projectId, parentId, order])
+  @@map("narrative_nodes")
+}
+
+// ============================================================
+// SCÈNES
+// ============================================================
+
+model Scene {
+  id              String        @id @default(uuid()) @db.Uuid
+  projectId       String        @map("project_id")
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  nodeId          String?       @map("node_id")
+  node            NarrativeNode? @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+
+  title           String
+  status          String        @default("draft")   // draft, writing, review, final
+  order           Int           @default(0)
+  wordCount       Int           @default(0) @map("word_count")
+  notes           String?       // notes auteur
+
+  locationId      String?       @map("location_id")
+  location        Location?     @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+
+  blocks          SceneBlock[]
+  tags            EntityTag[]
+  characters      SceneCharacter[]
+  timelineEvents  TimelineEvent[]
+
+  @@index([projectId])
+  @@index([nodeId])
+  @@index([projectId, nodeId, order])
+  @@map("scenes")
+}
+
+model SceneCharacter {
+  id          String    @id @default(uuid()) @db.Uuid
+  sceneId     String    @map("scene_id")
+  scene       Scene     @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  characterId String    @map("character_id")
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@unique([sceneId, characterId])
+  @@map("scene_characters")
+}
+
+// ============================================================
+// BLOCS DE SCÈNE
+// ============================================================
+
+model SceneBlock {
+  id          String    @id @default(uuid()) @db.Uuid
+  sceneId     String    @map("scene_id")
+  scene       Scene     @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  type        String    // narration, dialogue, action, transition, note, heading
+  content     String    // texte du bloc
+  order       Int       @default(0)
+
+  // Champs spécifiques au dialogue
+  characterId String?   @map("character_id")
+  character   Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  emotion     String?   // émotion du personnage
+  position    String?   // position sur scène (left, center, right) pour VN
+  speakerNote String?   @map("speaker_note") // indication de jeu/jeu
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([sceneId, order])
+  @@map("scene_blocks")
+}
+
+// ============================================================
+// PERSONNAGES
+// ============================================================
+
+model Character {
+  id            String    @id @default(uuid()) @db.Uuid
+  projectId     String    @map("project_id")
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  firstName     String?   @map("first_name")
+  lastName      String?   @map("last_name")
+  alias         String?   // nom de code, surnom
+  portraitUrl   String?   @map("portrait_url")
+  role          String?   // protagonist, antagonist, supporting, minor...
+  description   String?
+  biography     String?
+  age           String?   // texte libre : "21 ans", "Inconnu"
+  birthDate     String?   @map("birth_date") // date ou période narrative
+  status        String?   @default("active") // active, dead, missing, unknown, retired
+  personality   String?
+  motivations   String?
+  strengths     String?
+  weaknesses    String?
+  notes         String?
+  quotes        String?   @map("important_quotes") // citations importantes
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  // Relations
+  relationsFrom  CharacterRelation[] @relation("FromCharacter")
+  relationsTo    CharacterRelation[] @relation("ToCharacter")
+
+  // Présence dans les scènes
+  sceneAppearances  SceneCharacter[]
+  sceneBlocks       SceneBlock[]      // blocs de dialogue
+
+  // Membres d'organisations
+  organizationMemberships OrganizationMember[]
+
+  // Événements timeline
+  timelineEvents   TimelineEventCharacter[]
+
+  tags         EntityTag[]
+
+  @@index([projectId])
+  @@index([deletedAt])
+  @@map("characters")
+}
+
+// ============================================================
+// RELATIONS ENTRE PERSONNAGES
+// ============================================================
+
+model CharacterRelation {
+  id              String    @id @default(uuid()) @db.Uuid
+  fromCharacterId String    @map("from_character_id")
+  fromCharacter   Character @relation("FromCharacter", fields: [fromCharacterId], references: [id], onDelete: Cascade)
+  toCharacterId   String    @map("to_character_id")
+  toCharacter     Character @relation("ToCharacter", fields: [toCharacterId], references: [id], onDelete: Cascade)
+
+  type            String    // friend, family, couple, colleague, enemy, hierarchy, custom
+  label           String?   // label personnalisé (ex: "frère d'armes")
+  description     String?
+  bidirectional   Boolean   @default(false) // la relation est-elle symétrique ?
+
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@unique([fromCharacterId, toCharacterId, type])
+  @@map("character_relations")
+}
+
+// ============================================================
+// LIEUX
+// ============================================================
+
+model Location {
+  id            String    @id @default(uuid()) @db.Uuid
+  projectId     String    @map("project_id")
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  parentId      String?   @map("parent_id")
+  parent        Location? @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children      Location[] @relation("LocationHierarchy")
+
+  name          String
+  type          String?   // building, city, planet, region, room, custom
+  description   String?
+  imageUrl      String?   @map("image_url")
+  textualLocation String? @map("textual_location") // localisation textuelle
+  ambiance      String?   // description de l'ambiance
+  notes         String?
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  scenes        Scene[]
+  timelineEvents TimelineEvent[]
+  tags          EntityTag[]
+
+  @@index([projectId])
+  @@index([parentId])
+  @@index([deletedAt])
+  @@map("locations")
+}
+
+// ============================================================
+// ORGANISATIONS
+// ============================================================
+
+model Organization {
+  id            String    @id @default(uuid()) @db.Uuid
+  projectId     String    @map("project_id")
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name          String
+  logoUrl       String?   @map("logo_url")
+  description   String?
+  type          String?   // military, corporation, government, faction, group, custom
+  status        String?   @default("active") // active, dissolved, inactive, unknown
+  notes         String?
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  members       OrganizationMember[]
+  relationsFrom OrganizationRelation[] @relation("FromOrg")
+  relationsTo   OrganizationRelation[] @relation("ToOrg")
+  timelineEvents TimelineEvent[]
+  tags          EntityTag[]
+
+  @@index([projectId])
+  @@index([deletedAt])
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @map("organization_id")
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  characterId     String       @map("character_id")
+  character       Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  role            String?      // leader, member, advisor, custom
+  rank            String?      // grade ou niveau
+  description     String?
+  startDate       String?      @map("start_date") // période narrative
+  endDate         String?      @map("end_date")
+
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  @@unique([organizationId, characterId])
+  @@map("organization_members")
+}
+
+model OrganizationRelation {
+  id              String       @id @default(uuid()) @db.Uuid
+  fromOrgId       String       @map("from_org_id")
+  fromOrg         Organization @relation("FromOrg", fields: [fromOrgId], references: [id], onDelete: Cascade)
+  toOrgId         String       @map("to_org_id")
+  toOrg           Organization @relation("ToOrg", fields: [toOrgId], references: [id], onDelete: Cascade)
+
+  type            String       // ally, enemy, subordinate, parent, custom
+  label           String?
+  description     String?
+
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  @@unique([fromOrgId, toOrgId, type])
+  @@map("organization_relations")
+}
+
+// ============================================================
+// LORE
+// ============================================================
+
+model LoreEntry {
+  id            String    @id @default(uuid()) @db.Uuid
+  projectId     String    @map("project_id")
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title         String
+  category      String    // history, technology, politics, organizations, objects, concepts, rules, events, custom
+  content       String?   // contenu HTML ou Markdown structuré
+  notes         String?
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  tags          EntityTag[]
+
+  // Liens vers d'autres entités (via LoreLink)
+  linksFrom     LoreLink[] @relation("FromLore")
+  linksTo       LoreLink[] @relation("ToLore")
+
+  @@index([projectId])
+  @@index([projectId, category])
+  @@index([deletedAt])
+  @@map("lore_entries")
+}
+
+model LoreLink {
+  id            String     @id @default(uuid()) @db.Uuid
+  fromLoreId    String     @map("from_lore_id")
+  fromLore      LoreEntry  @relation("FromLore", fields: [fromLoreId], references: [id], onDelete: Cascade)
+  toLoreId      String     @map("to_lore_id")
+  toLore        LoreEntry  @relation("ToLore", fields: [toLoreId], references: [id], onDelete: Cascade)
+
+  type          String     @default("related") // related, parent, child, prerequisite, custom
+  description   String?
+
+  createdAt     DateTime   @default(now()) @map("created_at")
+
+  @@unique([fromLoreId, toLoreId])
+  @@map("lore_links")
+}
+
+// ============================================================
+// TIMELINE
+// ============================================================
+
+model TimelineEvent {
+  id            String    @id @default(uuid()) @db.Uuid
+  projectId     String    @map("project_id")
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title         String
+  description   String?
+  narrativeDate String?   @map("narrative_date") // date ou période narrative
+  sortKey       String?   @map("sort_key")       // clé de tri pour ordre relatif
+  order         Int       @default(0)
+
+  locationId    String?   @map("location_id")
+  location      Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  characters    TimelineEventCharacter[]
+  organizations Organization[]           @relation("TimelineOrgs")
+  scenes        Scene[]
+
+  @@index([projectId])
+  @@index([projectId, sortKey])
+  @@index([deletedAt])
+  @@map("timeline_events")
+}
+
+model TimelineEventCharacter {
+  id            String          @id @default(uuid()) @db.Uuid
+  timelineEventId String        @map("timeline_event_id")
+  timelineEvent  TimelineEvent  @relation(fields: [timelineEventId], references: [id], onDelete: Cascade)
+  characterId   String          @map("character_id")
+  character     Character       @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  role          String?         // protagonist, witness, victim, custom
+
+  @@unique([timelineEventId, characterId])
+  @@map("timeline_event_characters")
+}
+
+// Lien many-to-many entre TimelineEvent et Organization
+// (géré via la table de liaison implicitement par Prisma)
+
+// ============================================================
+// MÉDIATHÈQUE
+// ============================================================
+
+model Media {
+  id            String    @id @default(uuid()) @db.Uuid
+  projectId     String    @map("project_id")
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  filename      String
+  originalName  String    @map("original_name")
+  mimeType      String    @map("mime_type")
+  size          Int       // en bytes
+  url           String    // chemin d'accès
+  type          String    @default("image") // image, audio, video, document, other
+  category      String?   // portrait, cover, concept_art, reference, map, custom
+  description   String?
+  alt           String?   // texte alternatif
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  // Liaison polymorphe (V1 simplifié)
+  entityType    String?   @map("entity_type") // character, location, organization, scene, project
+  entityId      String?   @map("entity_id")
+
+  tags          EntityTag[]
+
+  @@index([projectId])
+  @@index([entityType, entityId])
+  @@index([deletedAt])
+  @@map("media")
+}
+
+// ============================================================
+// TAGS
+// ============================================================
+
+model Tag {
+  id            String    @id @default(uuid()) @db.Uuid
+  projectId     String    @map("project_id")
+  name          String
+  color         String?   // hex color
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  entities      EntityTag[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@map("tags")
+}
+
+model EntityTag {
+  id            String    @id @default(uuid()) @db.Uuid
+  tagId         String    @map("tag_id")
+  tag           Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  // Liaison polymorphe
+  entityType    String    @map("entity_type") // project, scene, character, location, organization, lore, media
+  entityId      String    @map("entity_id")
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@unique([tagId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@map("entity_tags")
+}

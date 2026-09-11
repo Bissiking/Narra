@@ -1,0 +1,85 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { sceneId: string } }
+) {
+  try {
+    const blocks = await db.sceneBlock.findMany({
+      where: { sceneId: params.sceneId },
+      include: {
+        character: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            alias: true,
+            portraitUrl: true,
+          },
+        },
+      },
+      orderBy: { order: "asc" },
+    });
+
+    return NextResponse.json(blocks);
+  } catch (error) {
+    console.error("Error fetching blocks:", error);
+    return NextResponse.json(
+      { error: "Erreur lors de la récupération des blocs" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { sceneId: string } }
+) {
+  try {
+    const { blocks } = await request.json();
+
+    // Delete existing blocks and recreate
+    await db.sceneBlock.deleteMany({
+      where: { sceneId: params.sceneId },
+    });
+
+    if (blocks && blocks.length > 0) {
+      await db.sceneBlock.createMany({
+        data: blocks.map((block: any) => ({
+          sceneId: params.sceneId,
+          type: block.type,
+          content: block.content,
+          order: block.order,
+          characterId: block.characterId || null,
+          emotion: block.emotion || null,
+          position: block.position || null,
+          speakerNote: block.speakerNote || null,
+        })),
+      });
+    }
+
+    // Update word count
+    const allBlocks = await db.sceneBlock.findMany({
+      where: { sceneId: params.sceneId },
+    });
+
+    const wordCount = allBlocks.reduce(
+      (acc, block) => acc + block.content.split(/\s+/).filter(Boolean).length,
+      0
+    );
+
+    await db.scene.update({
+      where: { id: params.sceneId },
+      data: { wordCount },
+    });
+
+    return NextResponse.json({ ok: true, wordCount });
+  } catch (error) {
+    console.error("Error saving blocks:", error);
+    return NextResponse.json(
+      { error: "Erreur lors de la sauvegarde des blocs" },
+      { status: 500 }
+    );
+  }
+}
