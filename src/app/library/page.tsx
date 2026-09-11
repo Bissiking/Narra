@@ -1,9 +1,18 @@
+// src/app/library/page.tsx
 import { db } from "@/lib/db";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
 export default async function LibraryPage() {
+  const session = verifySessionToken(cookies().get(SESSION_COOKIE)?.value);
+  if (!session) {
+    redirect("/api/auth/login?returnTo=/library");
+  }
+
   const projects = await db.project.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, ownerId: session.userId },
     include: {
       genres: true,
       _count: {
@@ -21,13 +30,23 @@ export default async function LibraryPage() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-narra-border">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold tracking-tight">
-            <span className="text-narra-accent">Narra</span>
-          </h1>
-          <Link href="/library/new" className="btn-primary">
-            + Nouveau projet
-          </Link>
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">
+              <span className="text-narra-accent">Narra</span>
+            </h1>
+            <p className="text-xs text-narra-muted mt-1">
+              {session.name || session.email}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link href="/api/auth/logout" className="text-sm text-narra-muted hover:text-white transition-colors">
+              Déconnexion
+            </Link>
+            <Link href="/library/new" className="btn-primary">
+              + Nouveau projet
+            </Link>
+          </div>
         </div>
       </header>
 
