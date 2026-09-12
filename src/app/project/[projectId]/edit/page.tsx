@@ -45,6 +45,7 @@ interface Character {
 interface SceneBlock {
   id: string; type: string; content: string; order: number;
   characterId: string | null; emotion: string | null; position: string | null; speakerNote: string | null;
+  mediaUrl?: string | null; audioAction?: string | null; volume?: number | null; fadeDuration?: number | null; loop?: boolean | null;
 }
 
 interface NarrativeNodeOption {
@@ -89,6 +90,7 @@ export default function EditPage() {
   const [titleValue, setTitleValue] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState("");
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<Map<string, string>>(new Map());
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<NodeJS.Timeout | null>(null);
@@ -111,6 +113,7 @@ export default function EditPage() {
 
   // Load blocks when scene selected
   useEffect(() => {
+    setSelectedBlockId(null);
     if (!selectedScene) { setBlocks([]); return; }
     async function loadBlocks() {
       const res = await fetch(`/api/scenes/${selectedScene}/blocks`);
@@ -150,15 +153,42 @@ export default function EditPage() {
     return () => { if (wsRef.current) wsRef.current.close(); if (reconnectRef.current) clearTimeout(reconnectRef.current); };
   }, [selectedScene]);
 
-  function sendWs(msg: object) {
+  const sendWs = useCallback((msg: object) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify(msg));
-  }
+  }, []);
 
   // Block ops
-  function addBlock(type: string) {
-    const block: SceneBlock = { id: `temp-${Date.now()}`, type, content: "", order: blocks.length, characterId: type === "dialogue" ? characters[0]?.id || null : null, emotion: null, position: null, speakerNote: null };
-    setBlocks([...blocks, block]);
-  }
+  const addBlock = useCallback((type: string, afterId: string | null = null) => {
+    const id = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setBlocks((current) => {
+      const afterIndex = afterId ? current.findIndex((block) => block.id === afterId) : -1;
+      const insertAt = afterIndex >= 0 ? afterIndex + 1 : current.length;
+      const block: SceneBlock = {
+        id,
+        type,
+        content: "",
+        order: insertAt,
+        characterId: type === "dialogue" ? characters[0]?.id || null : null,
+        emotion: null,
+        position: null,
+        speakerNote: null,
+        mediaUrl: null,
+        audioAction: type === "music" ? "play" : null,
+        volume: type === "music" || type === "sfx" ? 100 : null,
+        fadeDuration: type === "music" ? 1 : null,
+        loop: type === "music" ? true : null,
+      };
+      const next = [...current];
+      next.splice(insertAt, 0, block);
+      return next.map((item, index) => ({ ...item, order: index }));
+    });
+    setSelectedBlockId(id);
+    window.requestAnimationFrame(() => {
+      const element = document.getElementById(`scene-block-${id}`);
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+      element?.querySelector("textarea")?.focus({ preventScroll: true });
+    });
+  }, [characters]);
 
   function importBlocks(imported: ParsedSceneScriptBlock[], mode: "append" | "replace") {
     setBlocks((current) => {
@@ -173,19 +203,28 @@ export default function EditPage() {
     });
   }
 
-  function updateBlock(id: string, updates: Partial<SceneBlock>) {
+  const updateBlock = useCallback((id: string, updates: Partial<SceneBlock>) => {
     setBlocks((prev) => {
       const next = prev.map((b) => (b.id === id ? { ...b, ...updates } : b));
       const block = next.find((b) => b.id === id);
       if (block && !block.id.startsWith("temp-")) sendWs({ type: "block:update", blockId: id, block });
       return next;
     });
-  }
+  }, [sendWs]);
 
-  function removeBlock(id: string) {
-    setBlocks((prev) => prev.filter((b) => b.id !== id));
+  const removeBlock = useCallback((id: string) => {
+    setBlocks((prev) => prev.filter((b) => b.id !== id).map((block, index) => ({ ...block, order: index })));
+    setSelectedBlockId((selected) => selected === id ? null : selected);
     if (!id.startsWith("temp-")) sendWs({ type: "block:delete", blockId: id });
-  }
+  }, [sendWs]);
+
+  const jumpToBlock = useCallback((id: string) => {
+    const element = document.getElementById(`scene-block-${id}`);
+    if (!element) return;
+    setSelectedBlockId(id);
+    element.scrollIntoView({ behavior: "smooth", block: "start" });
+    element.querySelector("textarea")?.focus({ preventScroll: true });
+  }, []);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -270,13 +309,15 @@ export default function EditPage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center"><span className="text-narra-muted">Chargement...</span></div>;
 
   const selectedSceneData = scenes.find((s) => s.id === selectedScene);
+  const selectedBlockIndex = selectedBlockId ? blocks.findIndex((block) => block.id === selectedBlockId) : -1;
+  const planBlocks = blocks.filter((block) => block.type === "heading");
   const wordCount = blocks.reduce((acc, b) => acc + b.content.split(/\s+/).filter(Boolean).length, 0);
   const totalWords = scenes.reduce((acc, s) => acc + s.wordCount, 0);
 
   return (
-    <div className="min-h-screen flex">
+    <div className="flex h-screen overflow-hidden">
       {/* Sidebar - Scene list */}
-      <aside className="w-72 min-h-screen border-r border-narra-border flex flex-col shrink-0">
+      <aside className="flex h-screen w-72 shrink-0 flex-col border-r border-narra-border">
         <div className="p-4 border-b border-narra-border">
           <Link href={`/project/${projectId}`} className="text-narra-muted hover:text-narra-text text-sm">← Projet</Link>
           <div className="mt-2 flex items-center justify-between">
@@ -338,11 +379,11 @@ export default function EditPage() {
       </aside>
 
       {/* Main editor area */}
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex h-screen min-h-0 min-w-0 flex-1 flex-col">
         {selectedScene ? (
           <>
             {/* Editor toolbar */}
-            <header className="border-b border-narra-border px-4 py-2 flex items-center gap-3">
+            <header className="flex flex-wrap items-center gap-3 border-b border-narra-border px-4 py-2">
               <div className="flex-1 min-w-0">
                 {editTitle ? (
                   <input className="input text-sm font-bold" value={titleValue} onChange={(e) => setTitleValue(e.target.value)} onBlur={saveTitle} onKeyDown={(e) => e.key === "Enter" && saveTitle()} autoFocus />
@@ -351,20 +392,42 @@ export default function EditPage() {
                     {selectedSceneData?.title}
                   </h2>
                 )}
-                <div className="flex gap-3 text-[10px] text-narra-muted mt-0.5">
+                <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-narra-muted">
                   <span>{wordCount} mots</span>
                   <span>{blocks.length} blocs</span>
+                  <span>{selectedBlockIndex >= 0 ? `Bloc actif #${selectedBlockIndex + 1}` : "Ajout en fin de scène"}</span>
+                  <span>Ctrl + Entrée : insérer après</span>
                   {lastSaved && <span>Sauvé {lastSaved.toLocaleTimeString("fr-FR")}</span>}
                   {saving && <span className="text-narra-accent">…</span>}
                 </div>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center justify-end gap-1">
+                {planBlocks.length > 0 && (
+                  <select
+                    defaultValue=""
+                    onChange={(event) => {
+                      if (event.target.value) jumpToBlock(event.target.value);
+                      event.target.value = "";
+                    }}
+                    className="border border-narra-border bg-narra-bg px-2 py-1 text-xs text-narra-muted focus:border-narra-accent focus:outline-none"
+                    aria-label="Aller rapidement à un plan"
+                  >
+                    <option value="" disabled>Aller au plan…</option>
+                    {planBlocks.map((block) => (
+                      <option key={block.id} value={block.id}>
+                        #{block.order + 1} · {block.content.slice(0, 64) || "Plan sans titre"}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <button onClick={() => setShowMetadata(!showMetadata)} className="btn-ghost text-xs px-2 py-1">Meta</button>
-                <button onClick={() => addBlock("narration")} className="btn-ghost text-xs px-2 py-1">+Narr</button>
-                <button onClick={() => addBlock("dialogue")} className="btn-ghost text-xs px-2 py-1">+Dial</button>
-                <button onClick={() => addBlock("action")} className="btn-ghost text-xs px-2 py-1">+Act</button>
-                <button onClick={() => addBlock("heading")} className="btn-ghost text-xs px-2 py-1">+H</button>
+                <button onClick={() => addBlock("narration", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Narr</button>
+                <button onClick={() => addBlock("dialogue", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Dial</button>
+                <button onClick={() => addBlock("action", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Act</button>
+                <button onClick={() => addBlock("heading", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Plan</button>
+                <button onClick={() => addBlock("music", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Musique</button>
+                <button onClick={() => addBlock("sfx", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+SFX</button>
                 <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} compact />
                 <button onClick={saveBlocks} className="btn-primary text-xs px-2 py-1">Sauver</button>
                 <button onClick={deleteScene} className="text-xs text-narra-danger px-2 py-1 hover:text-narra-danger">🗑</button>
@@ -413,7 +476,7 @@ export default function EditPage() {
             )}
 
             {/* Blocks */}
-            <div className="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full">
+            <div className="mx-auto min-h-0 w-full max-w-3xl flex-1 overflow-y-auto p-4 scrollbar-thin">
               {blocks.length === 0 ? (
                 <div className="text-center py-16 text-narra-muted">
                   <p className="mb-3 text-sm">Aucun bloc.</p>
@@ -424,7 +487,17 @@ export default function EditPage() {
                   <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-3">
                       {blocks.map((block) => (
-                        <SceneBlockItem key={block.id} block={block} characters={characters} onUpdate={updateBlock} onRemove={removeBlock} />
+                        <SceneBlockItem
+                          key={block.id}
+                          block={block}
+                          characters={characters}
+                          onUpdate={updateBlock}
+                          onRemove={removeBlock}
+                          onInsertAfter={addBlock}
+                          onSelect={setSelectedBlockId}
+                          selected={selectedBlockId === block.id}
+                          projectId={projectId}
+                        />
                       ))}
                     </div>
                   </SortableContext>

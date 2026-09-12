@@ -74,6 +74,11 @@ export async function PUT(
           emotion: block.emotion || null,
           position: block.position || null,
           speakerNote: block.speakerNote || null,
+          mediaUrl: block.mediaUrl || null,
+          audioAction: block.audioAction || null,
+          volume: typeof block.volume === "number" ? Math.max(0, Math.min(100, block.volume)) : null,
+          fadeDuration: typeof block.fadeDuration === "number" ? Math.max(0, Math.min(30, block.fadeDuration)) : null,
+          loop: typeof block.loop === "boolean" ? block.loop : null,
         })),
       });
     }
@@ -84,7 +89,10 @@ export async function PUT(
     });
 
     const wordCount = allBlocks.reduce(
-      (acc, block) => acc + block.content.split(/\s+/).filter(Boolean).length,
+      (acc, block) =>
+        block.type === "music" || block.type === "sfx"
+          ? acc
+          : acc + block.content.split(/\s+/).filter(Boolean).length,
       0
     );
 

@@ -187,6 +187,11 @@ model SceneBlock {
   emotion     String?
   position    String?
   speakerNote String?    @map("speaker_note")
+  mediaUrl    String?    @map("media_url")
+  audioAction String?    @map("audio_action")
+  volume      Int?       @default(100)
+  fadeDuration Float?    @map("fade_duration")
+  loop        Boolean?   @default(false)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

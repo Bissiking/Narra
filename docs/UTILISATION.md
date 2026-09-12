@@ -71,8 +71,14 @@ Dans l’éditeur, ajoutez des blocs selon le contenu :
 - **Dialogue** pour une réplique associée à un personnage et, éventuellement, une émotion ;
 - **Action** pour une action ou une indication de mise en scène ;
 - **Titre** pour séparer les parties de la scène.
+- **Musique** pour démarrer, remplacer ou arrêter une piste avec volume, boucle et fondu ;
+- **SFX** pour jouer ponctuellement un effet sonore.
+
+Les blocs audio sont des commandes invisibles pendant la lecture. Une musique continue tant qu’un autre bloc **Musique** ne la remplace pas ou ne l’arrête pas. Placez un bloc **SFX** juste avant l’action, la narration ou la réplique qui doit déclencher le son. Les fichiers peuvent être choisis ou téléversés directement depuis le bloc.
 
 Utilisez les flèches pour réordonner les blocs et la croix pour en retirer un. La sauvegarde automatique intervient toutes les 30 secondes ; le bouton **Sauvegarder** permet de l’effectuer immédiatement.
+
+Pour les scènes longues, sélectionnez d’abord un bloc : les boutons de la barre d’outils ajoutent alors le nouveau bloc juste après celui-ci. Le menu **+ Insérer après** présent sur chaque bloc permet de choisir précisément le type à insérer. Utilisez **Ctrl + Entrée** (ou **Cmd + Entrée** sur macOS) pour ajouter rapidement un bloc du même type, et **Aller au plan…** pour naviguer directement entre les titres d’une scène.
 
 ### Importer une scène préparée avec GPT
 

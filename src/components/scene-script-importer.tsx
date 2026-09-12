@@ -22,6 +22,8 @@ const BLOCK_LABELS: Record<string, string> = {
   narration: "narrations",
   transition: "transitions",
   note: "notes",
+  music: "musiques",
+  sfx: "SFX",
 };
 
 export default function SceneScriptImporter({

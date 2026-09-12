@@ -1,7 +1,9 @@
 "use client";
 
+import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import MediaPicker from "@/components/media-picker";
 
 interface Character {
   id: string;
@@ -21,6 +23,11 @@ interface SceneBlock {
   characterId: string | null;
   emotion: string | null;
   position: string | null;
+  mediaUrl?: string | null;
+  audioAction?: string | null;
+  volume?: number | null;
+  fadeDuration?: number | null;
+  loop?: boolean | null;
 }
 
 interface SceneBlockItemProps {
@@ -28,13 +35,32 @@ interface SceneBlockItemProps {
   characters: Character[];
   onUpdate: (id: string, updates: Partial<SceneBlock>) => void;
   onRemove: (id: string) => void;
+  onInsertAfter?: (type: string, afterId: string) => void;
+  onSelect?: (id: string) => void;
+  selected?: boolean;
+  projectId?: string;
 }
 
-export default function SceneBlockItem({
+const BLOCK_TYPES = [
+  { value: "narration", label: "Narration" },
+  { value: "dialogue", label: "Dialogue" },
+  { value: "action", label: "Action" },
+  { value: "heading", label: "Titre / plan" },
+  { value: "transition", label: "Transition" },
+  { value: "note", label: "Note" },
+  { value: "music", label: "Musique" },
+  { value: "sfx", label: "SFX" },
+] as const;
+
+function SceneBlockItem({
   block,
   characters,
   onUpdate,
   onRemove,
+  onInsertAfter,
+  onSelect,
+  selected = false,
+  projectId,
 }: SceneBlockItemProps) {
   const {
     attributes,
@@ -53,35 +79,75 @@ export default function SceneBlockItem({
   const expressionImage = speakingCharacter?.images?.find(
     (image) => image.emotion === block.emotion
   );
+  const isAudioBlock = block.type === "music" || block.type === "sfx";
+  const audioAction = block.type === "music" ? block.audioAction || "play" : "play";
 
   return (
     <div
       ref={setNodeRef}
+      id={`scene-block-${block.id}`}
+      data-scene-block-id={block.id}
       style={style}
-      className={`card p-4 group ${isDragging ? "opacity-50 shadow-lg shadow-narra-accent/20 border-narra-accent" : ""}`}
+      onFocusCapture={() => onSelect?.(block.id)}
+      className={`card group p-4 transition-colors ${
+        selected ? "border-narra-accent bg-narra-accent/5" : ""
+      } ${isDragging ? "opacity-50 border-narra-accent" : ""}`}
     >
       <div className="flex items-start gap-4">
         <div className="flex flex-col gap-1 pt-1">
           <button
-            className="cursor-grab active:cursor-grabbing text-narra-muted hover:text-narra-text text-xs opacity-0 group-hover:opacity-100 transition-opacity touch-none"
+            className="min-h-8 min-w-8 cursor-grab touch-none text-xs text-narra-muted opacity-60 transition-opacity hover:text-narra-text hover:opacity-100 active:cursor-grabbing"
             {...attributes}
             {...listeners}
+            aria-label={`Déplacer le bloc ${block.order + 1}`}
           >
             ⋮⋮
           </button>
           <button
             onClick={() => onRemove(block.id)}
-            className="text-narra-danger hover:text-narra-danger text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+            className="min-h-8 min-w-8 text-xs text-narra-danger opacity-60 transition-opacity hover:opacity-100"
+            aria-label={`Supprimer le bloc ${block.order + 1}`}
           >
             ✕
           </button>
         </div>
 
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="badge border-narra-border text-narra-muted text-xs">
-              {block.type}
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="font-mono text-[10px] tabular-nums text-narra-muted" aria-hidden="true">
+              #{String(block.order + 1).padStart(3, "0")}
             </span>
+            <select
+              value={block.type}
+              onChange={(event) => onUpdate(block.id, { type: event.target.value })}
+              className="border border-narra-border bg-narra-bg px-2 py-1 text-xs text-narra-muted focus:border-narra-accent focus:outline-none"
+              aria-label="Type du bloc"
+              title="Changer le type du bloc"
+            >
+              {BLOCK_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+
+            <div className="flex-1" />
+            {onInsertAfter && (
+              <select
+                defaultValue=""
+                onChange={(event) => {
+                  if (event.target.value) onInsertAfter(event.target.value, block.id);
+                  event.target.value = "";
+                }}
+                className="border border-transparent bg-transparent px-2 py-1 text-xs text-narra-muted hover:border-narra-border hover:text-narra-text focus:border-narra-accent focus:outline-none"
+                aria-label={`Insérer un bloc après le bloc ${block.order + 1}`}
+              >
+                <option value="" disabled>+ Insérer après</option>
+                {BLOCK_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>{type.label}</option>
+                ))}
+              </select>
+            )}
 
             {block.type === "dialogue" && (
               <>
@@ -127,9 +193,93 @@ export default function SceneBlockItem({
             )}
           </div>
 
+          {isAudioBlock && (
+            <div className="mb-3 grid gap-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="min-w-0">
+                {block.type === "music" && (
+                  <div className="mb-3">
+                    <label className="label">Commande</label>
+                    <select
+                      value={audioAction}
+                      onChange={(event) => onUpdate(block.id, { audioAction: event.target.value })}
+                      className="select py-1.5 text-xs"
+                    >
+                      <option value="play">Lire ou remplacer la musique</option>
+                      <option value="stop">Arrêter la musique</option>
+                    </select>
+                  </div>
+                )}
+
+                {(block.type === "sfx" || audioAction === "play") && projectId && (
+                  <div>
+                    <label className="label">Fichier audio</label>
+                    <MediaPicker
+                      projectId={projectId}
+                      value={block.mediaUrl || ""}
+                      onChange={(mediaUrl) => onUpdate(block.id, { mediaUrl: mediaUrl || null })}
+                      label="Choisir"
+                      accept="audio/*"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="grid min-w-40 content-start gap-3">
+                {(block.type === "sfx" || audioAction === "play") && (
+                  <label className="text-xs text-narra-muted">
+                    <span className="mb-1 flex justify-between gap-4"><span>Volume</span><strong className="font-mono text-narra-text">{block.volume ?? 100}%</strong></span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={block.volume ?? 100}
+                      onChange={(event) => onUpdate(block.id, { volume: Number(event.target.value) })}
+                      className="w-full accent-amber-500"
+                    />
+                  </label>
+                )}
+
+                {block.type === "music" && (
+                  <>
+                    <label className="text-xs text-narra-muted">
+                      <span className="mb-1 block">Fondu (secondes)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="30"
+                        step="0.5"
+                        value={block.fadeDuration ?? 1}
+                        onChange={(event) => onUpdate(block.id, { fadeDuration: Math.max(0, Math.min(30, Number(event.target.value))) })}
+                        className="input py-1.5 text-xs"
+                      />
+                    </label>
+                    {audioAction === "play" && (
+                      <label className="flex min-h-8 items-center gap-2 text-xs text-narra-muted">
+                        <input
+                          type="checkbox"
+                          checked={block.loop ?? true}
+                          onChange={(event) => onUpdate(block.id, { loop: event.target.checked })}
+                          className="accent-amber-500"
+                        />
+                        Lire en boucle
+                      </label>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           <textarea
             value={block.content}
             onChange={(e) => onUpdate(block.id, { content: e.target.value })}
+            onKeyDown={(event) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && onInsertAfter) {
+                event.preventDefault();
+                onInsertAfter(block.type, block.id);
+              }
+            }}
             className={`w-full bg-transparent border-none focus:outline-none resize-none ${
               block.type === "heading"
                 ? "text-xl font-bold"
@@ -139,15 +289,20 @@ export default function SceneBlockItem({
             }`}
             rows={block.content.split("\n").length + 1}
             placeholder={
-              block.type === "dialogue"
+              isAudioBlock
+                ? "Note facultative pour ce son..."
+                : block.type === "dialogue"
                 ? "Le dialogue..."
                 : block.type === "heading"
                 ? "Titre..."
                 : "Écrivez ici..."
             }
+            title={onInsertAfter ? "Ctrl + Entrée : insérer un bloc du même type après celui-ci" : undefined}
           />
         </div>
       </div>
     </div>
   );
 }
+
+export default memo(SceneBlockItem);

@@ -86,7 +86,7 @@ export interface SceneWithDetails {
 // SCENE BLOCK
 // ============================================================
 
-export type BlockType = "narration" | "dialogue" | "action" | "transition" | "note" | "heading";
+export type BlockType = "narration" | "dialogue" | "action" | "transition" | "note" | "heading" | "music" | "sfx";
 
 export interface SceneBlockWithCharacter {
   id: string;
@@ -96,6 +96,11 @@ export interface SceneBlockWithCharacter {
   emotion: string | null;
   position: string | null;
   speakerNote: string | null;
+  mediaUrl: string | null;
+  audioAction: string | null;
+  volume: number | null;
+  fadeDuration: number | null;
+  loop: boolean | null;
   character: {
     id: string;
     firstName: string | null;

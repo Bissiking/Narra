@@ -30,6 +30,11 @@ type ReaderScene = {
     emotion: string | null;
     position: string | null;
     speakerNote: string | null;
+    mediaUrl: string | null;
+    audioAction: string | null;
+    volume: number | null;
+    fadeDuration: number | null;
+    loop: boolean | null;
     character: {
       firstName: string | null;
       lastName: string | null;

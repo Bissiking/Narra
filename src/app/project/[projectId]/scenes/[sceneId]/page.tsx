@@ -51,6 +51,11 @@ interface SceneBlock {
   emotion: string | null;
   position: string | null;
   speakerNote: string | null;
+  mediaUrl?: string | null;
+  audioAction?: string | null;
+  volume?: number | null;
+  fadeDuration?: number | null;
+  loop?: boolean | null;
 }
 
 interface Character {
@@ -254,6 +259,11 @@ export default function SceneDetailPage() {
       emotion: null,
       position: null,
       speakerNote: null,
+      mediaUrl: null,
+      audioAction: type === "music" ? "play" : null,
+      volume: type === "music" || type === "sfx" ? 100 : null,
+      fadeDuration: type === "music" ? 1 : null,
+      loop: type === "music" ? true : null,
     };
     setBlocks([...blocks, newBlock]);
   }
@@ -525,6 +535,8 @@ export default function SceneDetailPage() {
           <button onClick={() => addBlock("dialogue")} className="btn-ghost text-sm">+ Dialogue</button>
           <button onClick={() => addBlock("action")} className="btn-ghost text-sm">+ Action</button>
           <button onClick={() => addBlock("heading")} className="btn-ghost text-sm">+ Titre</button>
+          <button onClick={() => addBlock("music")} className="btn-ghost text-sm">+ Musique</button>
+          <button onClick={() => addBlock("sfx")} className="btn-ghost text-sm">+ SFX</button>
           <div className="flex-1" />
           <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} />
           <button onClick={saveBlocks} className="btn-primary text-sm">Sauvegarder</button>
@@ -546,6 +558,7 @@ export default function SceneDetailPage() {
                     characters={characters}
                     onUpdate={updateBlock}
                     onRemove={removeBlock}
+                    projectId={projectId}
                   />
                 ))}
               </div>

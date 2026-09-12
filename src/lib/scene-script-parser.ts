@@ -4,7 +4,9 @@ export type SceneScriptBlockType =
   | "action"
   | "transition"
   | "note"
-  | "heading";
+  | "heading"
+  | "music"
+  | "sfx";
 
 export interface SceneScriptCharacter {
   id: string;
@@ -20,6 +22,11 @@ export interface ParsedSceneScriptBlock {
   emotion: string | null;
   position: "left" | "center" | "right" | null;
   speakerNote: string | null;
+  mediaUrl: string | null;
+  audioAction: "play" | "stop" | null;
+  volume: number | null;
+  fadeDuration: number | null;
+  loop: boolean | null;
 }
 
 export interface SceneScriptParseResult {
@@ -38,6 +45,10 @@ const TYPE_ALIASES: Record<string, SceneScriptBlockType> = {
   DIALOGUE: "dialogue",
   TRANSITION: "transition",
   NOTE: "note",
+  MUSIQUE: "music",
+  MUSIC: "music",
+  SFX: "sfx",
+  SON: "sfx",
 };
 
 const POSITION_ALIASES: Record<string, "left" | "center" | "right"> = {
@@ -90,7 +101,29 @@ function emptyBlock(type: SceneScriptBlockType): ParsedSceneScriptBlock {
     emotion: null,
     position: null,
     speakerNote: null,
+    mediaUrl: null,
+    audioAction: type === "music" ? "play" : null,
+    volume: type === "music" || type === "sfx" ? 100 : null,
+    fadeDuration: type === "music" ? 1 : null,
+    loop: type === "music" ? true : null,
   };
+}
+
+function applyAudioMetadata(block: ParsedSceneScriptBlock, metadata: string, warnings: Set<string>) {
+  const parts = metadata.split("|").map((part) => part.trim()).filter(Boolean);
+  for (const part of parts) {
+    const normalized = normalize(part);
+    if (["STOP", "ARRET", "ARRETER"].includes(normalized)) block.audioAction = "stop";
+    else if (["PLAY", "LIRE", "START"].includes(normalized)) block.audioAction = "play";
+    else if (normalized === "LOOP" || normalized === "BOUCLE") block.loop = true;
+    else if (/^VOLUME=/i.test(part)) block.volume = Math.max(0, Math.min(100, Number(part.split("=")[1]) || 0));
+    else if (/^FADE=/i.test(part)) block.fadeDuration = Math.max(0, Math.min(30, Number(part.split("=")[1]) || 0));
+    else if (part.startsWith("/uploads/") || /^https?:\/\//i.test(part)) block.mediaUrl = part;
+    else if (!block.content) {
+      block.content = part;
+      warnings.add(`Sélectionnez le fichier audio correspondant à « ${part} » après l'import.`);
+    }
+  }
 }
 
 function parseDialogueMetadata(
@@ -123,13 +156,13 @@ function parseExplicitFormat(
   const flush = () => {
     if (!current) return;
     current.content = current.content.trim();
-    if (current.content) blocks.push(current);
+    if (current.content || current.type === "music" || current.type === "sfx") blocks.push(current);
     current = null;
   };
 
   for (const line of lines) {
     const match = line.match(
-      /^\s*(?:\[\s*(PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE)(?::([^\]]*))?\]|@(PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE)(?::([^\s]+(?:\|[^\s]+){0,2}))?)\s*(.*)$/i
+      /^\s*(?:\[\s*(PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE|MUSIQUE|MUSIC|SFX|SON)(?::([^\]]*))?\]|@(PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE|MUSIQUE|MUSIC|SFX|SON)(?::([^\s]+(?:\|[^\s]+)*))?)\s*(.*)$/i
     );
 
     if (match) {
@@ -140,6 +173,8 @@ function parseExplicitFormat(
       current.content = match[5].trim();
       if (current.type === "dialogue") {
         Object.assign(current, parseDialogueMetadata(metadata, characters, warnings));
+      } else if (current.type === "music" || current.type === "sfx") {
+        applyAudioMetadata(current, metadata, warnings);
       }
       continue;
     }
@@ -229,7 +264,7 @@ export function parseSceneScript(
 ): SceneScriptParseResult {
   const lines = source.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n");
   const hasDirectives = lines.some((line) =>
-    /^\s*(?:\[\s*(?:PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE)(?::|\s*\])|@(?:PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE)\b)/i.test(line)
+    /^\s*(?:\[\s*(?:PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE|MUSIQUE|MUSIC|SFX|SON)(?::|\s*\])|@(?:PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE|MUSIQUE|MUSIC|SFX|SON)\b)/i.test(line)
   );
   return hasDirectives
     ? parseExplicitFormat(lines, characters)
@@ -251,6 +286,9 @@ Balises autorisées :
 [DIALOGUE:PERSONNAGE|emotion|position] Réplique
 [TRANSITION] Transition visuelle
 [NOTE] Note de production
+[MUSIQUE:nom-ou-URL|play|volume=70|fade=2|loop] Démarre ou remplace la musique
+[MUSIQUE:stop|fade=2] Arrête la musique ; sans nouveau bloc, elle continue
+[SFX:nom-ou-URL|volume=90] Joue un effet sonore une fois
 
 Règles :
 - La scène se lit verticalement sur un décor de fond : plusieurs actions, narrations et dialogues peuvent appartenir au même plan.
@@ -262,6 +300,7 @@ Règles :
 - Utilise uniquement left, center ou right pour la position.
 - L'émotion est facultative et doit être : neutral, happy, sad, angry, surprised ou worried. La position est facultative.
 - Une balise peut contenir plusieurs lignes jusqu'à la balise suivante.
+- Pour un nom audio sans URL, Narra demandera de choisir le fichier correspondant après l'import.
 - N'invente pas de nom de personnage.
 ${names ? `- Personnages disponibles : ${names}.` : "- Aucun personnage n'est encore enregistré dans Narra."}
 

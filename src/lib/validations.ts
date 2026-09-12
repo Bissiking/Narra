@@ -82,6 +82,8 @@ export const BlockType = z.enum([
   "transition",
   "note",
   "heading",
+  "music",
+  "sfx",
 ]);
 
 export const createSceneBlockSchema = z.object({
@@ -92,6 +94,18 @@ export const createSceneBlockSchema = z.object({
   emotion: z.string().max(100).optional(),
   position: z.enum(["left", "center", "right"]).optional(),
   speakerNote: z.string().max(500).optional(),
+  mediaUrl: z
+    .string()
+    .max(2000)
+    .refine(
+      (value) => value.startsWith("/uploads/") || z.string().url().safeParse(value).success,
+      "URL de média invalide"
+    )
+    .nullish(),
+  audioAction: z.enum(["play", "stop"]).nullish(),
+  volume: z.number().int().min(0).max(100).nullish(),
+  fadeDuration: z.number().min(0).max(30).nullish(),
+  loop: z.boolean().nullish(),
 });
 
 export const updateSceneBlockSchema = createSceneBlockSchema.partial();

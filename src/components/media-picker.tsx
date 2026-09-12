@@ -115,16 +115,21 @@ export default function MediaPicker({
       </div>
 
       {value && (value.startsWith("/uploads/") || value.startsWith("http")) && (
-        <div className="mt-2 relative inline-block">
-          <img
-            src={value}
-            alt="Aperçu"
-            className="h-20 w-20 object-cover border border-narra-border"
-          />
+        <div className="relative mt-2 inline-block max-w-full">
+          {accept.includes("audio") ? (
+            <audio src={value} controls preload="metadata" className="h-10 max-w-full" aria-label="Aperçu audio" />
+          ) : (
+            <img
+              src={value}
+              alt="Aperçu"
+              className="h-20 w-20 object-cover border border-narra-border"
+            />
+          )}
           <button
             type="button"
             onClick={() => onChange("")}
-            className="absolute -top-2 -right-2 bg-narra-danger text-white text-xs w-5 h-5 flex items-center justify-center"
+            className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center bg-narra-danger text-xs text-white"
+            aria-label="Retirer le média"
           >
             ✕
           </button>

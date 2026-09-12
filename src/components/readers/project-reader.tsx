@@ -22,6 +22,11 @@ type Block = {
   emotion: string | null;
   position: string | null;
   speakerNote: string | null;
+  mediaUrl: string | null;
+  audioAction: string | null;
+  volume: number | null;
+  fadeDuration: number | null;
+  loop: boolean | null;
   character: Character | null;
 };
 
@@ -63,9 +68,13 @@ function characterName(character: Character | null) {
 
 function countWords(scenes: Scene[]) {
   return scenes.reduce(
-    (total, scene) => total + scene.blocks.reduce((sum, block) => sum + block.content.split(/\s+/).filter(Boolean).length, 0),
+    (total, scene) => total + scene.blocks.reduce((sum, block) => sum + (isAudioCommand(block) ? 0 : block.content.split(/\s+/).filter(Boolean).length), 0),
     0,
   );
+}
+
+function isAudioCommand(block: Block) {
+  return block.type === "music" || block.type === "sfx";
 }
 
 function ArrowLeftIcon() {
@@ -133,15 +142,38 @@ function EmptyReader({ project, variables }: { project: Project; variables: CSSP
 
 function VisualNovelReader({ project, scenes, variables }: { project: Project; scenes: Scene[]; variables: CSSProperties }) {
   const beats = useMemo(
-    () => scenes.flatMap((scene, sceneIndex) => scene.blocks.map((block) => ({ block, scene, sceneIndex }))),
+    () => {
+      let activeMusic: Block | null = null;
+      let pendingSfx: Block[] = [];
+      const visible: { block: Block; scene: Scene; sceneIndex: number; activeMusic: Block | null; sfx: Block[] }[] = [];
+      scenes.forEach((scene, sceneIndex) => {
+        scene.blocks.forEach((block) => {
+          if (block.type === "music") activeMusic = block;
+          else if (block.type === "sfx") pendingSfx.push(block);
+          else {
+            visible.push({ block, scene, sceneIndex, activeMusic, sfx: pendingSfx });
+            pendingSfx = [];
+          }
+        });
+      });
+      return visible;
+    },
     [scenes],
   );
   const [index, setIndex] = useState(0);
   const [showHud, setShowHud] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenError, setFullscreenError] = useState<string | null>(null);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
+  const musicRef = useRef<HTMLAudioElement | null>(null);
+  const musicPoolRef = useRef<Set<HTMLAudioElement>>(new Set());
+  const activeMusicIdRef = useRef<string | null>(null);
+  const sfxRef = useRef<Set<HTMLAudioElement>>(new Set());
+  const fadeTimersRef = useRef<Map<HTMLAudioElement, number>>(new Map());
   const current = beats[index];
+  const hasAudio = scenes.some((scene) => scene.blocks.some(isAudioCommand));
 
   const goNext = () => setIndex((value) => Math.min(value + 1, beats.length));
   const goPrevious = () => setIndex((value) => Math.max(value - 1, 0));
@@ -152,6 +184,10 @@ function VisualNovelReader({ project, scenes, variables }: { project: Project; s
       if (target?.closest("button, a, input, textarea, select, [contenteditable='true']")) return;
       if (event.key === "ArrowRight" || event.key === " " || event.key === "Enter") {
         event.preventDefault();
+        if (hasAudio && !audioUnlocked) {
+          setAudioUnlocked(true);
+          return;
+        }
         setIndex((value) => Math.min(value + 1, beats.length));
       }
       if (event.key === "ArrowLeft" || event.key === "Backspace") {
@@ -162,12 +198,86 @@ function VisualNovelReader({ project, scenes, variables }: { project: Project; s
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [beats.length]);
+  }, [audioUnlocked, beats.length, hasAudio]);
 
   useEffect(() => {
     const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    if (!audioUnlocked) return;
+    if (!current) {
+      musicPoolRef.current.forEach((audio) => audio.pause());
+      musicPoolRef.current.clear();
+      musicRef.current = null;
+      activeMusicIdRef.current = null;
+      return;
+    }
+
+    const fade = (audio: HTMLAudioElement, target: number, seconds: number, done?: () => void) => {
+      const duration = Math.max(0, Math.min(30, seconds));
+      const previousTimer = fadeTimersRef.current.get(audio);
+      if (previousTimer) window.clearInterval(previousTimer);
+      if (duration === 0) {
+        audio.volume = target;
+        done?.();
+        return;
+      }
+      const start = audio.volume;
+      const steps = Math.max(1, Math.round(duration * 20));
+      let step = 0;
+      const timer = window.setInterval(() => {
+        step += 1;
+        audio.volume = Math.max(0, Math.min(1, start + (target - start) * (step / steps)));
+        if (step >= steps) {
+          window.clearInterval(timer);
+          fadeTimersRef.current.delete(audio);
+          done?.();
+        }
+      }, 50);
+      fadeTimersRef.current.set(audio, timer);
+    };
+
+    const music = current.activeMusic;
+    if (activeMusicIdRef.current !== (music?.id || null)) {
+      activeMusicIdRef.current = music?.id || null;
+      const previous = musicRef.current;
+      const fadeSeconds = music?.fadeDuration ?? 1;
+
+      if (!music || music.audioAction === "stop" || !music.mediaUrl) {
+        if (previous) fade(previous, 0, fadeSeconds, () => { previous.pause(); musicPoolRef.current.delete(previous); });
+        musicRef.current = null;
+      } else {
+        const next = new Audio(music.mediaUrl);
+        const targetVolume = Math.max(0, Math.min(1, (music.volume ?? 100) / 100));
+        next.loop = music.loop ?? true;
+        next.volume = fadeSeconds > 0 ? 0 : targetVolume;
+        musicPoolRef.current.add(next);
+        musicRef.current = next;
+        setAudioError(null);
+        void next.play().then(() => fade(next, targetVolume, fadeSeconds)).catch(() => setAudioError("Impossible de lire la musique sélectionnée."));
+        if (previous) fade(previous, 0, fadeSeconds, () => { previous.pause(); musicPoolRef.current.delete(previous); });
+      }
+    }
+
+    current.sfx.forEach((command) => {
+      if (!command.mediaUrl) return;
+      const audio = new Audio(command.mediaUrl);
+      audio.volume = Math.max(0, Math.min(1, (command.volume ?? 100) / 100));
+      sfxRef.current.add(audio);
+      const release = () => sfxRef.current.delete(audio);
+      audio.addEventListener("ended", release, { once: true });
+      audio.addEventListener("error", release, { once: true });
+      void audio.play().catch(() => { release(); setAudioError("Impossible de lire un effet sonore."); });
+    });
+  }, [audioUnlocked, current]);
+
+  useEffect(() => () => {
+    fadeTimersRef.current.forEach((timer) => window.clearInterval(timer));
+    musicPoolRef.current.forEach((audio) => audio.pause());
+    sfxRef.current.forEach((audio) => audio.pause());
   }, []);
 
   if (beats.length === 0) {
@@ -218,6 +328,23 @@ function VisualNovelReader({ project, scenes, variables }: { project: Project; s
     }
   }
 
+  if (hasAudio && !audioUnlocked) {
+    return (
+      <div
+        ref={stageRef}
+        className={styles.vnStage}
+        style={{ ...variables, backgroundImage: backdrop ? `url("${backdrop.replace(/["\\]/g, "")}")` : undefined }}
+      >
+        <div className={styles.vnShade} aria-hidden="true" />
+        <section className={styles.vnTitleBeat}>
+          <span>{scene.node?.title || "Visual Novel"}</span>
+          <h1>{scene.title}</h1>
+          <button type="button" onClick={() => setAudioUnlocked(true)}>Commencer avec le son</button>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={stageRef}
@@ -245,6 +372,7 @@ function VisualNovelReader({ project, scenes, variables }: { project: Project; s
       )}
 
       {fullscreenError && <p role="alert" className={styles.vnError}>{fullscreenError}</p>}
+      {audioError && <p role="alert" className={styles.vnError}>{audioError}</p>}
 
       {scene.location && <div className={styles.locationTag}>{scene.location.name}</div>}
 
@@ -324,7 +452,7 @@ function SceneArticle({ scene, index, type }: { scene: Scene; index: number; typ
       <article className={styles.comicScene}>
         <header><span>{scene.node?.title || `Séquence ${index + 1}`}</span><h2>{scene.title}</h2></header>
         <div className={styles.comicGrid}>
-          {scene.blocks.map((block, blockIndex) => {
+          {scene.blocks.filter((block) => !isAudioCommand(block)).map((block, blockIndex) => {
             const speaker = characterName(block.character);
             const image = block.character?.portraitUrl || scene.location?.imageUrl;
             return (
@@ -349,7 +477,7 @@ function SceneArticle({ scene, index, type }: { scene: Scene; index: number; typ
         {scene.location && <p>{scene.location.name}</p>}
       </header>
       <div className={styles.blocks}>
-        {scene.blocks.map((block) => <RenderedBlock key={block.id} block={block} type={type} />)}
+        {scene.blocks.filter((block) => !isAudioCommand(block)).map((block) => <RenderedBlock key={block.id} block={block} type={type} />)}
       </div>
     </article>
   );
