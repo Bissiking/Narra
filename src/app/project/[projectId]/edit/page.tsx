@@ -17,6 +17,8 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import SceneBlockItem from "@/components/scene-block-item";
+import SceneScriptImporter from "@/components/scene-script-importer";
+import type { ParsedSceneScriptBlock } from "@/lib/scene-script-parser";
 
 interface Scene {
   id: string;
@@ -156,6 +158,19 @@ export default function EditPage() {
   function addBlock(type: string) {
     const block: SceneBlock = { id: `temp-${Date.now()}`, type, content: "", order: blocks.length, characterId: type === "dialogue" ? characters[0]?.id || null : null, emotion: null, position: null, speakerNote: null };
     setBlocks([...blocks, block]);
+  }
+
+  function importBlocks(imported: ParsedSceneScriptBlock[], mode: "append" | "replace") {
+    setBlocks((current) => {
+      const base = mode === "replace" ? [] : current;
+      const timestamp = Date.now();
+      const additions = imported.map((block, index) => ({
+        ...block,
+        id: `temp-import-${timestamp}-${index}`,
+        order: base.length + index,
+      }));
+      return [...base, ...additions].map((block, index) => ({ ...block, order: index }));
+    });
   }
 
   function updateBlock(id: string, updates: Partial<SceneBlock>) {
@@ -350,6 +365,7 @@ export default function EditPage() {
                 <button onClick={() => addBlock("dialogue")} className="btn-ghost text-xs px-2 py-1">+Dial</button>
                 <button onClick={() => addBlock("action")} className="btn-ghost text-xs px-2 py-1">+Act</button>
                 <button onClick={() => addBlock("heading")} className="btn-ghost text-xs px-2 py-1">+H</button>
+                <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} compact />
                 <button onClick={saveBlocks} className="btn-primary text-xs px-2 py-1">Sauver</button>
                 <button onClick={deleteScene} className="text-xs text-narra-danger px-2 py-1 hover:text-narra-danger">🗑</button>
               </div>

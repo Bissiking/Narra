@@ -17,6 +17,8 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import SceneBlockItem from "@/components/scene-block-item";
+import SceneScriptImporter from "@/components/scene-script-importer";
+import type { ParsedSceneScriptBlock } from "@/lib/scene-script-parser";
 
 interface SceneDetail {
   id: string;
@@ -254,6 +256,19 @@ export default function SceneDetailPage() {
       speakerNote: null,
     };
     setBlocks([...blocks, newBlock]);
+  }
+
+  function importBlocks(imported: ParsedSceneScriptBlock[], mode: "append" | "replace") {
+    setBlocks((current) => {
+      const base = mode === "replace" ? [] : current;
+      const timestamp = Date.now();
+      const additions = imported.map((block, index) => ({
+        ...block,
+        id: `temp-import-${timestamp}-${index}`,
+        order: base.length + index,
+      }));
+      return [...base, ...additions].map((block, index) => ({ ...block, order: index }));
+    });
   }
 
   function updateBlock(id: string, updates: Partial<SceneBlock>) {
@@ -511,6 +526,7 @@ export default function SceneDetailPage() {
           <button onClick={() => addBlock("action")} className="btn-ghost text-sm">+ Action</button>
           <button onClick={() => addBlock("heading")} className="btn-ghost text-sm">+ Titre</button>
           <div className="flex-1" />
+          <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} />
           <button onClick={saveBlocks} className="btn-primary text-sm">Sauvegarder</button>
         </div>
 

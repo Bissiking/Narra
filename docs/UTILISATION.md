@@ -74,6 +74,26 @@ Dans l’éditeur, ajoutez des blocs selon le contenu :
 
 Utilisez les flèches pour réordonner les blocs et la croix pour en retirer un. La sauvegarde automatique intervient toutes les 30 secondes ; le bouton **Sauvegarder** permet de l’effectuer immédiatement.
 
+### Importer une scène préparée avec GPT
+
+Dans la barre de l’éditeur, choisissez **Importer**, puis **Copier le prompt pour GPT**. Ajoutez votre scène à la fin du prompt et envoyez-le à GPT. Collez ensuite sa réponse dans Narra : un aperçu indique combien de plans, actions, dialogues et transitions ont été détectés avant toute modification.
+
+Le format accepté est le suivant :
+
+```text
+[PLAN] INT. BUREAU — JOUR
+[ACTION] Soren ouvre la porte.
+[DIALOGUE:SOREN|worried|left] Ça commence bien.
+[NARRATION] Le silence retombe.
+[TRANSITION] FONDU AU NOIR
+```
+
+- **PLAN** crée une nouvelle section ou un nouveau cadrage dans la lecture visual novel ;
+- **DIALOGUE** accepte le personnage, puis facultativement l’émotion et la position (`left`, `center` ou `right`) ;
+- les personnages sont associés automatiquement aux fiches du projet par leur prénom, nom complet ou alias ;
+- l’import peut être ajouté à la suite des blocs existants ou les remplacer ;
+- un scénario déjà écrit en Markdown peut aussi être collé directement : Narra reconnaît les titres et les noms de personnages en gras.
+
 ## 4. Développer l’univers
 
 Les autres sections du projet servent de base de référence :

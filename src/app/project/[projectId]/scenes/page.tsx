@@ -17,6 +17,8 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import SceneBlockItem from "@/components/scene-block-item";
+import SceneScriptImporter from "@/components/scene-script-importer";
+import type { ParsedSceneScriptBlock } from "@/lib/scene-script-parser";
 
 interface Scene {
   id: string;
@@ -54,6 +56,7 @@ interface SceneBlock {
   characterId: string | null;
   emotion: string | null;
   position: string | null;
+  speakerNote: string | null;
 }
 
 interface NarrativeNodeOption {
@@ -180,8 +183,22 @@ export default function ScenesPage() {
       characterId: type === "dialogue" ? characters[0]?.id || null : null,
       emotion: null,
       position: null,
+      speakerNote: null,
     };
     setBlocks([...blocks, newBlock]);
+  }
+
+  function importBlocks(imported: ParsedSceneScriptBlock[], mode: "append" | "replace") {
+    setBlocks((current) => {
+      const base = mode === "replace" ? [] : current;
+      const timestamp = Date.now();
+      const additions = imported.map((block, index) => ({
+        ...block,
+        id: `temp-import-${timestamp}-${index}`,
+        order: base.length + index,
+      }));
+      return [...base, ...additions].map((block, index) => ({ ...block, order: index }));
+    });
   }
 
   function updateBlock(id: string, updates: Partial<SceneBlock>) {
@@ -423,6 +440,7 @@ export default function ScenesPage() {
                 <button onClick={() => addBlock("heading")} className="btn-ghost text-sm">
                   + Titre
                 </button>
+                <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} />
                 <button onClick={saveBlocks} className="btn-primary text-sm">
                   Sauvegarder
                 </button>
