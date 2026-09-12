@@ -17,7 +17,7 @@ export async function GET(
       },
       include: {
         node: { select: { id: true, title: true, type: true } },
-        location: { select: { id: true, name: true } },
+        location: { select: { id: true, name: true, imageUrl: true } },
         characters: {
           include: {
             character: {
@@ -102,7 +102,7 @@ export async function POST(
       },
       include: {
         node: { select: { id: true, title: true, type: true } },
-        location: { select: { id: true, name: true } },
+        location: { select: { id: true, name: true, imageUrl: true } },
         characters: {
           include: {
             character: {

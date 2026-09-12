@@ -21,7 +21,15 @@ export async function GET(
             firstName: true,
             lastName: true,
             alias: true,
+            nameColor: true,
             portraitUrl: true,
+            images: {
+              select: {
+                emotion: true,
+                url: true,
+              },
+              orderBy: { order: "asc" },
+            },
           },
         },
       },

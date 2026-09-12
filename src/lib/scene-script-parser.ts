@@ -242,18 +242,23 @@ export function buildSceneScriptPrompt(characters: SceneScriptCharacter[]) {
     .filter(Boolean)
     .join(", ");
 
-  return `Transforme ou écris la scène suivante au format Narra. Réponds uniquement avec les blocs, sans Markdown ni explication.
+  return `Transforme ou écris la scène suivante au format Visual Novel vertical de Narra. Réponds uniquement avec les blocs, sans Markdown ni explication.
 
 Balises autorisées :
-[PLAN] Nouveau cadrage, décor ou moment
-[ACTION] Action visible ou indication de mise en scène
-[NARRATION] Texte du narrateur
+[PLAN] Intertitre court ouvrant un nouveau plan visuel
+[ACTION] Mouvement ou indication visible, affiché en petites capitales grises
+[NARRATION] Description ou liaison narrative, affichée en texte blanc
 [DIALOGUE:PERSONNAGE|emotion|position] Réplique
 [TRANSITION] Transition visuelle
 [NOTE] Note de production
 
 Règles :
-- Commence un nouveau [PLAN] chaque fois que le cadrage, le lieu, le temps ou le point de vue visuel change.
+- La scène se lit verticalement sur un décor de fond : plusieurs actions, narrations et dialogues peuvent appartenir au même plan.
+- Commence un nouveau [PLAN] uniquement lors d'un changement visuel significatif : nouveau cadrage, nouvelle zone du décor, ellipse, entrée dans une autre pièce ou nette évolution de la tension.
+- Le texte d'un [PLAN] décrit brièvement la composition visible, par exemple : « Au bout du couloir, face à la porte du Bureau du Commandement. »
+- Garde les [ACTION] brèves, concrètes et directement visibles. N'y place ni explication ni résumé de dialogue.
+- Utilise [NARRATION] pour les descriptions développées et les liaisons qui ne sont pas prononcées par un personnage.
+- Utilise [DIALOGUE] pour toute phrase réellement prononcée, même si elle pourrait être reformulée indirectement.
 - Utilise uniquement left, center ou right pour la position.
 - L'émotion est facultative et doit être : neutral, happy, sad, angry, surprised ou worried. La position est facultative.
 - Une balise peut contenir plusieurs lignes jusqu'à la balise suivante.

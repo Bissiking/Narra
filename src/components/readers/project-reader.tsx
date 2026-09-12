@@ -44,6 +44,7 @@ type Project = {
   pageBackgroundColor: string;
   pageTextColor: string;
   pageAccentColor: string;
+  pageTheme: string;
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -90,7 +91,7 @@ export default function ProjectReader({ project, scenes }: { project: Project; s
     return <EmptyReader project={project} variables={variables} />;
   }
 
-  if (project.type === "vn") {
+  if (project.type === "vn" || project.pageTheme === "visual-novel") {
     return <VisualNovelReader project={project} scenes={scenes} variables={variables} />;
   }
 

@@ -7,6 +7,7 @@ import { requireProjectAccess } from "@/lib/project-access";
 const fields = {
   id: true,
   name: true,
+  type: true,
   description: true,
   coverUrl: true,
   pageTitle: true,
