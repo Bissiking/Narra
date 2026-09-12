@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireProjectAccess } from "@/lib/project-access";
 
+function normalizeMediaUrl(url: string) {
+  const publicUploadsMarker = "/public/uploads/";
+  const uploadsIndex = url.indexOf(publicUploadsMarker);
+
+  if (uploadsIndex !== -1) {
+    return `/uploads/${url.slice(uploadsIndex + publicUploadsMarker.length)}`;
+  }
+
+  if (url.startsWith("uploads/")) {
+    return `/${url}`;
+  }
+
+  return url;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { projectId: string } }
@@ -23,7 +38,12 @@ export async function GET(
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(media);
+    return NextResponse.json(
+      media.map((item) => ({
+        ...item,
+        url: normalizeMediaUrl(item.url),
+      })),
+    );
   } catch (error) {
     console.error("Error fetching media:", error);
     return NextResponse.json(
