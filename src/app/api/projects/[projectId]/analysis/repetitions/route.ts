@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireProjectAccess } from "@/lib/project-access";
 
 const STOP_WORDS = new Set(
   `alors au aux avec ce ces dans de des du elle en et eux il je la le les leur lui ma mais me même mes moi mon ne nos notre nous on ou par pas pour qu que quelle quelles quel quels qui sa sans se ses si son sur ta te tes toi ton tu un une vos votre vous y à ça était étaient été être comme est sont plus très fait faire puis quand où aussi avait ont cette tout tous toute toutes`.split(" ")
@@ -31,6 +32,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  const access = await requireProjectAccess(request, params.projectId);
+  if (access instanceof NextResponse) return access;
   const minimum = Math.max(
     2,
     Math.min(50, Number(new URL(request.url).searchParams.get("minimum")) || 3)

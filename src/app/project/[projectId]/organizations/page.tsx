@@ -108,6 +108,7 @@ export default function OrganizationsPage() {
 
               <div>
                 <h1 className="text-2xl font-bold mb-2">{selected.name}</h1>
+                <Link href={`/project/${projectId}/organizations/${selected.id}`} className="btn-ghost text-xs">Éditer</Link>
                 <div className="flex gap-2">
                   {selected.type && <span className="badge border-narra-border">{selected.type}</span>}
                   {selected.status && (

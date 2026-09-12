@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { db } from "@/lib/db";
 import { updateLoreEntrySchema } from "@/lib/validations";
+import { requireProjectAccess } from "@/lib/project-access";
 
 interface Context { params: { projectId: string; loreId: string } }
 
 export async function PATCH(request: NextRequest, { params }: Context) {
+  const access = await requireProjectAccess(request, params.projectId, true);
+  if (access instanceof NextResponse) return access;
   try {
     const data = updateLoreEntrySchema.parse(await request.json());
     const updated = await db.loreEntry.updateMany({
@@ -25,6 +28,8 @@ export async function PATCH(request: NextRequest, { params }: Context) {
 }
 
 export async function DELETE(request: NextRequest, { params }: Context) {
+  const access = await requireProjectAccess(request, params.projectId, true);
+  if (access instanceof NextResponse) return access;
   const deleted = await db.loreEntry.updateMany({
     where: { id: params.loreId, projectId: params.projectId, deletedAt: null },
     data: { deletedAt: new Date() },

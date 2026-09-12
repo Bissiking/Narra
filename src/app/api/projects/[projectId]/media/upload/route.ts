@@ -4,6 +4,7 @@ import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireProjectAccess } from "@/lib/project-access";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  const access = await requireProjectAccess(request, params.projectId, true);
+  if (access instanceof NextResponse) return access;
   if (!projectIdSchema.safeParse(params.projectId).success) {
     return NextResponse.json({ error: "Projet invalide" }, { status: 400 });
   }

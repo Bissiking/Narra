@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { updateProjectSchema } from "@/lib/validations";
+import { requireProjectAccess } from "@/lib/project-access";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  const access = await requireProjectAccess(request, params.projectId);
+  if (access instanceof NextResponse) return access;
   try {
     const project = await db.project.findUnique({
       where: { id: params.projectId },
@@ -42,6 +45,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  const access = await requireProjectAccess(request, params.projectId, true);
+  if (access instanceof NextResponse) return access;
   try {
     const body = await request.json();
     const data = updateProjectSchema.parse(body);
@@ -70,6 +75,8 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  const access = await requireProjectAccess(request, params.projectId, true);
+  if (access instanceof NextResponse) return access;
   try {
     // Soft delete
     await db.project.update({

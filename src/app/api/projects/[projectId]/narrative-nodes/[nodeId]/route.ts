@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { db } from "@/lib/db";
 import { updateNarrativeNodeSchema } from "@/lib/validations";
+import { requireProjectAccess } from "@/lib/project-access";
 
 interface RouteContext {
   params: { projectId: string; nodeId: string };
@@ -27,6 +28,8 @@ function collectDescendantIds(
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
+  const access = await requireProjectAccess(request, params.projectId, true);
+  if (access instanceof NextResponse) return access;
   try {
     const data = updateNarrativeNodeSchema.parse(await request.json());
     const node = await db.narrativeNode.findFirst({
@@ -171,6 +174,8 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteContext) {
+  const access = await requireProjectAccess(request, params.projectId, true);
+  if (access instanceof NextResponse) return access;
   try {
     const node = await db.narrativeNode.findFirst({
       where: {

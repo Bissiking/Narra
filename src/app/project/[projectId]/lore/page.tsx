@@ -156,6 +156,7 @@ export default function LorePage() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h1 className="text-2xl font-bold mb-2">{selected.title}</h1>
+                <Link href={`/project/${projectId}/lore/${selected.id}`} className="btn-ghost text-xs">Éditer</Link>
                 <span className={`badge ${CATEGORY_COLORS[selected.category] || ""}`}>
                   {CATEGORIES.find((c) => c.value === selected.category)?.label || selected.category}
                 </span>

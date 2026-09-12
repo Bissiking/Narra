@@ -104,6 +104,7 @@ export default function LocationsPage() {
         {selected ? (
           <div className="max-w-3xl mx-auto p-8">
             <h1 className="text-2xl font-bold mb-2">{selected.name}</h1>
+            <Link href={`/project/${projectId}/locations/${selected.id}`} className="btn-ghost text-xs">Éditer</Link>
 
             <div className="flex gap-2 mb-6">
               {selected.type && (

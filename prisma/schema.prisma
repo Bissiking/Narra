@@ -24,7 +24,10 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  projects Project[]
+  projects      Project[]
+  collaborations ProjectCollaborator[]
+  invitesSent   ProjectInvite[]
+  readingProgresses ReadingProgress[]
 
   @@map("users")
 }
@@ -59,6 +62,9 @@ model Project {
   genres ProjectGenre[]
   tags   EntityTag[]    @relation("TaggedProject")
 
+  collaborators ProjectCollaborator[]
+  invites       ProjectInvite[]
+
   narrativeNodes NarrativeNode[]
   scenes         Scene[]
   characters     Character[]
@@ -67,6 +73,7 @@ model Project {
   loreEntries    LoreEntry[]
   timelineEvents TimelineEvent[]
   media          Media[]
+  readingProgresses ReadingProgress[]
 
   @@index([ownerId])
   @@index([deletedAt])
@@ -143,6 +150,7 @@ model Scene {
   tags           EntityTag[]      @relation("TaggedScene")
   characters     SceneCharacter[]
   timelineEvents TimelineEvent[]  @relation("TimelineScenes")
+  readingProgresses ReadingProgress[]
 
   @@index([projectId])
   @@index([nodeId])
@@ -182,6 +190,8 @@ model SceneBlock {
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  readingProgresses ReadingProgress[]
 
   @@index([sceneId, order])
   @@map("scene_blocks")
@@ -548,4 +558,64 @@ model EntityTag {
   @@unique([tagId, entityType, entityId])
   @@index([entityType, entityId])
   @@map("entity_tags")
+}
+
+// ============================================================
+// SHARING / COLLABORATION
+// ============================================================
+
+model ProjectCollaborator {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   @default("editor") // "editor" | "viewer"
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+  @@map("project_collaborators")
+}
+
+model ProjectInvite {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  role      String   @default("editor") // "editor" | "viewer"
+  createdById String @map("created_by_id") @db.Uuid
+  createdBy  User    @relation(fields: [createdById], references: [id])
+  expiresAt DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([projectId])
+  @@index([token])
+  @@map("project_invites")
+}
+
+// ============================================================
+// READING PROGRESS
+// ============================================================
+
+model ReadingProgress {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String   @map("project_id") @db.Uuid
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sceneId   String?  @map("scene_id") @db.Uuid
+  scene     Scene?   @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  blockId   String?  @map("block_id") @db.Uuid
+  block     SceneBlock? @relation(fields: [blockId], references: [id], onDelete: SetNull)
+  wordIndex Int      @default(0) @map("word_index")
+  percentage Float   @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
+  @@map("reading_progress")
 }

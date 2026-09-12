@@ -342,7 +342,7 @@ export default function CharacterDetailPage() {
               )}
               <div className="mt-5 border-t border-narra-border pt-4">
                 <h3 className="text-sm font-semibold">Expressions</h3>
-                {character.images.length > 0 && (
+                {character.images?.length > 0 && (
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     {character.images.map((image) => (
                       <div key={image.id} className="group relative border border-narra-border">

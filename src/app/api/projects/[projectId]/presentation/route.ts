@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { db } from "@/lib/db";
 import { updateStoryPageSchema } from "@/lib/validations";
+import { requireProjectAccess } from "@/lib/project-access";
 
 const fields = {
   id: true,
@@ -22,6 +23,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  const access = await requireProjectAccess(request, params.projectId);
+  if (access instanceof NextResponse) return access;
   const project = await db.project.findFirst({
     where: { id: params.projectId, deletedAt: null },
     select: fields,
@@ -34,6 +37,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  const access = await requireProjectAccess(request, params.projectId, true);
+  if (access instanceof NextResponse) return access;
   try {
     const data = updateStoryPageSchema.partial().parse(await request.json());
     const project = await db.project.update({

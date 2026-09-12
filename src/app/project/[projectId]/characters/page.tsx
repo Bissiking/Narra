@@ -137,6 +137,9 @@ export default function CharactersPage() {
                   {selected.role && (
                     <span className="badge border-narra-border">{selected.role}</span>
                   )}
+                  <Link href={`/project/${projectId}/characters/${selected.id}`} className="btn-ghost text-xs ml-auto">
+                    Éditer
+                  </Link>
                 </div>
 
                 {selected.description && (

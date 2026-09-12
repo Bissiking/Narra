@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireProjectAccess } from "@/lib/project-access";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { sceneId: string } }
 ) {
   try {
+    const scene = await db.scene.findUnique({ where: { id: params.sceneId }, select: { projectId: true } });
+    if (!scene) return NextResponse.json({ error: "Scène introuvable" }, { status: 404 });
+    const access = await requireProjectAccess(request, scene.projectId);
+    if (access instanceof NextResponse) return access;
+
     const blocks = await db.sceneBlock.findMany({
       where: { sceneId: params.sceneId },
       include: {
@@ -37,6 +43,11 @@ export async function PUT(
   { params }: { params: { sceneId: string } }
 ) {
   try {
+    const scene = await db.scene.findUnique({ where: { id: params.sceneId }, select: { projectId: true } });
+    if (!scene) return NextResponse.json({ error: "Scène introuvable" }, { status: 404 });
+    const access = await requireProjectAccess(request, scene.projectId, true);
+    if (access instanceof NextResponse) return access;
+
     const { blocks } = await request.json();
 
     // Delete existing blocks and recreate

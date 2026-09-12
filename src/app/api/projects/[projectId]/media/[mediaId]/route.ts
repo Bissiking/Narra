@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireProjectAccess } from "@/lib/project-access";
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { projectId: string; mediaId: string } }
 ) {
+  const access = await requireProjectAccess(request, params.projectId, true);
+  if (access instanceof NextResponse) return access;
   const deleted = await db.media.updateMany({
     where: { id: params.mediaId, projectId: params.projectId, deletedAt: null },
     data: { deletedAt: new Date() },

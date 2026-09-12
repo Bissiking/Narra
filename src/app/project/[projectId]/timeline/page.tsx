@@ -138,6 +138,9 @@ export default function TimelinePage() {
                             <span className="text-sm text-narra-accent">{event.narrativeDate}</span>
                           )}
                         </div>
+                        <Link href={`/project/${projectId}/timeline/${event.id}`} className="text-narra-muted hover:text-narra-text text-xs shrink-0 ml-2">
+                          Éditer
+                        </Link>
                       </div>
 
                       {event.description && (
