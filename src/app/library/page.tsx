@@ -61,7 +61,11 @@ export default async function StudioPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-narra-muted">{session.name || session.email}</span>
-            <Link href="/api/auth/logout" className="text-sm text-narra-muted hover:text-narra-text transition-colors">
+            <Link
+              href="/api/auth/logout"
+              prefetch={false}
+              className="text-sm text-narra-muted hover:text-narra-text transition-colors"
+            >
               Déconnexion
             </Link>
             <Link href="/library/new" className="btn-primary">
