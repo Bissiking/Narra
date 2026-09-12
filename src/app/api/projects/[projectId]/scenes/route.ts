@@ -51,6 +51,24 @@ export async function POST(
     const body = await request.json();
     const data = createSceneSchema.parse(body);
 
+    if (data.nodeId) {
+      const node = await db.narrativeNode.findFirst({
+        where: {
+          id: data.nodeId,
+          projectId: params.projectId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+
+      if (!node) {
+        return NextResponse.json(
+          { error: "Le nœud narratif n’appartient pas à ce projet" },
+          { status: 400 }
+        );
+      }
+    }
+
     // Get max order for the node
     const maxOrder = await db.scene.aggregate({
       where: {

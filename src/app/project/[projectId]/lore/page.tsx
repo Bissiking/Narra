@@ -10,6 +10,8 @@ interface LoreEntry {
   category: string;
   content: string | null;
   notes: string | null;
+  status: string;
+  progress: number;
   tags: { tag: { id: string; name: string; color: string | null } }[];
   _count: { linksFrom: number; linksTo: number };
 }
@@ -38,6 +40,13 @@ const CATEGORY_COLORS: Record<string, string> = {
   custom: "text-gray-400",
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  planned: "À définir",
+  in_progress: "En développement",
+  review: "À vérifier",
+  established: "Établi",
+};
+
 export default function LorePage() {
   const params = useParams();
   const projectId = params.projectId as string;
@@ -60,6 +69,18 @@ export default function LorePage() {
   }, [projectId, filterCategory]);
 
   const selected = entries.find((e) => e.id === selectedEntry);
+
+  async function updateTracking(id: string, updates: { status?: string; progress?: number }) {
+    const response = await fetch(`/api/projects/${projectId}/lore/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    if (response.ok) {
+      const updated = await response.json();
+      setEntries((current) => current.map((entry) => entry.id === id ? { ...entry, ...updated } : entry));
+    }
+  }
 
   if (loading) {
     return (
@@ -119,6 +140,9 @@ export default function LorePage() {
                 <div className={`text-xs ${CATEGORY_COLORS[entry.category] || "text-narra-muted"}`}>
                   {CATEGORIES.find((c) => c.value === entry.category)?.label || entry.category}
                 </div>
+                <div className="mt-2 h-px bg-narra-border" aria-hidden="true">
+                  <div className="h-px bg-narra-accent" style={{ width: `${entry.progress}%` }} />
+                </div>
               </button>
             ))
           )}
@@ -135,6 +159,40 @@ export default function LorePage() {
                 <span className={`badge ${CATEGORY_COLORS[selected.category] || ""}`}>
                   {CATEGORIES.find((c) => c.value === selected.category)?.label || selected.category}
                 </span>
+              </div>
+            </div>
+
+            <div className="mb-8 grid gap-4 border-y border-narra-border py-4 sm:grid-cols-[1fr_2fr]">
+              <div>
+                <label htmlFor="lore-status" className="label">État du canon</label>
+                <select
+                  id="lore-status"
+                  className="select"
+                  value={selected.status}
+                  onChange={(event) => updateTracking(selected.id, { status: event.target.value })}
+                >
+                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="lore-progress" className="label">Avancement — {selected.progress} %</label>
+                <input
+                  id="lore-progress"
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={selected.progress}
+                  onChange={(event) => {
+                    const progress = Number(event.target.value);
+                    setEntries((current) => current.map((entry) => entry.id === selected.id ? { ...entry, progress } : entry));
+                  }}
+                  onPointerUp={(event) => updateTracking(selected.id, { progress: Number(event.currentTarget.value) })}
+                  onKeyUp={(event) => updateTracking(selected.id, { progress: Number(event.currentTarget.value) })}
+                  className="w-full accent-amber-500"
+                />
               </div>
             </div>
 

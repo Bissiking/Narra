@@ -54,6 +54,7 @@ export async function POST(
         projectId: params.projectId,
         name: data.name,
         type: data.type,
+        logoUrl: data.logoUrl,
         description: data.description,
         status: data.status || "active",
         notes: data.notes,

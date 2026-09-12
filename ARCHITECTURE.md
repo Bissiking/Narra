@@ -118,14 +118,14 @@ Le concept central. Chaque nœud possède :
 Exemples :
 ```
 ARC (Project)
-└── Saison 1 (NarrativeNode, type="saga", order=0)
-    ├── Épisode 1 (NarrativeNode, type="arc", order=0)
+└── Saison 1 (NarrativeNode, type="season", order=0)
+    ├── Épisode 1 (NarrativeNode, type="episode", order=0)
     │   ├── B1 — La nomination (NarrativeNode, type="chapter", order=0)
     │   └── B2 — Bravo-10 (NarrativeNode, type="chapter", order=1)
-    └── Épisode 2 (NarrativeNode, type="arc", order=1)
+    └── Épisode 2 (NarrativeNode, type="episode", order=1)
 
 Mon Roman (Project)
-└── Partie 1 (NarrativeNode, type="volume", order=0)
+└── Partie 1 (NarrativeNode, type="part", order=0)
     ├── Chapitre 1 (NarrativeNode, type="chapter", order=0)
     └── Chapitre 2 (NarrativeNode, type="chapter", order=1)
 ```

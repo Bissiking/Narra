@@ -14,7 +14,7 @@ export default async function ProjectLayout({
 }) {
   const session = verifySessionToken(cookies().get(SESSION_COOKIE)?.value);
   if (!session) {
-    redirect(`/api/auth/login?returnTo=/project/${params.projectId}`);
+    redirect(`/login?returnTo=/project/${params.projectId}`);
   }
 
   const project = await db.project.findFirst({

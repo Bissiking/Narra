@@ -117,6 +117,7 @@ export interface CharacterWithRelations {
   lastName: string | null;
   alias: string | null;
   portraitUrl: string | null;
+  nameColor: string;
   role: string | null;
   description: string | null;
   biography: string | null;
@@ -131,6 +132,13 @@ export interface CharacterWithRelations {
   quotes: string | null;
   createdAt: Date;
   updatedAt: Date;
+  images: {
+    id: string;
+    label: string;
+    emotion: string;
+    url: string;
+    order: number;
+  }[];
   relationsFrom: CharacterRelation[];
   relationsTo: CharacterRelation[];
   sceneAppearances: {
@@ -253,6 +261,8 @@ export interface LoreEntryWithLinks {
   category: LoreCategory;
   content: string | null;
   notes: string | null;
+  status: "planned" | "in_progress" | "established" | "review";
+  progress: number;
   createdAt: Date;
   updatedAt: Date;
   linksFrom: {

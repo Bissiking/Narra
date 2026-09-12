@@ -55,6 +55,8 @@ export async function POST(
         category: data.category,
         content: data.content,
         notes: data.notes,
+        status: data.status,
+        progress: data.progress,
       },
     });
 

@@ -44,6 +44,7 @@ export async function POST(
         parentId: data.parentId,
         name: data.name,
         type: data.type,
+        imageUrl: data.imageUrl,
         description: data.description,
         textualLocation: data.textualLocation,
         ambiance: data.ambiance,

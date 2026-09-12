@@ -43,8 +43,6 @@ export default function TimelinePage() {
     loadTimeline();
   }, [projectId]);
 
-  const selected = events.find((e) => e.id === selectedEvent);
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -62,7 +60,7 @@ export default function TimelinePage() {
             ← Retour
           </Link>
           <div className="flex items-center justify-between mt-2">
-            <h2 className="font-bold">Timeline</h2>
+            <h2 className="font-bold">Frise narrative</h2>
             <Link href={`/project/${projectId}/timeline/new`} className="text-narra-accent text-sm">
               + Ajouter
             </Link>
@@ -96,7 +94,13 @@ export default function TimelinePage() {
       {/* Main - Timeline view */}
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto p-8">
-          <h1 className="text-2xl font-bold mb-8">Timeline</h1>
+          <div className="mb-8">
+            <p className="text-xs uppercase tracking-[0.2em] text-narra-accent">Chronologie interne</p>
+            <h1 className="mt-2 text-2xl font-bold">Frise narrative</h1>
+            <p className="mt-2 max-w-2xl text-sm text-narra-muted">
+              Ordonnez les faits de l’univers et reliez-les aux scènes, lieux, personnages et organisations concernés.
+            </p>
+          </div>
 
           {events.length === 0 ? (
             <div className="card p-12 text-center text-narra-muted">
@@ -155,7 +159,7 @@ export default function TimelinePage() {
                         ))}
                         {event.location && (
                           <span className="badge border-narra-border text-xs">
-                            📍 {event.location.name}
+                            Lieu · {event.location.name}
                           </span>
                         )}
                       </div>

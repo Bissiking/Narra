@@ -36,10 +36,10 @@ export const updateProjectSchema = createProjectSchema.partial();
 // ============================================================
 
 export const createNarrativeNodeSchema = z.object({
-  parentId: z.string().uuid().optional(),
+  parentId: z.string().uuid().nullish(),
   type: z.string().min(1, "Le type est requis"),
   title: z.string().min(1, "Le titre est requis").max(200),
-  description: z.string().max(5000).optional(),
+  description: z.string().max(5000).nullish(),
   order: z.number().int().min(0).default(0),
 });
 
@@ -109,10 +109,12 @@ export const CharacterStatus = z.enum([
   "retired",
 ]);
 
-export const createCharacterSchema = z.object({
+const characterFieldsSchema = z.object({
   firstName: z.string().max(100).optional(),
   lastName: z.string().max(100).optional(),
   alias: z.string().max(100).optional(),
+  portraitUrl: z.string().url("URL de portrait invalide").max(2000).nullish(),
+  nameColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Couleur invalide").optional(),
   role: z.string().max(100).optional(),
   description: z.string().max(5000).optional(),
   biography: z.string().max(50000).optional(),
@@ -127,7 +129,29 @@ export const createCharacterSchema = z.object({
   quotes: z.string().max(10000).optional(),
 });
 
-export const updateCharacterSchema = createCharacterSchema.partial();
+export const createCharacterSchema = characterFieldsSchema.refine(
+  (character) =>
+    Boolean(
+      character.firstName?.trim() ||
+        character.lastName?.trim() ||
+        character.alias?.trim()
+    ),
+  { message: "Renseignez au moins un prénom, un nom ou un alias" }
+);
+
+export const updateCharacterSchema = characterFieldsSchema.partial();
+
+export const createCharacterImageSchema = z.object({
+  label: z.string().min(1, "Le libellé est requis").max(100),
+  emotion: z.string().min(1, "L’émotion est requise").max(100),
+  url: z
+    .string()
+    .max(2000)
+    .refine(
+      (value) => value.startsWith("/uploads/") || z.string().url().safeParse(value).success,
+      "URL d’image invalide"
+    ),
+});
 
 // ============================================================
 // CHARACTER RELATION
@@ -159,6 +183,7 @@ export const createLocationSchema = z.object({
   parentId: z.string().uuid().optional(),
   name: z.string().min(1, "Le nom est requis").max(200),
   type: z.string().max(100).optional(),
+  imageUrl: z.string().url("URL d’image invalide").max(2000).optional(),
   description: z.string().max(5000).optional(),
   textualLocation: z.string().max(500).optional(),
   ambiance: z.string().max(2000).optional(),
@@ -174,6 +199,7 @@ export const updateLocationSchema = createLocationSchema.partial();
 export const createOrganizationSchema = z.object({
   name: z.string().min(1, "Le nom est requis").max(200),
   type: z.string().max(100).optional(),
+  logoUrl: z.string().url("URL de logo invalide").max(2000).optional(),
   description: z.string().max(5000).optional(),
   status: z.string().max(50).optional(),
   notes: z.string().max(10000).optional(),
@@ -211,9 +237,22 @@ export const createLoreEntrySchema = z.object({
   category: LoreCategory,
   content: z.string().max(100000).optional(),
   notes: z.string().max(10000).optional(),
+  status: z.enum(["planned", "in_progress", "established", "review"]).default("planned"),
+  progress: z.number().int().min(0).max(100).default(0),
 });
 
 export const updateLoreEntrySchema = createLoreEntrySchema.partial();
+
+export const updateStoryPageSchema = z.object({
+  pageTitle: z.string().max(150).nullish(),
+  pageSubtitle: z.string().max(500).nullish(),
+  pageBackgroundUrl: z.string().url("URL d’arrière-plan invalide").max(2000).nullish(),
+  pageBackgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  pageTextColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  pageAccentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  pageTheme: z.enum(["editorial", "cinematic", "visual-novel", "minimal"]),
+  pagePublished: z.boolean(),
+});
 
 // ============================================================
 // TIMELINE EVENT

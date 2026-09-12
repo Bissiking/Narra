@@ -12,7 +12,7 @@ export function middleware(request: NextRequest) {
   }
 
   const loginUrl = request.nextUrl.clone();
-  loginUrl.pathname = "/api/auth/login";
+  loginUrl.pathname = "/login";
   loginUrl.search = "";
   loginUrl.searchParams.set("returnTo", `${request.nextUrl.pathname}${request.nextUrl.search}`);
   return NextResponse.redirect(loginUrl);

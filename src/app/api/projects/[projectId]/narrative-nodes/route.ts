@@ -27,10 +27,21 @@ export async function GET(
     function buildTree(parentId: string | null): any[] {
       return nodes
         .filter((n) => n.parentId === parentId)
-        .map((node) => ({
-          ...node,
-          children: buildTree(node.id),
-        }));
+        .map((node) => {
+          const children = buildTree(node.id);
+          const descendantSceneCount = children.reduce(
+            (total, child) => total + child._count.scenes,
+            0
+          );
+
+          return {
+            ...node,
+            children,
+            _count: {
+              scenes: node._count.scenes + descendantSceneCount,
+            },
+          };
+        });
     }
 
     const tree = buildTree(null);
@@ -52,35 +63,60 @@ export async function POST(
   try {
     const body = await request.json();
     const data = createNarrativeNodeSchema.parse(body);
+    const hasExplicitOrder = Object.prototype.hasOwnProperty.call(body, "order");
 
     // Calculate depth
     let depth = 0;
     if (data.parentId) {
-      const parent = await db.narrativeNode.findUnique({
-        where: { id: data.parentId },
+      const parent = await db.narrativeNode.findFirst({
+        where: {
+          id: data.parentId,
+          projectId: params.projectId,
+          deletedAt: null,
+        },
       });
-      if (parent) depth = parent.depth + 1;
+      if (!parent) {
+        return NextResponse.json(
+          { error: "Le nœud parent n’appartient pas à ce projet" },
+          { status: 400 }
+        );
+      }
+      depth = parent.depth + 1;
     }
 
-    // Get max order for siblings
-    const maxOrder = await db.narrativeNode.aggregate({
+    const siblingCount = await db.narrativeNode.count({
       where: {
         projectId: params.projectId,
         parentId: data.parentId || null,
+        deletedAt: null,
       },
-      _max: { order: true },
     });
+    const order = hasExplicitOrder ? Math.min(data.order, siblingCount) : siblingCount;
 
-    const node = await db.narrativeNode.create({
-      data: {
-        projectId: params.projectId,
-        parentId: data.parentId,
-        type: data.type,
-        title: data.title,
-        description: data.description,
-        order: data.order || (maxOrder._max.order ?? -1) + 1,
-        depth,
-      },
+    const node = await db.$transaction(async (transaction) => {
+      if (hasExplicitOrder) {
+        await transaction.narrativeNode.updateMany({
+          where: {
+            projectId: params.projectId,
+            parentId: data.parentId || null,
+            deletedAt: null,
+            order: { gte: order },
+          },
+          data: { order: { increment: 1 } },
+        });
+      }
+
+      return transaction.narrativeNode.create({
+        data: {
+          projectId: params.projectId,
+          parentId: data.parentId,
+          type: data.type,
+          title: data.title,
+          description: data.description,
+          order,
+          depth,
+        },
+      });
     });
 
     return NextResponse.json(node, { status: 201 });

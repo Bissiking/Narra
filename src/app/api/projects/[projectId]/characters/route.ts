@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { db } from "@/lib/db";
 import { createCharacterSchema } from "@/lib/validations";
 
@@ -13,6 +14,7 @@ export async function GET(
         deletedAt: null,
       },
       include: {
+        images: { orderBy: { order: "asc" } },
         _count: {
           select: {
             sceneAppearances: true,
@@ -46,6 +48,8 @@ export async function POST(
         firstName: data.firstName,
         lastName: data.lastName,
         alias: data.alias,
+        portraitUrl: data.portraitUrl,
+        nameColor: data.nameColor,
         role: data.role,
         description: data.description,
         biography: data.biography,
@@ -63,6 +67,12 @@ export async function POST(
 
     return NextResponse.json(character, { status: 201 });
   } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: error.issues[0]?.message || "Données invalides" },
+        { status: 400 }
+      );
+    }
     console.error("Error creating character:", error);
     return NextResponse.json(
       { error: "Erreur lors de la création du personnage" },

@@ -9,6 +9,7 @@ interface Character {
   firstName: string | null;
   lastName: string | null;
   alias: string | null;
+  nameColor: string;
   portraitUrl: string | null;
   role: string | null;
   status: string;
@@ -95,7 +96,7 @@ export default function CharactersPage() {
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm truncate">
+                  <div className="font-medium text-sm truncate" style={{ color: character.nameColor }}>
                     {character.alias || `${character.firstName || ""} ${character.lastName || ""}`.trim()}
                   </div>
                   <div className="text-xs text-narra-muted">{STATUS_LABELS[character.status] || character.status}</div>

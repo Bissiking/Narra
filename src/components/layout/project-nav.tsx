@@ -17,6 +17,8 @@ const NAV_ITEMS = [
   { href: "/lore", label: "Lore" },
   { href: "/timeline", label: "Timeline" },
   { href: "/media", label: "Médias" },
+  { href: "/analysis", label: "Répétitions" },
+  { href: "/presentation", label: "Page histoire" },
   { href: "/search", label: "Recherche" },
   { href: "/settings", label: "Paramètres" },
 ];

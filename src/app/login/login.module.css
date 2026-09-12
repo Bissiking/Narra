@@ -1,0 +1,138 @@
+.page {
+  --login-ink: #fafafa;
+  --login-muted: #a1a1aa;
+  --login-accent: #f59e0b;
+  position: relative;
+  isolation: isolate;
+  min-height: 100svh;
+  overflow: hidden;
+  background: #09090b;
+}
+
+.page::before {
+  position: absolute;
+  inset: 0 auto 0 clamp(1.5rem, 9vw, 9rem);
+  width: 1px;
+  content: "";
+  background: linear-gradient(to bottom, transparent 8%, rgba(245, 158, 11, 0.9) 35%, transparent 92%);
+  transform-origin: top;
+  animation: draw-line 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.content {
+  box-sizing: border-box;
+  display: flex;
+  min-height: 100svh;
+  width: 100%;
+  align-items: center;
+  padding: 3rem clamp(3rem, 14vw, 14rem);
+}
+
+.inner {
+  width: 100%;
+  max-width: 25rem;
+  min-width: 0;
+  animation: settle 650ms 120ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.wordmark {
+  margin: 0 0 2.5rem;
+  color: var(--login-ink);
+  font-size: clamp(3.5rem, 9vw, 6rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+}
+
+.wordmark span {
+  color: var(--login-accent);
+}
+
+.button {
+  box-sizing: border-box;
+  display: flex;
+  min-height: 3.5rem;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid var(--login-accent);
+  padding: 0.9rem 1.1rem 0.9rem 1.25rem;
+  color: var(--login-accent);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.button:hover {
+  background: var(--login-accent);
+  color: #09090b;
+  transform: translateY(-2px);
+}
+
+.button:focus-visible {
+  outline: 3px solid var(--login-accent);
+  outline-offset: 4px;
+}
+
+.arrow {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  transition: transform 180ms ease;
+}
+
+.button:hover .arrow {
+  transform: translateX(3px);
+}
+
+.error {
+  margin: 1rem 0 0;
+  color: #fca5a5;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+@keyframes draw-line {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .page::before {
+    left: 1.5rem;
+  }
+
+  .content {
+    padding: 2rem 2.75rem 2rem 3rem;
+  }
+
+  .inner {
+    width: min(18.5rem, calc(100vw - 5.75rem));
+    max-width: 18.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page::before,
+  .inner {
+    animation: none;
+  }
+
+  .button,
+  .arrow {
+    transition: none;
+  }
+}

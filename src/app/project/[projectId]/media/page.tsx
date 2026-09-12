@@ -40,6 +40,7 @@ export default function MediaPage() {
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadMedia() {
@@ -58,6 +59,7 @@ export default function MediaPage() {
     if (!file) return;
 
     setUploading(true);
+    setError(null);
     const formData = new FormData();
     formData.append("file", file);
 
@@ -69,13 +71,22 @@ export default function MediaPage() {
 
       if (res.ok) {
         const newMedia = await res.json();
-        setMedia([newMedia, ...media]);
+        setMedia((current) => [newMedia, ...current]);
+      } else {
+        const data = await res.json();
+        setError(data.error || "Impossible d’envoyer le fichier");
       }
     } catch (err) {
-      console.error("Upload error:", err);
+      setError("Connexion impossible pendant l’envoi");
     } finally {
       setUploading(false);
     }
+  }
+
+  async function removeMedia(id: string) {
+    const response = await fetch(`/api/projects/${projectId}/media/${id}`, { method: "DELETE" });
+    if (response.ok) setMedia((current) => current.filter((item) => item.id !== id));
+    else setError("Impossible de supprimer ce média");
   }
 
   if (loading) {
@@ -103,7 +114,7 @@ export default function MediaPage() {
               <input
                 type="file"
                 className="hidden"
-                accept="image/*,audio/*,video/*"
+                accept="image/*,audio/*,video/*,application/pdf"
                 onChange={handleUpload}
                 disabled={uploading}
               />
@@ -113,6 +124,7 @@ export default function MediaPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
+        {error && <p role="alert" className="mb-5 border border-narra-danger p-3 text-sm text-narra-danger">{error}</p>}
         {/* Filters */}
         <div className="flex gap-2 mb-6">
           <button
@@ -138,7 +150,7 @@ export default function MediaPage() {
             <p className="mb-4">Aucun média pour le moment.</p>
             <label className="btn-primary cursor-pointer">
               Uploader le premier fichier
-              <input type="file" className="hidden" accept="image/*,audio/*,video/*" onChange={handleUpload} />
+              <input type="file" className="hidden" accept="image/*,audio/*,video/*,application/pdf" onChange={handleUpload} />
             </label>
           </div>
         ) : (
@@ -153,17 +165,18 @@ export default function MediaPage() {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
                   </div>
+                ) : item.type === "video" ? (
+                  <video src={item.url} controls preload="metadata" className="aspect-square w-full bg-narra-bg object-contain" />
+                ) : item.type === "audio" ? (
+                  <div className="flex aspect-square items-center p-3"><audio src={item.url} controls preload="metadata" className="w-full" /></div>
                 ) : (
-                  <div className="aspect-square bg-narra-bg flex items-center justify-center">
-                    <span className="text-3xl">
-                      {item.type === "audio" ? "🎵" : item.type === "video" ? "🎬" : "📄"}
-                    </span>
-                  </div>
+                  <a href={item.url} target="_blank" rel="noreferrer" className="flex aspect-square items-center justify-center bg-narra-bg text-sm text-narra-accent underline underline-offset-4">Ouvrir le document</a>
                 )}
 
                 <div className="p-2">
                   <div className="text-sm font-medium truncate">{item.originalName}</div>
                   <div className="text-xs text-narra-muted">{formatFileSize(item.size)}</div>
+                  <button type="button" onClick={() => removeMedia(item.id)} className="mt-2 text-xs text-narra-danger">Supprimer</button>
                 </div>
               </div>
             ))}

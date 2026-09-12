@@ -2,6 +2,8 @@
 
 Application web de gestion et création d'œuvres narratives (romans, séries, scénarios, visual novels, bandes dessinées...).
 
+Pour prendre en main l’application et organiser une œuvre en plusieurs saisons, consultez le [guide d’utilisation](docs/UTILISATION.md).
+
 ## Stack
 
 - **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS
@@ -27,8 +29,17 @@ Modifier les variables dans `.env` :
 | Variable | Description |
 |---|---|
 | `DATABASE_URL` | URL de connexion PostgreSQL |
-| `NEXTAUTH_URL` | URL de l'app (ex: `http://localhost:3000`) |
-| `NEXTAUTH_SECRET` | Clé secrète pour les sessions |
+| `NARRA_BASE_URL` | URL publique de Narra (ex. `http://localhost:3000`) |
+| `NARRA_SESSION_SECRET` | Clé secrète d'au moins 32 caractères pour les sessions Narra |
+| `KYROS_BASE_URL` | Serveur Kyros principal (ex. `http://localhost:3001`) |
+| `KYROS_FALLBACK_BASE_URL` | Serveur Kyros de repli (ex. `https://kyros.mhemery.fr`) |
+| `KYROS_CLIENT_ID` | Identifiant du client Narra configuré en SSO v4 |
+| `KYROS_CLIENT_SECRET` | Secret du client confidentiel (optionnel pour un client public PKCE) |
+| `KYROS_RESOURCE_AUDIENCE` | Audience ressource exacte déclarée pour Narra |
+
+Narra utilise le SSO natif Kyros v4 : découverte, PAR, Authorization Code avec PKCE S256,
+validation du paramètre `iss` et vérification RS256 via le JWKS. Les scopes OIDC
+`openid` et `offline_access` ne doivent pas être demandés sur ce flux natif.
 
 ## Commandes
 

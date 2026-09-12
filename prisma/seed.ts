@@ -40,7 +40,7 @@ async function main() {
   const saison1 = await prisma.narrativeNode.create({
     data: {
       projectId: project.id,
-      type: "saga",
+      type: "season",
       title: "Saison 1",
       order: 0,
       depth: 0,

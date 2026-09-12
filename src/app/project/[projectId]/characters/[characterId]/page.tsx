@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 
 interface Character {
@@ -9,6 +9,7 @@ interface Character {
   firstName: string | null;
   lastName: string | null;
   alias: string | null;
+  nameColor: string;
   portraitUrl: string | null;
   role: string | null;
   description: string | null;
@@ -22,11 +23,19 @@ interface Character {
   weaknesses: string | null;
   notes: string | null;
   quotes: string | null;
+  images: CharacterImage[];
+}
+
+interface CharacterImage {
+  id: string;
+  label: string;
+  emotion: string;
+  url: string;
+  order: number;
 }
 
 export default function CharacterDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const projectId = params.projectId as string;
   const characterId = params.characterId as string;
 
@@ -38,6 +47,7 @@ export default function CharacterDetailPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [alias, setAlias] = useState("");
+  const [nameColor, setNameColor] = useState("#f59e0b");
   const [role, setRole] = useState("");
   const [status, setStatus] = useState("active");
   const [description, setDescription] = useState("");
@@ -49,6 +59,11 @@ export default function CharacterDetailPage() {
   const [weaknesses, setWeaknesses] = useState("");
   const [notes, setNotes] = useState("");
   const [quotes, setQuotes] = useState("");
+  const [imageLabel, setImageLabel] = useState("");
+  const [imageEmotion, setImageEmotion] = useState("neutral");
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
 
   useEffect(() => {
     async function loadCharacter() {
@@ -59,6 +74,7 @@ export default function CharacterDetailPage() {
         setFirstName(c.firstName || "");
         setLastName(c.lastName || "");
         setAlias(c.alias || "");
+        setNameColor(c.nameColor || "#f59e0b");
         setRole(c.role || "");
         setStatus(c.status || "active");
         setDescription(c.description || "");
@@ -84,6 +100,7 @@ export default function CharacterDetailPage() {
         firstName,
         lastName,
         alias,
+        nameColor,
         role,
         status,
         description,
@@ -99,8 +116,58 @@ export default function CharacterDetailPage() {
     });
 
     if (res.ok) {
+      setCharacter(await res.json());
       setEditing(false);
-      router.refresh();
+    }
+  }
+
+  async function addCharacterImage(event: React.FormEvent) {
+    event.preventDefault();
+    setImageError(null);
+    const response = await fetch(`/api/characters/${characterId}/images`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: imageLabel, emotion: imageEmotion, url: imageUrl }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setImageError(data.error || "Impossible d’ajouter l’image");
+      return;
+    }
+    setCharacter((current) => current ? { ...current, images: [...current.images, data] } : current);
+    setImageLabel("");
+    setImageUrl("");
+  }
+
+  async function removeCharacterImage(imageId: string) {
+    const response = await fetch(`/api/characters/${characterId}/images?imageId=${imageId}`, {
+      method: "DELETE",
+    });
+    if (response.ok) {
+      setCharacter((current) => current ? { ...current, images: current.images.filter((image) => image.id !== imageId) } : current);
+    }
+  }
+
+  async function uploadExpression(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setImageUploading(true);
+    setImageError(null);
+    const body = new FormData();
+    body.append("file", file);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/media/upload`, {
+        method: "POST",
+        body,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Envoi impossible");
+      setImageUrl(data.url);
+      if (!imageLabel) setImageLabel(file.name.replace(/\.[^.]+$/, ""));
+    } catch (reason) {
+      setImageError(reason instanceof Error ? reason.message : "Envoi impossible");
+    } finally {
+      setImageUploading(false);
     }
   }
 
@@ -128,7 +195,7 @@ export default function CharacterDetailPage() {
             <Link href={`/project/${projectId}/characters`} className="text-narra-muted hover:text-narra-text text-sm">
               ← Personnages
             </Link>
-            <h1 className="text-xl font-bold mt-2">
+            <h1 className="text-xl font-bold mt-2" style={{ color: character.nameColor }}>
               {character.firstName} {character.lastName}
               {character.alias && <span className="text-narra-muted ml-2">"{character.alias}"</span>}
             </h1>
@@ -189,6 +256,14 @@ export default function CharacterDetailPage() {
                     <input className="input" value={role} onChange={(e) => setRole(e.target.value)} />
                   ) : (
                     <p>{character.role || "—"}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="label">Couleur du nom</label>
+                  {editing ? (
+                    <input type="color" className="h-10 w-full cursor-pointer border border-narra-border bg-narra-bg p-1" value={nameColor} onChange={(e) => setNameColor(e.target.value)} />
+                  ) : (
+                    <div className="flex items-center gap-2"><span className="h-4 w-4 border border-narra-border" style={{ backgroundColor: character.nameColor }} /><span>{character.nameColor}</span></div>
                   )}
                 </div>
                 <div>
@@ -264,6 +339,33 @@ export default function CharacterDetailPage() {
                   {(character.firstName?.[0] || character.alias?.[0] || "?").toUpperCase()}
                 </div>
               )}
+              <div className="mt-5 border-t border-narra-border pt-4">
+                <h3 className="text-sm font-semibold">Expressions</h3>
+                {character.images.length > 0 && (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {character.images.map((image) => (
+                      <div key={image.id} className="group relative border border-narra-border">
+                        <img src={image.url} alt={image.label} className="aspect-square w-full object-cover" />
+                        <div className="p-2"><p className="truncate text-xs font-medium">{image.label}</p><p className="text-xs text-narra-muted">{image.emotion}</p></div>
+                        {editing && <button type="button" onClick={() => removeCharacterImage(image.id)} className="absolute right-1 top-1 border border-narra-danger bg-narra-bg px-2 py-1 text-xs text-narra-danger">Supprimer</button>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {editing && (
+                  <form onSubmit={addCharacterImage} className="mt-4 space-y-2">
+                    <input className="input" required maxLength={100} value={imageLabel} onChange={(e) => setImageLabel(e.target.value)} placeholder="Libellé, ex. Sourire" />
+                    <select className="select" value={imageEmotion} onChange={(e) => setImageEmotion(e.target.value)}><option value="neutral">Neutre</option><option value="happy">Joyeux</option><option value="sad">Triste</option><option value="angry">En colère</option><option value="surprised">Surpris</option><option value="worried">Inquiet</option><option value="custom">Autre</option></select>
+                    <input type="text" className="input" required value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="URL de l’image" />
+                    <label className="btn w-full cursor-pointer">
+                      {imageUploading ? "Envoi de l’image…" : "Choisir une image"}
+                      <input type="file" accept="image/*" className="hidden" onChange={uploadExpression} disabled={imageUploading} />
+                    </label>
+                    {imageError && <p role="alert" className="text-xs text-narra-danger">{imageError}</p>}
+                    <button className="btn w-full" type="submit">Ajouter l’expression</button>
+                  </form>
+                )}
+              </div>
             </div>
 
             <div className="card p-6">

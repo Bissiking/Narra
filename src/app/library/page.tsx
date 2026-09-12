@@ -8,7 +8,7 @@ import Link from "next/link";
 export default async function LibraryPage() {
   const session = verifySessionToken(cookies().get(SESSION_COOKIE)?.value);
   if (!session) {
-    redirect("/api/auth/login?returnTo=/library");
+    redirect("/login?returnTo=/library");
   }
 
   const projects = await db.project.findMany({

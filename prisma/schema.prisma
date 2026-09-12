@@ -16,6 +16,7 @@ datasource db {
 
 model User {
   id           String   @id @default(uuid()) @db.Uuid
+  kyrosSub     String?  @unique @map("kyros_sub")
   email        String   @unique
   name         String?
   passwordHash String?
@@ -40,6 +41,14 @@ model Project {
   coverUrl    String?   @map("cover_url")
   type        String    @default("story")
   status      String    @default("idea")
+  pageTitle           String?  @map("page_title")
+  pageSubtitle        String?  @map("page_subtitle")
+  pageBackgroundUrl   String?  @map("page_background_url")
+  pageBackgroundColor String   @default("#09090b") @map("page_background_color")
+  pageTextColor       String   @default("#fafafa") @map("page_text_color")
+  pageAccentColor     String   @default("#f59e0b") @map("page_accent_color")
+  pageTheme           String   @default("editorial") @map("page_theme")
+  pagePublished       Boolean  @default(false) @map("page_published")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
@@ -191,6 +200,7 @@ model Character {
   lastName    String? @map("last_name")
   alias       String?
   portraitUrl String? @map("portrait_url")
+  nameColor   String  @default("#f59e0b") @map("name_color")
   role        String?
   description String?
   biography   String?
@@ -217,10 +227,25 @@ model Character {
   organizationMemberships OrganizationMember[]
   timelineEvents          TimelineEventCharacter[]
   tags                    EntityTag[]              @relation("TaggedCharacter")
+  images                  CharacterImage[]
 
   @@index([projectId])
   @@index([deletedAt])
   @@map("characters")
+}
+
+model CharacterImage {
+  id          String    @id @default(uuid()) @db.Uuid
+  characterId String    @map("character_id") @db.Uuid
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  label       String
+  emotion     String
+  url         String
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([characterId, order])
+  @@map("character_images")
 }
 
 model CharacterRelation {
@@ -359,6 +384,8 @@ model LoreEntry {
   category String
   content  String?
   notes    String?
+  status   String @default("planned")
+  progress Int    @default(0)
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
