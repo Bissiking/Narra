@@ -31,3 +31,6 @@ prisma/*.db-journal
 .idea/
 *.swp
 *.swo
+
+# Public
+public/

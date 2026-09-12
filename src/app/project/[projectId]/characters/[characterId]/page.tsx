@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import MediaPicker from "@/components/media-picker";
 
 interface Character {
   id: string;
@@ -356,7 +357,7 @@ export default function CharacterDetailPage() {
                   <form onSubmit={addCharacterImage} className="mt-4 space-y-2">
                     <input className="input" required maxLength={100} value={imageLabel} onChange={(e) => setImageLabel(e.target.value)} placeholder="Libellé, ex. Sourire" />
                     <select className="select" value={imageEmotion} onChange={(e) => setImageEmotion(e.target.value)}><option value="neutral">Neutre</option><option value="happy">Joyeux</option><option value="sad">Triste</option><option value="angry">En colère</option><option value="surprised">Surpris</option><option value="worried">Inquiet</option><option value="custom">Autre</option></select>
-                    <input type="text" className="input" required value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="URL de l’image" />
+                    <MediaPicker projectId={projectId} value={imageUrl} onChange={setImageUrl} label="Choisir" />
                     <label className="btn w-full cursor-pointer">
                       {imageUploading ? "Envoi de l’image…" : "Choisir une image"}
                       <input type="file" accept="image/*" className="hidden" onChange={uploadExpression} disabled={imageUploading} />

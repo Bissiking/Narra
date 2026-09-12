@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import MediaPicker from "@/components/media-picker";
 
 interface ParentLocation { id: string; name: string; parent: { name: string } | null }
 
@@ -44,7 +45,7 @@ export default function NewLocationPage() {
           <Field label="Nom" id="name"><input id="name" className="input" required maxLength={200} value={form.name} onChange={(e) => update("name", e.target.value)} autoFocus /></Field>
           <Field label="Type" id="type"><input id="type" className="input" maxLength={100} value={form.type} onChange={(e) => update("type", e.target.value)} placeholder="Ville, planète, pièce…" /></Field>
           <Field label="Lieu parent" id="parent"><select id="parent" className="select" value={form.parentId} onChange={(e) => update("parentId", e.target.value)}><option value="">Aucun</option>{parents.map((item) => <option key={item.id} value={item.id}>{item.parent ? `${item.parent.name} / ` : ""}{item.name}</option>)}</select></Field>
-          <Field label="URL de l’image" id="image"><input id="image" className="input" type="url" value={form.imageUrl} onChange={(e) => update("imageUrl", e.target.value)} /></Field>
+          <Field label="Image du lieu" id="image"><MediaPicker projectId={projectId} value={form.imageUrl} onChange={(url) => update("imageUrl", url)} label="Choisir" /></Field>
           <Field label="Position dans l’univers" id="position"><input id="position" className="input" maxLength={500} value={form.textualLocation} onChange={(e) => update("textualLocation", e.target.value)} placeholder="Secteur, région, coordonnées…" /></Field>
           <Field label="Ambiance" id="ambiance"><textarea id="ambiance" className="textarea" rows={3} maxLength={2000} value={form.ambiance} onChange={(e) => update("ambiance", e.target.value)} /></Field>
         </div>

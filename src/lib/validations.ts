@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+const imageUrlField = z
+  .string()
+  .max(2000)
+  .refine(
+    (v) => v.startsWith("/uploads/") || z.string().url().safeParse(v).success,
+    "URL d'image invalide"
+  );
+
 // ============================================================
 // PROJECT
 // ============================================================
@@ -113,7 +121,7 @@ const characterFieldsSchema = z.object({
   firstName: z.string().max(100).optional(),
   lastName: z.string().max(100).optional(),
   alias: z.string().max(100).optional(),
-  portraitUrl: z.string().url("URL de portrait invalide").max(2000).nullish(),
+  portraitUrl: imageUrlField.nullish(),
   nameColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Couleur invalide").optional(),
   role: z.string().max(100).optional(),
   description: z.string().max(5000).optional(),
@@ -183,7 +191,7 @@ export const createLocationSchema = z.object({
   parentId: z.string().uuid().optional(),
   name: z.string().min(1, "Le nom est requis").max(200),
   type: z.string().max(100).optional(),
-  imageUrl: z.string().url("URL d’image invalide").max(2000).optional(),
+  imageUrl: imageUrlField.optional(),
   description: z.string().max(5000).optional(),
   textualLocation: z.string().max(500).optional(),
   ambiance: z.string().max(2000).optional(),
@@ -199,7 +207,7 @@ export const updateLocationSchema = createLocationSchema.partial();
 export const createOrganizationSchema = z.object({
   name: z.string().min(1, "Le nom est requis").max(200),
   type: z.string().max(100).optional(),
-  logoUrl: z.string().url("URL de logo invalide").max(2000).optional(),
+  logoUrl: imageUrlField.optional(),
   description: z.string().max(5000).optional(),
   status: z.string().max(50).optional(),
   notes: z.string().max(10000).optional(),
@@ -246,7 +254,7 @@ export const updateLoreEntrySchema = createLoreEntrySchema.partial();
 export const updateStoryPageSchema = z.object({
   pageTitle: z.string().max(150).nullish(),
   pageSubtitle: z.string().max(500).nullish(),
-  pageBackgroundUrl: z.string().url("URL d’arrière-plan invalide").max(2000).nullish(),
+  pageBackgroundUrl: imageUrlField.nullish(),
   pageBackgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   pageTextColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   pageAccentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
