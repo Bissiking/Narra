@@ -5,6 +5,18 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
+function formatReadingTime(wordCount: number) {
+  if (wordCount <= 0) return null;
+  const minutes = Math.max(1, Math.ceil(wordCount / 220));
+  if (minutes < 60) return `≈ ${minutes} min`;
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes > 0
+    ? `≈ ${hours} h ${remainingMinutes.toString().padStart(2, "0")}`
+    : `≈ ${hours} h`;
+}
+
 export default async function HomePage() {
   const session = verifySessionToken(cookies().get(SESSION_COOKIE)?.value);
 
@@ -13,8 +25,13 @@ export default async function HomePage() {
     include: {
       genres: true,
       owner: { select: { id: true, name: true, email: true } },
-      _count: {
-        select: { scenes: true, characters: true },
+      narrativeNodes: {
+        where: { type: "season", deletedAt: null },
+        select: { id: true },
+      },
+      scenes: {
+        where: { deletedAt: null },
+        select: { wordCount: true },
       },
     },
     orderBy: { updatedAt: "desc" },
@@ -48,8 +65,8 @@ export default async function HomePage() {
     <div className="min-h-screen">
       {/* Header */}
       <header className="border-b border-narra-border/50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-8">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-4 sm:gap-8">
             <Link href="/" className="text-xl font-bold tracking-tight">
               <span className="text-narra-accent">Narra</span>
             </Link>
@@ -62,7 +79,7 @@ export default async function HomePage() {
               </Link>
             </nav>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-3">
             {session ? (
               <>
                 <span className="text-xs text-narra-muted">{session.name || session.email}</span>
@@ -79,7 +96,7 @@ export default async function HomePage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-10">
+      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         {/* Published stories */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight mb-2">Histoires</h1>
@@ -107,13 +124,17 @@ export default async function HomePage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {publishedProjects.map((project) => {
-              const pct = progressMap.get(project.id) ?? 0;
-              const hasStarted = pct > 0;
+              const pct = Math.max(0, Math.min(100, Math.round(progressMap.get(project.id) ?? 0)));
+              const wordCount = project.scenes.reduce((total, scene) => total + scene.wordCount, 0);
+              const readingTime = formatReadingTime(wordCount);
+              const visibleGenres = project.genres.slice(0, 2);
+              const hiddenGenreCount = Math.max(0, project.genres.length - visibleGenres.length);
+              const progressLabel = pct >= 100 ? "Terminé" : pct > 0 ? `${pct} % lu` : "Non commencé";
               return (
                 <Link
                   key={project.id}
                   href={`/project/${project.id}/read`}
-                  className="card group hover:border-narra-accent transition-all hover:shadow-lg hover:shadow-narra-accent/5 relative overflow-hidden"
+                  className="card group relative flex h-full flex-col overflow-hidden transition-colors hover:border-narra-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-narra-accent"
                 >
                   {project.coverUrl ? (
                     <div className="aspect-[16/9] bg-narra-bg overflow-hidden">
@@ -125,36 +146,72 @@ export default async function HomePage() {
                     </div>
                   )}
 
-                  {/* Progress bar */}
-                  {hasStarted && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-narra-border/30">
-                      <div className="h-full bg-narra-accent" style={{ width: `${pct}%` }} />
-                    </div>
-                  )}
+                  <div className="flex flex-1 flex-col p-5">
+                    <h3 className="line-clamp-2 text-lg font-bold transition-colors group-hover:text-narra-accent">
+                      {project.name}
+                    </h3>
 
-                  <div className="p-5">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-bold text-lg group-hover:text-narra-accent transition-colors">{project.name}</h3>
-                      <div className="flex items-center gap-2">
-                        {hasStarted && (
-                          <span className="text-[10px] font-bold text-narra-accent bg-narra-accent/10 px-1.5 py-0.5 rounded">
-                            {pct}%
+                    {visibleGenres.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Genres">
+                        {visibleGenres.map((genre) => (
+                          <span key={genre.id} className="badge max-w-44 truncate border-narra-border text-[10px] text-narra-muted">
+                            {genre.genre}
+                          </span>
+                        ))}
+                        {hiddenGenreCount > 0 && (
+                          <span className="text-[10px] leading-6 text-narra-muted" aria-label={`${hiddenGenreCount} autres genres`}>
+                            +{hiddenGenreCount}
                           </span>
                         )}
-                        {project.genres.length > 0 && (
-                          <span className="badge border-narra-border text-narra-muted text-[10px]">{project.genres[0].genre}</span>
+                      </div>
+                    )}
+
+                    {project.description && (
+                      <p className="mt-3 line-clamp-2 text-sm text-narra-muted">{project.description}</p>
+                    )}
+
+                    <div className="mt-auto pt-4">
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs tabular-nums text-narra-muted" aria-label="Informations de lecture">
+                        {project.narrativeNodes.length > 0 && (
+                          <span className="whitespace-nowrap">
+                            {project.narrativeNodes.length} saison{project.narrativeNodes.length > 1 ? "s" : ""}
+                          </span>
+                        )}
+                        <span className="whitespace-nowrap">
+                          {project.scenes.length} scène{project.scenes.length > 1 ? "s" : ""}
+                        </span>
+                        {readingTime && (
+                          <span className="whitespace-nowrap" title="Estimation basée sur 220 mots par minute">
+                            {readingTime}
+                          </span>
                         )}
                       </div>
-                    </div>
-                    {project.description && (
-                      <p className="text-sm text-narra-muted line-clamp-2 mb-3">{project.description}</p>
-                    )}
-                    <div className="flex items-center justify-between text-xs text-narra-muted">
-                      <span>par {project.owner.name || project.owner.email}</span>
-                      <div className="flex gap-3">
-                        <span>{project._count.scenes} scènes</span>
-                        <span>{project._count.characters} persos</span>
-                      </div>
+
+                      <p className="mt-3 truncate text-xs text-narra-muted" title={project.owner.name || project.owner.email}>
+                        par {project.owner.name || project.owner.email}
+                      </p>
+
+                      {session && (
+                        <div className="mt-4 border-t border-narra-border pt-3">
+                          <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+                            <span className="text-narra-muted">Progression</span>
+                            <span className="font-mono font-medium tabular-nums text-narra-accent">{progressLabel}</span>
+                          </div>
+                          <div
+                            className="h-1 bg-narra-border/70"
+                            role="progressbar"
+                            aria-label={`Progression de lecture de ${project.name}`}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={pct}
+                          >
+                            <div
+                              className="h-full origin-left bg-narra-accent"
+                              style={{ transform: `scaleX(${pct / 100})` }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Link>
