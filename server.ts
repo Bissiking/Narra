@@ -24,6 +24,8 @@ const uploadMimeTypes: Record<string, string> = {
 };
 
 app.prepare().then(() => {
+  console.log(`> Uploads root: ${uploadsRoot}`);
+
   const server = createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url || "", true);
@@ -45,12 +47,16 @@ app.prepare().then(() => {
           filePath === uploadsRoot || filePath.startsWith(`${uploadsRoot}${sep}`);
 
         if (!isInsideUploads) {
+          console.warn(`[uploads] blocked path: ${pathname} -> ${filePath}`);
           res.statusCode = 403;
           res.end("Forbidden");
           return;
         }
 
         if (!existsSync(filePath) || !statSync(filePath).isFile()) {
+          console.warn(
+            `[uploads] 404 pathname=${pathname} cwd=${process.cwd()} root=${uploadsRoot} file=${filePath}`,
+          );
           res.statusCode = 404;
           res.end("Not Found");
           return;
