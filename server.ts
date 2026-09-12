@@ -1,5 +1,7 @@
 // server.ts
+import { createReadStream, existsSync, statSync } from "fs";
 import { createServer } from "http";
+import { extname, resolve, sep } from "path";
 import { parse } from "url";
 import next from "next";
 import { WebSocketServer, WebSocket } from "ws";
@@ -11,15 +13,79 @@ const port = parseInt(process.env.PORT || "3002", 10);
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
+const uploadsRoot = resolve(process.cwd(), "public", "uploads");
+const uploadMimeTypes: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+};
+
 app.prepare().then(() => {
   const server = createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url || "", true);
+      const pathname = parsedUrl.pathname || "/";
+
+      if (pathname.startsWith("/uploads/")) {
+        let relativePath: string;
+
+        try {
+          relativePath = decodeURIComponent(pathname.slice("/uploads/".length));
+        } catch {
+          res.statusCode = 400;
+          res.end("Bad Request");
+          return;
+        }
+
+        const filePath = resolve(uploadsRoot, relativePath);
+        const isInsideUploads =
+          filePath === uploadsRoot || filePath.startsWith(`${uploadsRoot}${sep}`);
+
+        if (!isInsideUploads) {
+          res.statusCode = 403;
+          res.end("Forbidden");
+          return;
+        }
+
+        if (!existsSync(filePath) || !statSync(filePath).isFile()) {
+          res.statusCode = 404;
+          res.end("Not Found");
+          return;
+        }
+
+        const fileStat = statSync(filePath);
+        const extension = extname(filePath).toLowerCase();
+
+        res.statusCode = 200;
+        res.setHeader(
+          "Content-Type",
+          uploadMimeTypes[extension] || "application/octet-stream",
+        );
+        res.setHeader("Content-Length", fileStat.size);
+        res.setHeader("Cache-Control", "public, max-age=86400");
+
+        if (req.method === "HEAD") {
+          res.end();
+          return;
+        }
+
+        createReadStream(filePath).pipe(res);
+        return;
+      }
+
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error("Error handling request:", err);
-      res.statusCode = 500;
-      res.end("Internal Server Error");
+
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.end("Internal Server Error");
+      } else {
+        res.end();
+      }
     }
   });
 
@@ -49,7 +115,7 @@ app.prepare().then(() => {
       return;
     }
 
-    let userId = "user-" + Math.random().toString(36).slice(2, 8);
+    const userId = "user-" + Math.random().toString(36).slice(2, 8);
     let userName = "Anonyme";
 
     if (!rooms.has(sceneId)) {
