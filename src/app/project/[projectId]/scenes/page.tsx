@@ -59,6 +59,7 @@ interface SceneBlock {
   position: string | null;
   speakerNote: string | null;
   mediaUrl?: string | null;
+  displayMode?: "solo" | "caption" | null;
   audioAction?: string | null;
   volume?: number | null;
   fadeDuration?: number | null;
@@ -194,6 +195,7 @@ export default function ScenesPage() {
       position: null,
       speakerNote: null,
       mediaUrl: null,
+      displayMode: null,
       audioAction: type === "music" ? "play" : null,
       volume: type === "music" || type === "sfx" ? 100 : null,
       fadeDuration: type === "music" ? 1 : null,

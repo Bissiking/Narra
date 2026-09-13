@@ -46,7 +46,7 @@ interface Character {
 interface SceneBlock {
   id: string; type: string; content: string; order: number;
   characterId: string | null; emotion: string | null; position: string | null; speakerNote: string | null;
-  mediaUrl?: string | null; audioAction?: string | null; volume?: number | null; fadeDuration?: number | null; loop?: boolean | null;
+  mediaUrl?: string | null; displayMode?: "solo" | "caption" | null; audioAction?: string | null; volume?: number | null; fadeDuration?: number | null; loop?: boolean | null;
 }
 
 interface NarrativeNodeOption {
@@ -177,6 +177,7 @@ export default function EditPage() {
         position: null,
         speakerNote: null,
         mediaUrl: null,
+        displayMode: null,
         audioAction: type === "music" ? "play" : null,
         volume: type === "music" || type === "sfx" ? 100 : null,
         fadeDuration: type === "music" ? 1 : null,

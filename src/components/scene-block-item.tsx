@@ -26,6 +26,7 @@ interface SceneBlock {
   emotion: string | null;
   position: string | null;
   mediaUrl?: string | null;
+  displayMode?: "solo" | "caption" | null;
   audioAction?: string | null;
   volume?: number | null;
   fadeDuration?: number | null;
@@ -74,6 +75,7 @@ function SceneBlockItem({
   );
   const isAudioBlock = block.type === "music" || block.type === "sfx";
   const isBackgroundBlock = block.type === "background";
+  const backgroundDisplayMode = block.displayMode || (block.content.trim() ? "caption" : "solo");
   const audioAction = block.type === "music" ? block.audioAction || "play" : "play";
   const profile = getEditorProfile(projectType);
   const knownCurrentType = profile.blocks.some((type) => type.value === block.type);
@@ -280,6 +282,15 @@ function SceneBlockItem({
 
           {isBackgroundBlock && projectId && (
             <div className="mb-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3">
+              <label className="label">Affichage dans le Visual Novel</label>
+              <select
+                className="select mb-3"
+                value={backgroundDisplayMode}
+                onChange={(event) => onUpdate(block.id, { displayMode: event.target.value as "solo" | "caption" })}
+              >
+                <option value="solo">Image seule</option>
+                <option value="caption">Image + texte</option>
+              </select>
               <label className="label">Nouvel arrière-plan</label>
               <MediaPicker
                 projectId={projectId}
@@ -294,7 +305,7 @@ function SceneBlockItem({
             </div>
           )}
 
-          <textarea
+          {(!isBackgroundBlock || backgroundDisplayMode === "caption") && <textarea
             value={block.content}
             onChange={(e) => onUpdate(block.id, { content: e.target.value })}
             onKeyDown={(event) => {
@@ -315,7 +326,7 @@ function SceneBlockItem({
               isAudioBlock
                 ? "Note facultative pour ce son..."
                 : isBackgroundBlock
-                ? "Note facultative pour ce changement de décor..."
+                ? "Texte affiché sur l’image..."
                 : block.type === "dialogue"
                 ? profile.key === "comic" ? "Texte de la bulle..." : "Le dialogue..."
                 : block.type === "heading"
@@ -327,7 +338,7 @@ function SceneBlockItem({
                 : "Écrivez ici..."
             }
             title={onInsertAfter ? "Ctrl + Entrée : insérer un bloc du même type après celui-ci" : undefined}
-          />
+          />}
         </div>
       </div>
     </div>

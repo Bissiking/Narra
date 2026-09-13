@@ -23,6 +23,7 @@ type Block = {
   position: string | null;
   speakerNote: string | null;
   mediaUrl: string | null;
+  displayMode: string | null;
   audioAction: string | null;
   volume: number | null;
   fadeDuration: number | null;
@@ -155,8 +156,13 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
         scene.blocks.forEach((block) => {
           if (block.type === "music") activeMusic = block;
           else if (block.type === "sfx") pendingSfx.push(block);
-          else if (block.type === "background") activeBackdrop = block.mediaUrl || scene.location?.imageUrl || project.pageBackgroundUrl;
-          else {
+          else if (block.type === "background") {
+            activeBackdrop = block.mediaUrl || scene.location?.imageUrl || project.pageBackgroundUrl;
+            if (block.mediaUrl) {
+              visible.push({ block, scene, sceneIndex, activeMusic, sfx: pendingSfx, backdrop: activeBackdrop });
+              pendingSfx = [];
+            }
+          } else {
             visible.push({ block, scene, sceneIndex, activeMusic, sfx: pendingSfx, backdrop: activeBackdrop });
             pendingSfx = [];
           }
@@ -337,6 +343,8 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
   )?.url;
   const portrait = emotionPortrait || block.character?.portraitUrl;
   const backdrop = current.backdrop;
+  const isBackdropBeat = block.type === "background";
+  const isBackdropSolo = isBackdropBeat && (block.displayMode || (block.content.trim() ? "caption" : "solo")) === "solo";
   const portraitPosition = block.position === "left" ? styles.portraitLeft : block.position === "right" ? styles.portraitRight : styles.portraitCenter;
   const progress = beats.length ? ((index + 1) / beats.length) * 100 : 0;
 
@@ -378,7 +386,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
         backgroundImage: backdrop ? `url("${backdrop.replace(/["\\]/g, "")}")` : undefined,
       }}
     >
-      <div className={styles.vnShade} aria-hidden="true" />
+      <div className={`${styles.vnShade} ${isBackdropSolo ? styles.vnShadeBackdrop : ""}`} aria-hidden="true" />
       <div className={styles.vnProgress} aria-hidden="true"><span style={{ transform: `scaleX(${progress / 100})` }} /></div>
 
       {showHud && (
@@ -416,6 +424,15 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
           <span>{scene.node?.title || `Scène ${sceneIndex + 1}`}</span>
           <h1>{block.content}</h1>
           <button type="button" onClick={goNext}>Entrer dans la scène <span aria-hidden="true">›</span></button>
+        </section>
+      ) : isBackdropSolo ? (
+        <section key={block.id} className={styles.vnBackdropBeat} aria-live="polite">
+          <span className="sr-only">Nouveau décor</span>
+          <div className={styles.vnBackdropControls}>
+            <span>{index + 1} / {beats.length}</span>
+            <button type="button" onClick={goPrevious} disabled={index === 0}>Précédent</button>
+            <button type="button" onClick={goNext}>Continuer <span aria-hidden="true">›</span></button>
+          </div>
         </section>
       ) : (
         <section

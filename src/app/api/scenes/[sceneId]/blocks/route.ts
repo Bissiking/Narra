@@ -75,6 +75,7 @@ export async function PUT(
           position: block.position || null,
           speakerNote: block.speakerNote || null,
           mediaUrl: block.mediaUrl || null,
+          displayMode: block.displayMode || null,
           audioAction: block.audioAction || null,
           volume: typeof block.volume === "number" ? Math.max(0, Math.min(100, block.volume)) : null,
           fadeDuration: typeof block.fadeDuration === "number" ? Math.max(0, Math.min(30, block.fadeDuration)) : null,

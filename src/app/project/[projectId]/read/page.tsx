@@ -31,6 +31,7 @@ type ReaderScene = {
     position: string | null;
     speakerNote: string | null;
     mediaUrl: string | null;
+    displayMode: string | null;
     audioAction: string | null;
     volume: number | null;
     fadeDuration: number | null;

@@ -9,3 +9,4 @@
 - Espaces Personnages, Organisations et Lieux fusionnés avec navigation interne et atelier de prompts contextualisés.
 - Séparation de la couverture de bibliothèque et du décor de lecture dans la page de présentation.
 - Fond de secours composé pour le lecteur Visual Novel lorsqu’aucun décor n’est renseigné.
+- Les changements d’arrière-plan deviennent des temps de lecture à part entière, avec le choix « Image seule » ou « Image + texte ».

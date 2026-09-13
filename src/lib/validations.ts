@@ -95,6 +95,7 @@ export const createSceneBlockSchema = z.object({
   emotion: z.string().max(100).optional(),
   position: z.enum(["left", "center", "right"]).optional(),
   speakerNote: z.string().max(500).optional(),
+  displayMode: z.enum(["solo", "caption"]).optional(),
   mediaUrl: z
     .string()
     .max(2000)

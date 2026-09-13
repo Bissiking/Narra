@@ -188,6 +188,7 @@ model SceneBlock {
   position    String?
   speakerNote String?    @map("speaker_note")
   mediaUrl    String?    @map("media_url")
+  displayMode String?    @map("display_mode")
   audioAction String?    @map("audio_action")
   volume      Int?       @default(100)
   fadeDuration Float?    @map("fade_duration")
