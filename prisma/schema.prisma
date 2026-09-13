@@ -277,6 +277,7 @@ model CharacterRelation {
 
   type          String
   label         String?
+  reverseLabel  String? @map("reverse_label")
   description   String?
   bidirectional Boolean @default(false)
 

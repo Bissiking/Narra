@@ -19,7 +19,7 @@ export default async function StoryPage({ params }: { params: { slug: string } }
   return <div className={styles.shell} style={{ "--story-accent": story.pageAccentColor } as React.CSSProperties}>
     <StoryNav slug={story.slug} name={story.name} accent={story.pageAccentColor} canResume={Boolean(progress && progress.percentage > 0)} />
     <main className={styles.hero}>
-      <div className={`${styles.art} ${story.coverUrl ? "" : styles.missingArt}`} style={heroStyle} data-letter={story.name.charAt(0)} aria-hidden="true" />
+      <div className={styles.art} style={heroStyle} aria-hidden="true" />
       <section className={styles.heroCopy}>
         <h1>{story.pageTitle || story.name}</h1>
         <p>{story.pageSubtitle || story.description || "Une histoire à découvrir sur Narra."}</p>

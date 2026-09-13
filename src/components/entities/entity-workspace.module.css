@@ -263,6 +263,47 @@
 .galleryItem button {
   grid-column: 1 / -1;
 }
+.relationList {
+  border-top: 1px solid var(--narra-border);
+}
+.relationRow {
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.65fr) minmax(16rem, 1.35fr);
+  gap: 1rem;
+  align-items: end;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--narra-border);
+}
+.relationPerson {
+  min-width: 0;
+  padding-block: 0.55rem;
+  color: var(--narra-text);
+  text-align: left;
+}
+.relationPerson strong,
+.relationPerson span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.relationPerson strong {
+  font-size: 0.875rem;
+}
+.relationPerson span {
+  margin-top: 0.2rem;
+  color: var(--narra-muted);
+  font-size: 0.72rem;
+}
+.relationPerson:hover strong {
+  color: var(--narra-accent);
+}
+.relationLabelForm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: end;
+}
 @media (max-width: 800px) {
   .workspace {
     display: block;
@@ -299,8 +340,12 @@
   }
   .fields,
   .mediaRow,
-  .promptLayout {
+  .promptLayout,
+  .relationRow {
     grid-template-columns: 1fr;
+  }
+  .relationLabelForm {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
   .preview {
     max-width: 10rem;

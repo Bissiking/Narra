@@ -222,8 +222,13 @@ export const createCharacterRelationSchema = z.object({
   toCharacterId: z.string().uuid("ID de personnage invalide"),
   type: RelationType,
   label: z.string().max(100).optional(),
+  reverseLabel: z.string().max(100).optional(),
   description: z.string().max(500).optional(),
   bidirectional: z.boolean().default(false),
+});
+
+export const updateCharacterRelationLabelSchema = z.object({
+  label: z.string().max(100).nullable(),
 });
 
 // ============================================================

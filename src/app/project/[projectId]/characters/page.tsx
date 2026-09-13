@@ -39,12 +39,14 @@ type Character = Ref & {
     id: string;
     type: string;
     label: string | null;
+    reverseLabel: string | null;
     toCharacter: Ref;
   }[];
   relationsTo: {
     id: string;
     type: string;
     label: string | null;
+    reverseLabel: string | null;
     fromCharacter: Ref;
   }[];
   organizationMemberships: {
@@ -65,6 +67,17 @@ const TABS = [
   ["links", "Relations"],
   ["prompts", "Prompts GPT"],
 ] as const;
+const RELATION_TYPES = [
+  ["friend", "Amitié"],
+  ["family", "Famille"],
+  ["couple", "Couple"],
+  ["colleague", "Collègues"],
+  ["enemy", "Ennemis"],
+  ["hierarchy", "Hiérarchie"],
+  ["custom", "Autre"],
+] as const;
+const relationTypeLabel = (type: string) =>
+  RELATION_TYPES.find(([value]) => value === type)?.[1] || type;
 
 export default function CharactersPage() {
   const { projectId } = useParams() as { projectId: string };
@@ -79,7 +92,9 @@ export default function CharactersPage() {
   const [form, setForm] = useState<Record<string, any>>({});
   const [relationTarget, setRelationTarget] = useState(""),
     [relationType, setRelationType] = useState("friend"),
-    [relationLabel, setRelationLabel] = useState("");
+    [relationLabel, setRelationLabel] = useState(""),
+    [relationReverseLabel, setRelationReverseLabel] = useState(""),
+    [relationSavingId, setRelationSavingId] = useState("");
   const [imageLabel, setImageLabel] = useState(""),
     [imageEmotion, setImageEmotion] = useState(""),
     [imageUrl, setImageUrl] = useState("");
@@ -169,13 +184,37 @@ export default function CharactersPage() {
         toCharacterId: relationTarget,
         type: relationType,
         label: relationLabel || undefined,
+        reverseLabel: relationReverseLabel || undefined,
         bidirectional: true,
       }),
     });
     if (r.ok) {
       setRelationTarget("");
       setRelationLabel("");
+      setRelationReverseLabel("");
       await load(character.id);
+    } else {
+      setMessage((await r.json()).error || "Création de la relation impossible");
+    }
+  }
+  async function updateRelationLabel(e: React.FormEvent<HTMLFormElement>, relationId: string) {
+    e.preventDefault();
+    if (!character) return;
+    const data = new FormData(e.currentTarget);
+    const label = String(data.get("label") || "").trim();
+    setRelationSavingId(relationId);
+    setMessage("");
+    const r = await fetch(`/api/characters/${character.id}/relations?relationId=${relationId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: label || null }),
+    });
+    setRelationSavingId("");
+    if (r.ok) {
+      setMessage("Libellé de relation enregistré");
+      await load(character.id);
+    } else {
+      setMessage((await r.json()).error || "Enregistrement du libellé impossible");
     }
   }
   async function addImage(e: React.FormEvent) {
@@ -223,13 +262,14 @@ export default function CharactersPage() {
               (r) => `${name(r.toCharacter)} — ${r.label || r.type}`,
             ),
             ...character.relationsTo.map(
-              (r) => `${name(r.fromCharacter)} — ${r.label || r.type}`,
+              (r) => `${name(r.fromCharacter)} — ${r.reverseLabel || r.type}`,
             ),
           ]
         : [],
     }),
     [character, form],
   );
+  const selectedRelationTarget = items.find((item) => item.id === relationTarget);
   return (
     <div className={styles.workspace}>
       <aside className={styles.rail}>
@@ -600,29 +640,58 @@ export default function CharactersPage() {
                 <>
                   <section className={styles.section}>
                     <h3>Relations entre personnages</h3>
-                    <div className="divide-y divide-narra-border">
+                    <div className={styles.relationList}>
                       {[
                         ...character.relationsFrom.map((r) => ({
                           id: r.id,
                           person: r.toCharacter,
-                          label: r.label || r.type,
+                          label: r.label,
+                          type: r.type,
                         })),
                         ...character.relationsTo.map((r) => ({
                           id: r.id,
                           person: r.fromCharacter,
-                          label: r.label || r.type,
+                          label: r.reverseLabel,
+                          type: r.type,
                         })),
                       ].map((r) => (
-                        <button
+                        <div
                           key={r.id}
-                          className="flex w-full items-center justify-between py-3 text-left"
-                          onClick={() => setSelectedId(r.person.id)}
+                          className={styles.relationRow}
                         >
-                          <span>{name(r.person)}</span>
-                          <span className="text-xs text-narra-muted">
-                            {r.label}
-                          </span>
-                        </button>
+                          <button
+                            type="button"
+                            className={styles.relationPerson}
+                            onClick={() => setSelectedId(r.person.id)}
+                          >
+                            <strong>{name(r.person)}</strong>
+                            <span>Voir la fiche</span>
+                          </button>
+                          <form
+                            className={styles.relationLabelForm}
+                            onSubmit={(event) => updateRelationLabel(event, r.id)}
+                          >
+                            <label>
+                              <span className="label">
+                                Libellé affiché sur la fiche de {name(character)}
+                              </span>
+                              <input
+                                key={`${r.id}-${r.label || ""}`}
+                                className="input"
+                                name="label"
+                                defaultValue={r.label || ""}
+                                maxLength={100}
+                                placeholder={relationTypeLabel(r.type)}
+                              />
+                            </label>
+                            <button
+                              className="btn"
+                              disabled={relationSavingId === r.id}
+                            >
+                              {relationSavingId === r.id ? "Enregistrement…" : "Enregistrer"}
+                            </button>
+                          </form>
+                        </div>
                       ))}
                     </div>
                     <form
@@ -631,6 +700,7 @@ export default function CharactersPage() {
                     >
                       <select
                         className="select"
+                        aria-label="Personnage à relier"
                         required
                         value={relationTarget}
                         onChange={(e) => setRelationTarget(e.target.value)}
@@ -646,23 +716,38 @@ export default function CharactersPage() {
                       </select>
                       <select
                         className="select"
+                        aria-label="Type de relation"
                         value={relationType}
                         onChange={(e) => setRelationType(e.target.value)}
                       >
-                        <option value="friend">Amitié</option>
-                        <option value="family">Famille</option>
-                        <option value="couple">Couple</option>
-                        <option value="colleague">Collègues</option>
-                        <option value="enemy">Ennemis</option>
-                        <option value="hierarchy">Hiérarchie</option>
-                        <option value="custom">Autre</option>
+                        {RELATION_TYPES.map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
                       </select>
-                      <input
-                        className="input sm:col-span-2"
-                        value={relationLabel}
-                        onChange={(e) => setRelationLabel(e.target.value)}
-                        placeholder="Libellé précis"
-                      />
+                      <label>
+                        <span className="label">
+                          Sur la fiche de {name(character)}
+                        </span>
+                        <input
+                          className="input"
+                          value={relationLabel}
+                          onChange={(e) => setRelationLabel(e.target.value)}
+                          maxLength={100}
+                          placeholder="Ex. mère, mentor"
+                        />
+                      </label>
+                      <label>
+                        <span className="label">
+                          Sur la fiche de {selectedRelationTarget ? name(selectedRelationTarget) : "l’autre personnage"}
+                        </span>
+                        <input
+                          className="input"
+                          value={relationReverseLabel}
+                          onChange={(e) => setRelationReverseLabel(e.target.value)}
+                          maxLength={100}
+                          placeholder="Ex. fils, élève"
+                        />
+                      </label>
                       <button className="btn sm:col-span-2">
                         Créer la relation
                       </button>

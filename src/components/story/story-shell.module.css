@@ -10,8 +10,6 @@
 .hero { position: relative; min-height: calc(100svh - 4.5rem); display: grid; grid-template-columns: minmax(0,1.5fr) minmax(18rem,.65fr); overflow: hidden; isolation: isolate; }
 .art { position: absolute; inset: 0 34% 0 0; z-index: -2; background-color: #19191c; background-position: center; background-size: cover; }
 .art::after { content:""; position:absolute; inset:0; background: linear-gradient(90deg,rgba(0,0,0,.12),rgba(10,10,11,.2) 55%,#0a0a0b),linear-gradient(0deg,#0a0a0b 0%,transparent 38%); }
-.missingArt { display:grid; place-items:center; overflow:hidden; }
-.missingArt::before { content:attr(data-letter); color:rgba(255,255,255,.035); font-size:min(42vw,38rem); font-weight:800; line-height:1; transform:translateY(-3%); }
 .heroCopy { align-self:end; max-width:62rem; padding: clamp(3rem,8vw,8rem) clamp(1.25rem,6vw,6rem); }
 .heroCopy h1 { max-width:12ch; font-size:clamp(3.8rem,9vw,8.5rem); line-height:.84; letter-spacing:-.04em; text-wrap:balance; }
 .heroCopy p { max-width:50ch; margin-top:1.75rem; color:#d4d4d8; font: 1.1rem/1.65 "Source Serif 4",Georgia,serif; }

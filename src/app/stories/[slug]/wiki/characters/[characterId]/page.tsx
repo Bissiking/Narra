@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function CharacterWikiPage({ params }: { params: { slug: string; characterId: string } }) {
   const story=await getPublishedStory(params.slug); if(!story) notFound(); const character=story.characters.find((item)=>item.id===params.characterId); if(!character) notFound();
   const name=storyCharacterName(character); const sections=Array.isArray(character.wikiSections) ? character.wikiSections as unknown as WikiSection[] : [];
-  const relations=[...character.relationsFrom.map((r)=>({id:r.toCharacter.id,name:storyCharacterName(r.toCharacter),label:r.label||r.type})),...character.relationsTo.map((r)=>({id:r.fromCharacter.id,name:storyCharacterName(r.fromCharacter),label:r.label||r.type}))];
+  const relations=[...character.relationsFrom.map((r)=>({id:r.toCharacter.id,name:storyCharacterName(r.toCharacter),label:r.label||r.type})),...character.relationsTo.map((r)=>({id:r.fromCharacter.id,name:storyCharacterName(r.fromCharacter),label:r.reverseLabel||r.type}))];
   return <div className={styles.shell} style={{"--story-accent":character.nameColor||story.pageAccentColor} as React.CSSProperties}><StoryNav slug={story.slug} name={story.name} accent={story.pageAccentColor}/><main className={`${styles.wiki} ${styles.article}`}>
     <article className={styles.articleMain}><p className={styles.breadcrumbs}><Link href={`/stories/${story.slug}/wiki`}>Wiki</Link> / Personnages / {name}</p><h1>{name}</h1>{character.role&&<p className={styles.role}>{character.role}</p>}{character.description&&<p className={styles.lead}>{character.description}</p>}
       {character.biography&&<section className={styles.section}><h2>Biographie</h2><p>{character.biography}</p></section>}

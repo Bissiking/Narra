@@ -178,6 +178,7 @@ export interface CharacterRelation {
   id: string;
   type: RelationType;
   label: string | null;
+  reverseLabel: string | null;
   description: string | null;
   bidirectional: boolean;
   fromCharacter: {
