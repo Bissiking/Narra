@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
-  getDefaultNarrativeType,
-  getSuggestedNarrativeTypes,
+  getDefaultNarrativeTypeForProject,
+  getNarrativeTypesForProject,
   NARRATIVE_NODE_TYPES,
   NARRATIVE_NODE_TYPE_LABELS,
 } from "@/lib/narrative-structure";
+import { getProjectFormat } from "@/lib/editor-profiles";
 
 interface NarrativeNode {
   id: string;
@@ -84,6 +85,7 @@ export default function StructurePage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const [structure, setStructure] = useState<NarrativeNode[]>([]);
+  const [projectType, setProjectType] = useState("story");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -101,9 +103,16 @@ export default function StructurePage() {
   async function loadStructure() {
     setLoadError(null);
     try {
-      const response = await fetch(`/api/projects/${projectId}/narrative-nodes`);
+      const [response, projectResponse] = await Promise.all([
+        fetch(`/api/projects/${projectId}/narrative-nodes`),
+        fetch(`/api/projects/${projectId}`),
+      ]);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Impossible de charger la structure");
+      if (projectResponse.ok) {
+        const project = await projectResponse.json();
+        setProjectType(project.type || "story");
+      }
       setStructure(data);
       setExpandedNodes((current) =>
         current.size === 0 ? new Set(data.map((node: NarrativeNode) => node.id)) : current
@@ -128,10 +137,8 @@ export default function StructurePage() {
   );
   const editingNode = allNodes.find((node) => node.id === editingNodeId);
   const selectedParent = allNodes.find((node) => node.id === parentId);
-  const suggestedTypes = getSuggestedNarrativeTypes(selectedParent?.type);
-  const otherTypes = NARRATIVE_NODE_TYPES.filter(
-    ({ value }) => !suggestedTypes.includes(value)
-  );
+  const projectFormat = getProjectFormat(projectType);
+  const suggestedTypes = getNarrativeTypesForProject(projectType, selectedParent?.type);
   const unavailableParentIds = new Set(
     editingNode
       ? [
@@ -160,7 +167,7 @@ export default function StructurePage() {
     setEditorMode("create");
     setEditingNodeId(null);
     setParentId(parent?.id || null);
-    setNodeType(getDefaultNarrativeType(parent?.type));
+    setNodeType(getDefaultNarrativeTypeForProject(projectType, parent?.type));
     setTitle("");
     setDescription("");
     setOrder("");
@@ -253,9 +260,9 @@ export default function StructurePage() {
             <Link href={`/project/${projectId}`} className="text-sm text-narra-muted hover:text-narra-text">
               ← Retour
             </Link>
-            <h1 className="mt-2 text-xl font-bold">Structure narrative</h1>
+            <h1 className="mt-2 text-xl font-bold">{projectFormat.structure.title}</h1>
             <p className="mt-1 max-w-2xl text-sm text-narra-muted">
-              Construisez librement votre saga, série, roman, scénario, BD ou récit à embranchements.
+              {projectFormat.structure.description}
             </p>
           </div>
           <button onClick={() => startCreate(null)} className="btn-primary self-start">
@@ -274,7 +281,7 @@ export default function StructurePage() {
           ) : visibleNodes.length === 0 ? (
             <div className="p-8 text-center text-narra-muted sm:p-12">
               <p>Votre structure est vide.</p>
-              <p className="mt-2 text-sm">Commencez par une saison, un volume, un acte ou un chapitre.</p>
+              <p className="mt-2 text-sm">{projectFormat.structure.emptyHint}</p>
               <button onClick={() => startCreate(null)} className="btn-primary mt-5">
                 Créer le premier niveau
               </button>
@@ -316,7 +323,7 @@ export default function StructurePage() {
                       </span>
                     </button>
                     <span className="hidden shrink-0 text-xs tabular-nums text-narra-muted sm:block">
-                      {node._count.scenes} scène{node._count.scenes === 1 ? "" : "s"}
+                      {node._count.scenes} {projectFormat.content[node._count.scenes === 1 ? "singular" : "plural"]}
                     </span>
                     <button
                       type="button"
@@ -373,7 +380,7 @@ export default function StructurePage() {
                     const nextParent = allNodes.find((node) => node.id === nextParentId);
                     setParentId(nextParentId);
                     if (editorMode === "create") {
-                      setNodeType(getDefaultNarrativeType(nextParent?.type));
+                      setNodeType(getDefaultNarrativeTypeForProject(projectType, nextParent?.type));
                     }
                   }}
                 >
@@ -394,24 +401,17 @@ export default function StructurePage() {
                   value={nodeType}
                   onChange={(event) => setNodeType(event.target.value)}
                 >
-                  {!NARRATIVE_NODE_TYPES.some(({ value }) => value === nodeType) && (
-                    <option value={nodeType}>{nodeType}</option>
+                  {!suggestedTypes.some((type) => type === nodeType) && (
+                    <option value={nodeType}>{NARRATIVE_NODE_TYPE_LABELS[nodeType] || nodeType}</option>
                   )}
-                  <optgroup label="Conseillés ici">
+                  <optgroup label={`Adaptés au format ${projectFormat.label}`}>
                     {NARRATIVE_NODE_TYPES.filter(({ value }) => suggestedTypes.includes(value)).map(
                       (type) => <option key={type.value} value={type.value}>{type.label}</option>
                     )}
                   </optgroup>
-                  {otherTypes.length > 0 && (
-                    <optgroup label="Autres structures">
-                      {otherTypes.map((type) => (
-                        <option key={type.value} value={type.value}>{type.label}</option>
-                      ))}
-                    </optgroup>
-                  )}
                 </select>
                 <p className="mt-1.5 text-xs text-narra-muted">
-                  Les suggestions guident la structure sans limiter votre organisation.
+                  Les choix proposés suivent le type du projet. « Personnalisé » reste disponible pour les cas particuliers.
                 </p>
               </div>
 
@@ -423,7 +423,7 @@ export default function StructurePage() {
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   maxLength={200}
-                  placeholder="Ex. Saison 2"
+                  placeholder={projectFormat.structure.titlePlaceholder}
                   required
                 />
               </div>
@@ -477,7 +477,7 @@ export default function StructurePage() {
                         {deletedNodeCount > 1
                           ? `${deletedNodeCount} niveaux seront supprimés. `
                           : "Ce niveau sera supprimé. "}
-                        Les scènes seront conservées sans rattachement.
+                        Leur contenu sera conservé sans rattachement.
                       </p>
                       <div className="flex gap-2">
                         <button type="button" onClick={handleDelete} className="btn-danger flex-1" disabled={saving}>

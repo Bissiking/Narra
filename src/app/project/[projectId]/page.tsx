@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { getProjectFormat } from "@/lib/editor-profiles";
 
 interface ProjectPageProps {
   params: { projectId: string };
@@ -43,6 +44,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       _count: { select: { blocks: true } },
     },
   });
+  const projectFormat = getProjectFormat(project.type);
 
   return (
     <div className="min-h-screen">
@@ -77,7 +79,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
                   <h2 className="text-2xl font-bold mb-2">{project.name}</h2>
                   <div className="flex gap-2">
                     <span className="badge border-narra-accent text-narra-accent">
-                      {project.type}
+                      {projectFormat.label}
                     </span>
                     <span className="badge border-narra-border text-narra-muted">
                       {project.status}
@@ -103,9 +105,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
             {/* Recent scenes */}
             <div className="card p-6">
-              <h3 className="font-bold mb-4">Scènes récentes</h3>
+              <h3 className="font-bold mb-4">{projectFormat.content.recentLabel}</h3>
               {recentScenes.length === 0 ? (
-                <p className="text-narra-muted text-sm">Aucune scène pour le moment.</p>
+                <p className="text-narra-muted text-sm">{projectFormat.content.emptyLabel} pour le moment.</p>
               ) : (
                 <div className="space-y-2">
                   {recentScenes.map((scene) => (
@@ -143,7 +145,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
                   <span className="font-mono">{totalWordCount._sum.wordCount || 0}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-narra-muted">Scènes</span>
+                  <span className="text-narra-muted">{projectFormat.content.plural[0].toUpperCase() + projectFormat.content.plural.slice(1)}</span>
                   <span className="font-mono">{project._count.scenes}</span>
                 </div>
                 <div className="flex justify-between">
@@ -177,13 +179,13 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
                   href={`/project/${project.id}/structure`}
                   className="block p-2 hover:bg-narra-border/30 transition-colors"
                 >
-                  Structure narrative
+                  {projectFormat.structure.title}
                 </Link>
                 <Link
                   href={`/project/${project.id}/scenes`}
                   className="block p-2 hover:bg-narra-border/30 transition-colors"
                 >
-                  Scènes
+                  {projectFormat.content.plural[0].toUpperCase() + projectFormat.content.plural.slice(1)}
                 </Link>
                 <Link
                   href={`/project/${project.id}/characters`}

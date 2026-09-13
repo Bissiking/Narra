@@ -23,15 +23,15 @@ export default async function ProjectLayout({
       ownerId: session.userId,
       deletedAt: null,
     },
-    select: { id: true },
+    select: { id: true, type: true },
   });
 
   if (!project) notFound();
 
   return (
-    <div className="min-h-screen flex">
-      <ProjectNav projectId={params.projectId} />
-      <main className="flex-1 overflow-hidden">{children}</main>
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <ProjectNav projectId={params.projectId} projectType={project.type} />
+      <main className="min-w-0 flex-1 overflow-hidden">{children}</main>
     </div>
   );
 }

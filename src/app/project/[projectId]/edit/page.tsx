@@ -19,6 +19,7 @@ import {
 import SceneBlockItem from "@/components/scene-block-item";
 import SceneScriptImporter from "@/components/scene-script-importer";
 import type { ParsedSceneScriptBlock } from "@/lib/scene-script-parser";
+import { getEditorProfile, getProjectFormat } from "@/lib/editor-profiles";
 
 interface Scene {
   id: string;
@@ -75,6 +76,7 @@ export default function EditPage() {
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [structure, setStructure] = useState<NarrativeNode[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [projectType, setProjectType] = useState("story");
   const [selectedScene, setSelectedScene] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<SceneBlock[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,14 +100,16 @@ export default function EditPage() {
   // Load data
   useEffect(() => {
     async function loadData() {
-      const [scenesRes, structureRes, charsRes] = await Promise.all([
+      const [scenesRes, structureRes, charsRes, projectRes] = await Promise.all([
         fetch(`/api/projects/${projectId}/scenes`),
         fetch(`/api/projects/${projectId}/narrative-nodes`),
         fetch(`/api/projects/${projectId}/characters`),
+        fetch(`/api/projects/${projectId}`),
       ]);
       if (scenesRes.ok) setScenes(await scenesRes.json());
       if (structureRes.ok) setStructure(await structureRes.json());
       if (charsRes.ok) setCharacters(await charsRes.json());
+      if (projectRes.ok) setProjectType((await projectRes.json()).type || "story");
       setLoading(false);
     }
     loadData();
@@ -313,6 +317,9 @@ export default function EditPage() {
   const planBlocks = blocks.filter((block) => block.type === "heading");
   const wordCount = blocks.reduce((acc, b) => acc + (["music", "sfx", "background"].includes(b.type) ? 0 : b.content.split(/\s+/).filter(Boolean).length), 0);
   const totalWords = scenes.reduce((acc, s) => acc + s.wordCount, 0);
+  const editorProfile = getEditorProfile(projectType);
+  const projectFormat = getProjectFormat(projectType);
+  const editorWidth = editorProfile.key === "comic" ? "max-w-6xl" : editorProfile.key === "screenplay" || editorProfile.key === "universe" ? "max-w-5xl" : editorProfile.key === "manuscript" ? "max-w-4xl" : "max-w-3xl";
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -322,8 +329,8 @@ export default function EditPage() {
           <Link href={`/project/${projectId}`} className="text-narra-muted hover:text-narra-text text-sm">← Projet</Link>
           <div className="mt-2 flex items-center justify-between">
             <div>
-              <h2 className="font-bold text-sm">Éditeur</h2>
-              <p className="text-xs text-narra-muted mt-0.5">{scenes.length} scènes · {totalWords.toLocaleString("fr-FR")} mots</p>
+              <h2 className="font-bold text-sm">{projectFormat.nav.edit}</h2>
+              <p className="text-xs text-narra-muted mt-0.5">{scenes.length} {projectFormat.content[scenes.length === 1 ? "singular" : "plural"]} · {totalWords.toLocaleString("fr-FR")} mots</p>
             </div>
             <div className="flex items-center gap-2">
               {onlineUsers.size > 0 && (
@@ -341,7 +348,7 @@ export default function EditPage() {
 
         {showCreateScene && (
           <form onSubmit={handleCreateScene} className="space-y-2 border-b border-narra-border p-3">
-            <input className="input text-sm" value={newSceneTitle} onChange={(e) => setNewSceneTitle(e.target.value)} placeholder="Titre de la scène" autoFocus required />
+            <input className="input text-sm" value={newSceneTitle} onChange={(e) => setNewSceneTitle(e.target.value)} placeholder={projectFormat.content.titlePlaceholder} aria-label={`Titre ${projectFormat.content.ofDefinite}`} autoFocus required />
             <select className="select text-sm" value={newSceneNodeId} onChange={(e) => setNewSceneNodeId(e.target.value)}>
               <option value="">Sans rattachement</option>
               {nodeOptions.map((n) => <option key={n.id} value={n.id}>{`${"— ".repeat(n.depth)}${n.title}`}</option>)}
@@ -394,8 +401,8 @@ export default function EditPage() {
                 )}
                 <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-narra-muted">
                   <span>{wordCount} mots</span>
-                  <span>{blocks.length} blocs</span>
-                  <span>{selectedBlockIndex >= 0 ? `Bloc actif #${selectedBlockIndex + 1}` : "Ajout en fin de scène"}</span>
+                  <span>{blocks.length} {editorProfile.unit[blocks.length === 1 ? 0 : 1]}</span>
+                  <span>{selectedBlockIndex >= 0 ? `Bloc actif #${selectedBlockIndex + 1}` : `Ajout à la fin ${projectFormat.content.ofDefinite}`}</span>
                   <span>Ctrl + Entrée : insérer après</span>
                   {lastSaved && <span>Sauvé {lastSaved.toLocaleTimeString("fr-FR")}</span>}
                   {saving && <span className="text-narra-accent">…</span>}
@@ -422,13 +429,12 @@ export default function EditPage() {
                   </select>
                 )}
                 <button onClick={() => setShowMetadata(!showMetadata)} className="btn-ghost text-xs px-2 py-1">Meta</button>
-                <button onClick={() => addBlock("narration", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Narr</button>
-                <button onClick={() => addBlock("dialogue", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Dial</button>
-                <button onClick={() => addBlock("action", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Act</button>
-                <button onClick={() => addBlock("heading", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Plan</button>
-                <button onClick={() => addBlock("background", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Fond</button>
-                <button onClick={() => addBlock("music", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Musique</button>
-                <button onClick={() => addBlock("sfx", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+SFX</button>
+                <span className="hidden border-r border-narra-border pr-2 text-xs text-narra-muted xl:inline">{editorProfile.label}</span>
+                {editorProfile.blocks.map((blockType) => (
+                  <button key={blockType.value} onClick={() => addBlock(blockType.value, selectedBlockId)} className="btn-ghost px-2 py-1 text-xs">
+                    +{blockType.shortLabel}
+                  </button>
+                ))}
                 <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} compact />
                 <button onClick={saveBlocks} className="btn-primary text-xs px-2 py-1">Sauver</button>
                 <button onClick={deleteScene} className="text-xs text-narra-danger px-2 py-1 hover:text-narra-danger">🗑</button>
@@ -477,11 +483,11 @@ export default function EditPage() {
             )}
 
             {/* Blocks */}
-            <div className="mx-auto min-h-0 w-full max-w-3xl flex-1 overflow-y-auto p-4 scrollbar-thin">
+            <div className={`mx-auto min-h-0 w-full ${editorWidth} flex-1 overflow-y-auto p-4 scrollbar-thin`}>
               {blocks.length === 0 ? (
                 <div className="text-center py-16 text-narra-muted">
                   <p className="mb-3 text-sm">Aucun bloc.</p>
-                  <button onClick={() => addBlock("narration")} className="btn-primary text-sm">Commencer à écrire</button>
+                  <button onClick={() => addBlock(editorProfile.blocks[0].value)} className="btn-primary text-sm">Commencer à écrire</button>
                 </div>
               ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -498,6 +504,7 @@ export default function EditPage() {
                           onSelect={setSelectedBlockId}
                           selected={selectedBlockId === block.id}
                           projectId={projectId}
+                          projectType={projectType}
                         />
                       ))}
                     </div>
@@ -509,8 +516,8 @@ export default function EditPage() {
         ) : (
           <div className="flex-1 flex items-center justify-center text-narra-muted">
             <div className="text-center">
-              <p className="text-lg mb-1">Sélectionnez une scène</p>
-              <p className="text-sm">ou créez-en une nouvelle</p>
+              <p className="text-lg mb-1">Sélectionnez {projectFormat.content.indefinite}</p>
+              <p className="text-sm">ou utilisez + pour créer votre premier contenu</p>
             </div>
           </div>
         )}

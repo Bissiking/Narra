@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { getProjectFormat } from "@/lib/editor-profiles";
 
 interface SearchResult {
   type: string;
@@ -29,6 +30,13 @@ export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [projectType, setProjectType] = useState("story");
+
+  useEffect(() => {
+    fetch(`/api/projects/${projectId}`).then(async (response) => {
+      if (response.ok) setProjectType((await response.json()).type || "story");
+    });
+  }, [projectId]);
 
   const search = useCallback(async (q: string) => {
     if (q.length < 2) {
@@ -54,6 +62,8 @@ export default function SearchPage() {
     return () => clearTimeout(timeout);
   }, [query, search]);
 
+  const projectFormat = getProjectFormat(projectType);
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-narra-border">
@@ -71,7 +81,7 @@ export default function SearchPage() {
           className="input text-lg"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher un personnage, lieu, scène..."
+          placeholder={`Rechercher un personnage, un lieu, ${projectFormat.content.indefinite}…`}
           autoFocus
         />
 
@@ -93,7 +103,9 @@ export default function SearchPage() {
                   className="card p-4 flex items-center gap-4 hover:border-narra-accent transition-colors"
                 >
                   <span className="badge border-narra-border text-xs">
-                    {TYPE_LABELS[result.type] || result.type}
+                    {result.type === "scene"
+                      ? projectFormat.content.singular[0].toUpperCase() + projectFormat.content.singular.slice(1)
+                      : TYPE_LABELS[result.type] || result.type}
                   </span>
                   <div className="flex-1">
                     <div className="font-medium">{result.title}</div>

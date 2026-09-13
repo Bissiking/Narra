@@ -19,6 +19,7 @@ import {
 import SceneBlockItem from "@/components/scene-block-item";
 import SceneScriptImporter from "@/components/scene-script-importer";
 import type { ParsedSceneScriptBlock } from "@/lib/scene-script-parser";
+import { getEditorProfile, getProjectFormat } from "@/lib/editor-profiles";
 
 interface SceneDetail {
   id: string;
@@ -121,6 +122,7 @@ export default function SceneDetailPage() {
   const [blocks, setBlocks] = useState<SceneBlock[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [structure, setStructure] = useState<NarrativeNode[]>([]);
+  const [projectType, setProjectType] = useState("story");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -139,12 +141,13 @@ export default function SceneDetailPage() {
   // Load scene data
   useEffect(() => {
     async function load() {
-      const [sceneRes, blocksRes, charsRes, structRes, locsRes] = await Promise.all([
+      const [sceneRes, blocksRes, charsRes, structRes, locsRes, projectRes] = await Promise.all([
         fetch(`/api/projects/${projectId}/scenes/${sceneId}`),
         fetch(`/api/scenes/${sceneId}/blocks`),
         fetch(`/api/projects/${projectId}/characters`),
         fetch(`/api/projects/${projectId}/narrative-nodes`),
         fetch(`/api/projects/${projectId}/locations`),
+        fetch(`/api/projects/${projectId}`),
       ]);
 
       if (sceneRes.ok) {
@@ -163,6 +166,7 @@ export default function SceneDetailPage() {
       if (blocksRes.ok) setBlocks(await blocksRes.json());
       if (charsRes.ok) setCharacters(await charsRes.json());
       if (structRes.ok) setStructure(await structRes.json());
+      if (projectRes.ok) setProjectType((await projectRes.json()).type || "story");
       setLoading(false);
     }
     load();
@@ -406,6 +410,9 @@ export default function SceneDetailPage() {
 
   const nodeOptions = flattenNarrativeNodes(structure);
   const wordCount = blocks.reduce((acc, b) => acc + (["music", "sfx", "background"].includes(b.type) ? 0 : b.content.split(/\s+/).filter(Boolean).length), 0);
+  const editorProfile = getEditorProfile(projectType);
+  const projectFormat = getProjectFormat(projectType);
+  const editorWidth = editorProfile.key === "comic" ? "max-w-6xl" : editorProfile.key === "screenplay" || editorProfile.key === "universe" ? "max-w-5xl" : editorProfile.key === "manuscript" ? "max-w-4xl" : "max-w-3xl";
   const onlineCount = onlineUsers.size;
 
   return (
@@ -415,7 +422,7 @@ export default function SceneDetailPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href={`/project/${projectId}/scenes`} className="text-narra-muted hover:text-narra-text text-sm">
-              ← Scènes
+              ← {projectFormat.content.plural}
             </Link>
             {editTitle ? (
               <input
@@ -443,7 +450,7 @@ export default function SceneDetailPage() {
               </span>
             )}
             <span>{wordCount} mots</span>
-            <span>{blocks.length} blocs</span>
+            <span>{blocks.length} {editorProfile.unit[blocks.length === 1 ? 0 : 1]}</span>
             {lastSaved && <span>Sauvegardé {lastSaved.toLocaleTimeString("fr-FR")}</span>}
             {saving && <span className="text-narra-accent">Sauvegarde...</span>}
             <button onClick={() => setShowSettings(!showSettings)} className="btn-ghost text-xs">
@@ -528,16 +535,15 @@ export default function SceneDetailPage() {
       )}
 
       {/* Block editor */}
-      <div className="flex-1 overflow-y-auto p-6 max-w-3xl mx-auto w-full">
+      <div className={`mx-auto w-full ${editorWidth} flex-1 overflow-y-auto p-6`}>
         {/* Block type buttons */}
-        <div className="flex gap-2 mb-6 sticky top-0 bg-narra-bg/80 backdrop-blur-sm py-2 z-10">
-          <button onClick={() => addBlock("narration")} className="btn-ghost text-sm">+ Narration</button>
-          <button onClick={() => addBlock("dialogue")} className="btn-ghost text-sm">+ Dialogue</button>
-          <button onClick={() => addBlock("action")} className="btn-ghost text-sm">+ Action</button>
-          <button onClick={() => addBlock("heading")} className="btn-ghost text-sm">+ Titre</button>
-          <button onClick={() => addBlock("background")} className="btn-ghost text-sm">+ Arrière-plan</button>
-          <button onClick={() => addBlock("music")} className="btn-ghost text-sm">+ Musique</button>
-          <button onClick={() => addBlock("sfx")} className="btn-ghost text-sm">+ SFX</button>
+        <div className="sticky top-0 z-10 mb-6 flex flex-wrap gap-2 bg-narra-bg/80 py-2 backdrop-blur-sm">
+          <span className="self-center border-r border-narra-border pr-3 text-xs text-narra-muted">{editorProfile.label}</span>
+          {editorProfile.blocks.map((blockType) => (
+            <button key={blockType.value} onClick={() => addBlock(blockType.value)} className="btn-ghost text-sm">
+              + {blockType.shortLabel}
+            </button>
+          ))}
           <div className="flex-1" />
           <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} />
           <button onClick={saveBlocks} className="btn-primary text-sm">Sauvegarder</button>
@@ -545,8 +551,8 @@ export default function SceneDetailPage() {
 
         {blocks.length === 0 ? (
           <div className="text-center py-12 text-narra-muted">
-            <p className="mb-4">Aucun bloc dans cette scène.</p>
-            <button onClick={() => addBlock("narration")} className="btn-primary">Commencer à écrire</button>
+            <p className="mb-4">Aucun bloc dans {projectFormat.content.definite}.</p>
+            <button onClick={() => addBlock(editorProfile.blocks[0].value)} className="btn-primary">Commencer à écrire</button>
           </div>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -560,6 +566,7 @@ export default function SceneDetailPage() {
                     onUpdate={updateBlock}
                     onRemove={removeBlock}
                     projectId={projectId}
+                    projectType={projectType}
                   />
                 ))}
               </div>

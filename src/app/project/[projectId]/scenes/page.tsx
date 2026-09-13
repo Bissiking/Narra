@@ -19,6 +19,7 @@ import {
 import SceneBlockItem from "@/components/scene-block-item";
 import SceneScriptImporter from "@/components/scene-script-importer";
 import type { ParsedSceneScriptBlock } from "@/lib/scene-script-parser";
+import { getEditorProfile, getProjectFormat } from "@/lib/editor-profiles";
 
 interface Scene {
   id: string;
@@ -111,6 +112,7 @@ export default function ScenesPage() {
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [structure, setStructure] = useState<NarrativeNode[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [projectType, setProjectType] = useState("story");
   const [selectedScene, setSelectedScene] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<SceneBlock[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,15 +127,17 @@ export default function ScenesPage() {
   // Load data
   useEffect(() => {
     async function loadData() {
-      const [scenesRes, structureRes, charsRes] = await Promise.all([
+      const [scenesRes, structureRes, charsRes, projectRes] = await Promise.all([
         fetch(`/api/projects/${projectId}/scenes`),
         fetch(`/api/projects/${projectId}/narrative-nodes`),
         fetch(`/api/projects/${projectId}/characters`),
+        fetch(`/api/projects/${projectId}`),
       ]);
 
       if (scenesRes.ok) setScenes(await scenesRes.json());
       if (structureRes.ok) setStructure(await structureRes.json());
       if (charsRes.ok) setCharacters(await charsRes.json());
+      if (projectRes.ok) setProjectType((await projectRes.json()).type || "story");
 
       setLoading(false);
     }
@@ -308,6 +312,9 @@ export default function ScenesPage() {
     ? nodeMetadata.get(selectedSceneData.node.id)?.path
     : undefined;
   const wordCount = blocks.reduce((acc, b) => acc + (["music", "sfx", "background"].includes(b.type) ? 0 : b.content.split(/\s+/).filter(Boolean).length), 0);
+  const editorProfile = getEditorProfile(projectType);
+  const projectFormat = getProjectFormat(projectType);
+  const editorWidth = editorProfile.key === "comic" ? "max-w-6xl" : editorProfile.key === "screenplay" || editorProfile.key === "universe" ? "max-w-5xl" : editorProfile.key === "manuscript" ? "max-w-4xl" : "max-w-3xl";
 
   return (
     <div className="min-h-screen md:flex">
@@ -318,7 +325,7 @@ export default function ScenesPage() {
             ← Retour
           </Link>
           <div className="mt-2 flex items-center justify-between gap-3">
-            <h2 className="font-bold">Scènes</h2>
+            <h2 className="font-bold">{projectFormat.content.plural}</h2>
             <button
               type="button"
               onClick={() => {
@@ -328,7 +335,7 @@ export default function ScenesPage() {
               className="btn-primary px-2 py-1 text-xs"
               aria-expanded={showCreateScene}
             >
-              {showCreateScene ? "Fermer" : "+ Nouvelle"}
+              {showCreateScene ? "Fermer" : `+ ${projectFormat.content.newLabel}`}
             </button>
           </div>
         </div>
@@ -342,7 +349,7 @@ export default function ScenesPage() {
                 className="input"
                 value={newSceneTitle}
                 onChange={(event) => setNewSceneTitle(event.target.value)}
-                placeholder="Ex. L’arrivée"
+                placeholder={projectFormat.content.titlePlaceholder}
                 autoFocus
                 required
               />
@@ -364,13 +371,13 @@ export default function ScenesPage() {
               </select>
               {nodeOptions.length === 0 && (
                 <p className="mt-2 text-xs text-narra-muted">
-                  Vous pourrez rattacher les scènes après avoir créé une structure.
+                  Vous pourrez rattacher les {projectFormat.content.plural} après avoir créé une structure.
                 </p>
               )}
             </div>
             {createError && <p role="alert" className="text-xs text-narra-danger">{createError}</p>}
             <button type="submit" className="btn-primary w-full" disabled={creatingScene}>
-              {creatingScene ? "Création…" : "Créer la scène"}
+              {creatingScene ? "Création…" : `Créer ${projectFormat.content.definite}`}
             </button>
           </form>
         )}
@@ -378,8 +385,8 @@ export default function ScenesPage() {
         <div className="max-h-72 flex-1 overflow-y-auto scrollbar-thin p-2 md:max-h-none">
           {scenes.length === 0 ? (
             <div className="p-3 text-sm text-narra-muted">
-              <p>Aucune scène.</p>
-              <p className="mt-1 text-xs">Créez-en une et choisissez sa saison, son épisode ou son chapitre.</p>
+              <p>{projectFormat.content.emptyLabel}.</p>
+              <p className="mt-1 text-xs">Créez votre premier contenu et rattachez-le à la structure du projet.</p>
             </div>
           ) : (
             sceneGroups.map((group) => (
@@ -427,7 +434,7 @@ export default function ScenesPage() {
                 <h2 className="font-bold">{selectedSceneData?.title}</h2>
                 <div className="flex gap-4 text-sm text-narra-muted mt-1">
                   <span>{wordCount} mots</span>
-                  <span>{blocks.length} blocs</span>
+                  <span>{blocks.length} {editorProfile.unit[blocks.length === 1 ? 0 : 1]}</span>
                   {lastSaved && (
                     <span>
                       Sauvegardé {lastSaved.toLocaleTimeString("fr-FR")}
@@ -437,22 +444,13 @@ export default function ScenesPage() {
                 </div>
               </div>
 
-              <div className="flex gap-2">
-                <button onClick={() => addBlock("narration")} className="btn-ghost text-sm">
-                  + Narration
-                </button>
-                <button onClick={() => addBlock("dialogue")} className="btn-ghost text-sm">
-                  + Dialogue
-                </button>
-                <button onClick={() => addBlock("action")} className="btn-ghost text-sm">
-                  + Action
-                </button>
-                <button onClick={() => addBlock("heading")} className="btn-ghost text-sm">
-                  + Titre
-                </button>
-                <button onClick={() => addBlock("background")} className="btn-ghost text-sm">+ Arrière-plan</button>
-                <button onClick={() => addBlock("music")} className="btn-ghost text-sm">+ Musique</button>
-                <button onClick={() => addBlock("sfx")} className="btn-ghost text-sm">+ SFX</button>
+              <div className="flex flex-wrap gap-2">
+                <span className="self-center border-r border-narra-border pr-3 text-xs text-narra-muted">{editorProfile.label}</span>
+                {editorProfile.blocks.map((blockType) => (
+                  <button key={blockType.value} onClick={() => addBlock(blockType.value)} className="btn-ghost text-sm">
+                    + {blockType.shortLabel}
+                  </button>
+                ))}
                 <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} />
                 <button onClick={saveBlocks} className="btn-primary text-sm">
                   Sauvegarder
@@ -461,11 +459,11 @@ export default function ScenesPage() {
             </header>
 
             {/* Blocks */}
-            <div className="flex-1 overflow-y-auto p-6 max-w-3xl mx-auto w-full">
+            <div className={`mx-auto w-full ${editorWidth} flex-1 overflow-y-auto p-6`}>
               {blocks.length === 0 ? (
                 <div className="text-center py-12 text-narra-muted">
-                  <p className="mb-4">Aucun bloc dans cette scène.</p>
-                  <button onClick={() => addBlock("narration")} className="btn-primary">
+                  <p className="mb-4">Aucun bloc dans {projectFormat.content.definite}.</p>
+                  <button onClick={() => addBlock(editorProfile.blocks[0].value)} className="btn-primary">
                     Commencer à écrire
                   </button>
                 </div>
@@ -481,6 +479,7 @@ export default function ScenesPage() {
                           onUpdate={updateBlock}
                           onRemove={removeBlock}
                           projectId={projectId}
+                          projectType={projectType}
                         />
                       ))}
                     </div>
@@ -492,8 +491,8 @@ export default function ScenesPage() {
         ) : (
           <div className="flex-1 flex items-center justify-center text-narra-muted">
             <div className="text-center">
-              <p className="text-lg mb-2">Sélectionnez une scène</p>
-              <p className="text-sm">ou créez-en une nouvelle</p>
+              <p className="text-lg mb-2">Sélectionnez {projectFormat.content.indefinite}</p>
+              <p className="text-sm">ou créez votre premier contenu</p>
             </div>
           </div>
         )}

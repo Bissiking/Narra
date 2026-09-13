@@ -4,6 +4,8 @@ import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import MediaPicker from "@/components/media-picker";
+import { fallbackBlockLabels, getEditorProfile, type EditorBlockType } from "@/lib/editor-profiles";
+import editorStyles from "./scene-block-item.module.css";
 
 interface Character {
   id: string;
@@ -39,19 +41,8 @@ interface SceneBlockItemProps {
   onSelect?: (id: string) => void;
   selected?: boolean;
   projectId?: string;
+  projectType?: string;
 }
-
-const BLOCK_TYPES = [
-  { value: "narration", label: "Narration" },
-  { value: "dialogue", label: "Dialogue" },
-  { value: "action", label: "Action" },
-  { value: "heading", label: "Titre / plan" },
-  { value: "transition", label: "Transition" },
-  { value: "note", label: "Note" },
-  { value: "background", label: "Arrière-plan" },
-  { value: "music", label: "Musique" },
-  { value: "sfx", label: "SFX" },
-] as const;
 
 function SceneBlockItem({
   block,
@@ -62,6 +53,7 @@ function SceneBlockItem({
   onSelect,
   selected = false,
   projectId,
+  projectType = "story",
 }: SceneBlockItemProps) {
   const {
     attributes,
@@ -83,15 +75,28 @@ function SceneBlockItem({
   const isAudioBlock = block.type === "music" || block.type === "sfx";
   const isBackgroundBlock = block.type === "background";
   const audioAction = block.type === "music" ? block.audioAction || "play" : "play";
+  const profile = getEditorProfile(projectType);
+  const knownCurrentType = profile.blocks.some((type) => type.value === block.type);
+  const blockTypes = knownCurrentType
+    ? profile.blocks
+    : [
+        ...profile.blocks,
+        {
+          value: block.type as EditorBlockType,
+          label: fallbackBlockLabels[block.type as EditorBlockType] || block.type,
+          shortLabel: fallbackBlockLabels[block.type as EditorBlockType] || block.type,
+        },
+      ];
 
   return (
     <div
       ref={setNodeRef}
       id={`scene-block-${block.id}`}
       data-scene-block-id={block.id}
+      data-block-type={block.type}
       style={style}
       onFocusCapture={() => onSelect?.(block.id)}
-      className={`card group p-4 transition-colors ${
+      className={`${editorStyles.root} ${editorStyles[profile.key]} card group p-4 transition-colors ${
         selected ? "border-narra-accent bg-narra-accent/5" : ""
       } ${isDragging ? "opacity-50 border-narra-accent" : ""}`}
     >
@@ -114,7 +119,7 @@ function SceneBlockItem({
           </button>
         </div>
 
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <span className="font-mono text-[10px] tabular-nums text-narra-muted" aria-hidden="true">
               #{String(block.order + 1).padStart(3, "0")}
@@ -126,7 +131,7 @@ function SceneBlockItem({
               aria-label="Type du bloc"
               title="Changer le type du bloc"
             >
-              {BLOCK_TYPES.map((type) => (
+              {blockTypes.map((type) => (
                 <option key={type.value} value={type.value}>
                   {type.label}
                 </option>
@@ -145,7 +150,7 @@ function SceneBlockItem({
                 aria-label={`Insérer un bloc après le bloc ${block.order + 1}`}
               >
                 <option value="" disabled>+ Insérer après</option>
-                {BLOCK_TYPES.map((type) => (
+                {profile.blocks.map((type) => (
                   <option key={type.value} value={type.value}>{type.label}</option>
                 ))}
               </select>
@@ -171,7 +176,7 @@ function SceneBlockItem({
                   <option value="">Personnage...</option>
                   {characters.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.alias || `${c.firstName} ${c.lastName}`}
+                      {c.alias || [c.firstName, c.lastName].filter(Boolean).join(" ") || "Personnage sans nom"}
                     </option>
                   ))}
                 </select>
@@ -312,9 +317,13 @@ function SceneBlockItem({
                 : isBackgroundBlock
                 ? "Note facultative pour ce changement de décor..."
                 : block.type === "dialogue"
-                ? "Le dialogue..."
+                ? profile.key === "comic" ? "Texte de la bulle..." : "Le dialogue..."
                 : block.type === "heading"
-                ? "Titre..."
+                ? profile.key === "screenplay" ? "INT. / EXT. — LIEU — JOUR / NUIT" : "Titre..."
+                : block.type === "action" && profile.key === "comic"
+                ? "Décrivez la composition et l’action de la case..."
+                : profile.key === "manuscript"
+                ? "Continuez le récit..."
                 : "Écrivez ici..."
             }
             title={onInsertAfter ? "Ctrl + Entrée : insérer un bloc du même type après celui-ci" : undefined}

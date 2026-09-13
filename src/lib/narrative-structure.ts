@@ -1,3 +1,5 @@
+import { getProjectFormat } from "@/lib/editor-profiles";
+
 export const NARRATIVE_NODE_TYPES = [
   { value: "saga", label: "Saga" },
   { value: "cycle", label: "Cycle" },
@@ -65,4 +67,20 @@ export function getSuggestedNarrativeTypes(parentType?: string | null): Narrativ
 
 export function getDefaultNarrativeType(parentType?: string | null): NarrativeNodeType {
   return getSuggestedNarrativeTypes(parentType)[0] || "custom";
+}
+
+export function getNarrativeTypesForProject(
+  projectType: string,
+  parentType?: string | null
+): NarrativeNodeType[] {
+  const allowed = getProjectFormat(projectType).structure.nodeTypes as NarrativeNodeType[];
+  const contextual = getSuggestedNarrativeTypes(parentType).filter((type) => allowed.includes(type));
+  return contextual.length > 0 ? contextual : allowed;
+}
+
+export function getDefaultNarrativeTypeForProject(
+  projectType: string,
+  parentType?: string | null
+): NarrativeNodeType {
+  return getNarrativeTypesForProject(projectType, parentType)[0] || "custom";
 }
