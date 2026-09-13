@@ -1,142 +1,438 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import MediaPicker from "@/components/media-picker";
+import PromptWorkbench from "@/components/entities/prompt-workbench";
+import styles from "@/components/entities/entity-workspace.module.css";
 
-interface Location {
+type Location = {
   id: string;
   name: string;
   type: string | null;
   description: string | null;
   imageUrl: string | null;
+  textualLocation: string | null;
+  ambiance: string | null;
+  notes: string | null;
+  promptNotes: string | null;
+  parentId: string | null;
   parent: { id: string; name: string } | null;
   children: { id: string; name: string; type: string | null }[];
   _count: { scenes: number };
-}
+};
+const TABS = [
+  ["profile", "Fiche"],
+  ["structure", "Structure"],
+  ["prompts", "Prompts GPT"],
+] as const;
 
 export default function LocationsPage() {
-  const params = useParams();
-  const projectId = params.projectId as string;
+  const { projectId } = useParams() as { projectId: string };
+  const router = useRouter();
+  const query = useSearchParams();
+  const [items, setItems] = useState<Location[]>([]);
+  const [selectedId, setSelectedId] = useState(query.get("selected") || "");
+  const [location, setLocation] = useState<Location | null>(null);
+  const [tab, setTab] = useState<(typeof TABS)[number][0]>("profile");
+  const [form, setForm] = useState({
+    name: "",
+    type: "",
+    imageUrl: "",
+    parentId: "",
+    textualLocation: "",
+    ambiance: "",
+    description: "",
+    notes: "",
+    promptNotes: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function loadLocations() {
-      const res = await fetch(`/api/projects/${projectId}/locations`);
-      if (res.ok) setLocations(await res.json());
-      setLoading(false);
-    }
-    loadLocations();
+  const loadList = useCallback(async () => {
+    const response = await fetch(`/api/projects/${projectId}/locations`);
+    if (!response.ok) return;
+    const data: Location[] = await response.json();
+    setItems(data);
+    setSelectedId((current) => current || data[0]?.id || "");
   }, [projectId]);
-
-  const selected = locations.find((l) => l.id === selectedLocation);
-
-  // Build tree for display
-  const rootLocations = locations.filter((l) => !l.parent);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="text-narra-muted">Chargement...</span>
-      </div>
-    );
+  const load = useCallback(
+    async (id: string) => {
+      setLocation(null);
+      const response = await fetch(
+        `/api/projects/${projectId}/locations/${id}`,
+      );
+      if (!response.ok) return;
+      const value: Location = await response.json();
+      setLocation(value);
+      setForm({
+        name: value.name,
+        type: value.type || "",
+        imageUrl: value.imageUrl || "",
+        parentId: value.parentId || "",
+        textualLocation: value.textualLocation || "",
+        ambiance: value.ambiance || "",
+        description: value.description || "",
+        notes: value.notes || "",
+        promptNotes: value.promptNotes || "",
+      });
+    },
+    [projectId],
+  );
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
+  useEffect(() => {
+    if (selectedId) {
+      void load(selectedId);
+      router.replace(`/project/${projectId}/locations?selected=${selectedId}`, {
+        scroll: false,
+      });
+    }
+  }, [load, projectId, router, selectedId]);
+  function update(field: keyof typeof form, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
   }
+  async function save() {
+    if (!location) return;
+    setSaving(true);
+    setMessage("");
+    const response = await fetch(
+      `/api/projects/${projectId}/locations/${location.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, imageUrl: form.imageUrl || null, parentId: form.parentId || null }),
+      },
+    );
+    setSaving(false);
+    if (!response.ok) {
+      setMessage((await response.json()).error || "Enregistrement impossible");
+      return;
+    }
+    setMessage("Fiche enregistrée");
+    await load(location.id);
+    await loadList();
+  }
+  const context = useMemo(
+    () => ({
+      nom: form.name,
+      type: form.type,
+      position: form.textualLocation,
+      ambiance: form.ambiance,
+      description: form.description,
+      parent: location?.parent?.name || null,
+      sousLieux: location?.children.map((child) => child.name) || [],
+      scenes: location?._count.scenes || 0,
+    }),
+    [form, location],
+  );
+  const roots = items.filter((item) => !item.parentId);
 
   return (
-    <div className="min-h-screen flex">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-narra-border flex flex-col">
-        <div className="p-4 border-b border-narra-border">
-          <Link href={`/project/${projectId}`} className="text-narra-muted hover:text-narra-text text-sm">
-            ← Retour
+    <div className={styles.workspace}>
+      <aside className={styles.rail}>
+        <div className={styles.railHead}>
+          <Link
+            href={`/project/${projectId}`}
+            className="text-xs text-narra-muted hover:text-narra-text"
+          >
+            ← Projet
           </Link>
-          <div className="flex items-center justify-between mt-2">
-            <h2 className="font-bold">Lieux</h2>
-            <Link href={`/project/${projectId}/locations/new`} className="text-narra-accent text-sm">
+          <div className={styles.railTitle}>
+            <h1>Lieux</h1>
+            <Link
+              className={styles.add}
+              href={`/project/${projectId}/locations/new`}
+            >
               + Ajouter
             </Link>
           </div>
+          <select
+            className={`${styles.mobileSelect} select`}
+            value={selectedId}
+            onChange={(event) => setSelectedId(event.target.value)}
+          >
+            <option value="">Choisir un lieu</option>
+            {items.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
         </div>
-
-        <div className="flex-1 overflow-y-auto scrollbar-thin p-2">
-          {locations.length === 0 ? (
-            <p className="text-narra-muted text-sm p-2">Aucun lieu.</p>
-          ) : (
-            rootLocations.map((loc) => (
-              <div key={loc.id}>
-                <button
-                  onClick={() => setSelectedLocation(loc.id)}
-                  className={`w-full text-left p-3 mb-1 transition-colors ${
-                    selectedLocation === loc.id
-                      ? "bg-narra-accent/10 border-l-2 border-narra-accent"
-                      : "hover:bg-narra-border/30"
-                  }`}
-                >
-                  <div className="font-medium text-sm truncate">{loc.name}</div>
-                  <div className="text-xs text-narra-muted">
-                    {loc._count.scenes} scène{loc._count.scenes !== 1 ? "s" : ""}
+        <div className={styles.list}>
+          {roots.map((root) => (
+            <div key={root.id}>
+              <LocationButton
+                item={root}
+                active={selectedId === root.id}
+                select={setSelectedId}
+              />
+              {items
+                .filter((item) => item.parentId === root.id)
+                .map((child) => (
+                  <div key={child.id} className="ml-4">
+                    <LocationButton
+                      item={child}
+                      active={selectedId === child.id}
+                      select={setSelectedId}
+                    />
                   </div>
-                </button>
-                {loc.children.map((child) => (
-                  <button
-                    key={child.id}
-                    onClick={() => setSelectedLocation(child.id)}
-                    className={`w-full text-left p-3 mb-1 ml-4 text-sm transition-colors ${
-                      selectedLocation === child.id
-                        ? "bg-narra-accent/10 border-l-2 border-narra-accent"
-                        : "hover:bg-narra-border/30"
-                    }`}
-                  >
-                    <div className="truncate">{child.name}</div>
-                  </button>
                 ))}
-              </div>
-            ))
-          )}
+            </div>
+          ))}
         </div>
       </aside>
-
-      {/* Main */}
-      <main className="flex-1 overflow-y-auto">
-        {selected ? (
-          <div className="max-w-3xl mx-auto p-8">
-            <h1 className="text-2xl font-bold mb-2">{selected.name}</h1>
-            <Link href={`/project/${projectId}/locations/${selected.id}`} className="btn-ghost text-xs">Éditer</Link>
-
-            <div className="flex gap-2 mb-6">
-              {selected.type && (
-                <span className="badge border-narra-border">{selected.type}</span>
-              )}
-              {selected.parent && (
-                <span className="badge border-narra-border text-narra-muted">
-                  dans {selected.parent.name}
-                </span>
-              )}
-            </div>
-
-            {selected.description && (
-              <p className="text-narra-muted mb-6">{selected.description}</p>
-            )}
-
-            <div className="card p-4">
-              <h3 className="font-bold mb-2">Présence</h3>
-              <p className="text-sm text-narra-muted">
-                {selected._count.scenes} scène{selected._count.scenes !== 1 ? "s" : ""} se déroule{selected._count.scenes !== 1 ? "nt" : ""} ici
-              </p>
+      <main className={styles.content}>
+        {!location ? (
+          <div className={styles.empty}>
+            <div>
+              <p>{items.length ? "Sélectionnez un lieu" : "Aucun lieu"}</p>
+              <Link
+                className="btn-primary mt-4"
+                href={`/project/${projectId}/locations/new`}
+              >
+                Créer un lieu
+              </Link>
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center h-full text-narra-muted">
-            <div className="text-center">
-              <p className="text-lg mb-2">Sélectionnez un lieu</p>
-              <p className="text-sm">ou créez-en un nouveau</p>
+          <>
+            <header className={styles.toolbar}>
+              <div className={styles.identity}>
+                <h2>{location.name}</h2>
+                <p>{form.type || "Type non renseigné"}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span
+                  className={`${styles.status} ${message.includes("impossible") ? styles.error : ""}`}
+                >
+                  {message}
+                </span>
+                <button
+                  className="btn-primary"
+                  onClick={save}
+                  disabled={saving}
+                >
+                  {saving ? "Enregistrement…" : "Enregistrer"}
+                </button>
+              </div>
+            </header>
+            <nav className={styles.tabs} aria-label="Sections du lieu">
+              {TABS.map(([id, label]) => (
+                <button
+                  key={id}
+                  className={`${styles.tab} ${tab === id ? styles.tabActive : ""}`}
+                  onClick={() => setTab(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+            <div className={styles.panel}>
+              {tab === "profile" && (
+                <>
+                  <section className={styles.section}>
+                    <div className={styles.mediaRow}>
+                      <div>
+                        {form.imageUrl ? (
+                          <img
+                            className={styles.preview}
+                            src={form.imageUrl}
+                            alt=""
+                          />
+                        ) : (
+                          <div className={styles.preview} />
+                        )}
+                      </div>
+                      <div>
+                        <label className="label">Image du lieu</label>
+                        <MediaPicker
+                          projectId={projectId}
+                          value={form.imageUrl}
+                          onChange={(value) => update("imageUrl", value)}
+                          label="Choisir une image"
+                        />
+                      </div>
+                    </div>
+                  </section>
+                  <section className={styles.section}>
+                    <h3>Identité et atmosphère</h3>
+                    <div className={styles.fields}>
+                      <Field label="Nom">
+                        <input
+                          className="input"
+                          value={form.name}
+                          onChange={(event) =>
+                            update("name", event.target.value)
+                          }
+                        />
+                      </Field>
+                      <Field label="Type">
+                        <input
+                          className="input"
+                          value={form.type}
+                          onChange={(event) =>
+                            update("type", event.target.value)
+                          }
+                          placeholder="Ville, planète, bâtiment…"
+                        />
+                      </Field>
+                      <Field label="Position dans l’univers" wide>
+                        <input
+                          className="input"
+                          value={form.textualLocation}
+                          onChange={(event) =>
+                            update("textualLocation", event.target.value)
+                          }
+                        />
+                      </Field>
+                      <Field label="Ambiance" wide>
+                        <textarea
+                          className="textarea"
+                          rows={4}
+                          value={form.ambiance}
+                          onChange={(event) =>
+                            update("ambiance", event.target.value)
+                          }
+                        />
+                      </Field>
+                      <Field label="Description" wide>
+                        <textarea
+                          className="textarea"
+                          rows={7}
+                          value={form.description}
+                          onChange={(event) =>
+                            update("description", event.target.value)
+                          }
+                        />
+                      </Field>
+                      <Field label="Notes internes" wide>
+                        <textarea
+                          className="textarea"
+                          rows={5}
+                          value={form.notes}
+                          onChange={(event) =>
+                            update("notes", event.target.value)
+                          }
+                        />
+                      </Field>
+                    </div>
+                  </section>
+                </>
+              )}
+              {tab === "structure" && (
+                <>
+                  <section className={styles.section}>
+                    <h3>Place dans le monde</h3>
+                    <label>
+                      <span className="label">Lieu parent</span>
+                      <select
+                        className="select"
+                        value={form.parentId}
+                        onChange={(event) =>
+                          update("parentId", event.target.value)
+                        }
+                      >
+                        <option value="">Aucun — lieu racine</option>
+                        {items
+                          .filter((item) => item.id !== location.id)
+                          .map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  </section>
+                  <section className={styles.section}>
+                    <h3>Sous-lieux</h3>
+                    {location.children.length ? (
+                      <div className="divide-y divide-narra-border">
+                        {location.children.map((child) => (
+                          <button
+                            key={child.id}
+                            className="flex w-full justify-between py-3 text-left"
+                            onClick={() => setSelectedId(child.id)}
+                          >
+                            <span>{child.name}</span>
+                            <span className="text-xs text-narra-muted">
+                              {child.type || "Lieu"} →
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-narra-muted">
+                        Aucun sous-lieu.
+                      </p>
+                    )}
+                    <p className="mt-5 text-sm text-narra-muted">
+                      {location._count.scenes} scène
+                      {location._count.scenes !== 1 ? "s" : ""} se déroule
+                      {location._count.scenes !== 1 ? "nt" : ""} ici.
+                    </p>
+                  </section>
+                </>
+              )}
+              {tab === "prompts" && (
+                <PromptWorkbench
+                  kind="lieu"
+                  name={location.name}
+                  context={context}
+                  notes={form.promptNotes}
+                  onNotesChange={(value) => update("promptNotes", value)}
+                  onSave={save}
+                  saving={saving}
+                />
+              )}
             </div>
-          </div>
+          </>
         )}
       </main>
     </div>
+  );
+}
+
+function LocationButton({
+  item,
+  active,
+  select,
+}: {
+  item: Location;
+  active: boolean;
+  select: (id: string) => void;
+}) {
+  return (
+    <button
+      className={`${styles.item} ${active ? styles.active : ""}`}
+      onClick={() => select(item.id)}
+    >
+      <span className={styles.avatar}>{item.name[0]}</span>
+      <span className={styles.itemText}>
+        <strong>{item.name}</strong>
+        <span>
+          {item._count.scenes} scène{item._count.scenes !== 1 ? "s" : ""}
+        </span>
+      </span>
+    </button>
+  );
+}
+function Field({
+  label,
+  wide,
+  children,
+}: {
+  label: string;
+  wide?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className={wide ? styles.wide : ""}>
+      <span className="label">{label}</span>
+      {children}
+    </label>
   );
 }

@@ -228,6 +228,8 @@ model Character {
   weaknesses  String?
   notes       String?
   quotes      String? @map("important_quotes")
+  wikiSections Json   @default("[]") @map("wiki_sections")
+  promptNotes String? @map("prompt_notes")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -302,6 +304,7 @@ model Location {
   textualLocation String? @map("textual_location")
   ambiance        String?
   notes           String?
+  promptNotes     String? @map("prompt_notes")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -332,6 +335,7 @@ model Organization {
   type        String?
   status      String? @default("active")
   notes       String?
+  promptNotes String? @map("prompt_notes")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")

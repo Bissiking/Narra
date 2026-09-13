@@ -133,7 +133,8 @@
 .comicCaption strong { display: block; margin-bottom: .35rem; font-size: .75rem; text-transform: uppercase; }
 .comicCaption p { font-family: "Source Serif 4", Georgia, serif; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
 
-.vnStage { position: fixed; inset: 0; width: 100%; min-height: 100svh; isolation: isolate; overflow: hidden; background-color: var(--reader-bg); background-size: cover; background-position: center; }
+.vnStage { position: fixed; inset: 0; width: 100%; min-height: 100svh; isolation: isolate; overflow: hidden; background-color: color-mix(in srgb, var(--reader-bg), #fff 5%); background-size: cover; background-position: center; }
+.vnStage::before { content: attr(data-project-letter); position: absolute; z-index: -1; inset: 0; display: grid; place-items: center; color: color-mix(in srgb, var(--reader-ink), transparent 96%); font-size: min(68vw, 52rem); font-weight: 800; line-height: .75; }
 .vnShade { position: absolute; inset: 0; z-index: 0; background: linear-gradient(0deg, rgba(0,0,0,.82) 0%, rgba(0,0,0,.22) 58%, rgba(0,0,0,.48) 100%), radial-gradient(circle at center, transparent 30%, rgba(0,0,0,.28) 100%); }
 .vnProgress { position: absolute; z-index: 20; top: 0; left: 0; right: 0; height: 2px; background: rgba(255,255,255,.14); }
 .vnProgress span { display: block; width: 100%; height: 100%; background: var(--reader-accent); transform-origin: left; transition: transform 320ms cubic-bezier(.2,.8,.2,1); }

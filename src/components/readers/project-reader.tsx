@@ -93,7 +93,7 @@ function RestartIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M5.5 15a7 7 0 1 0 1.2-7.9L4 10" /></svg>;
 }
 
-export default function ProjectReader({ project, scenes }: { project: Project; scenes: Scene[] }) {
+export default function ProjectReader({ project, scenes, exitHref }: { project: Project; scenes: Scene[]; exitHref?: string }) {
   const variables = {
     "--reader-bg": project.pageBackgroundColor,
     "--reader-ink": project.pageTextColor,
@@ -101,20 +101,20 @@ export default function ProjectReader({ project, scenes }: { project: Project; s
   } as CSSProperties;
 
   if (scenes.length === 0) {
-    return <EmptyReader project={project} variables={variables} />;
+    return <EmptyReader project={project} variables={variables} exitHref={exitHref} />;
   }
 
   if (project.type === "vn" || project.pageTheme === "visual-novel") {
-    return <VisualNovelReader project={project} scenes={scenes} variables={variables} />;
+    return <VisualNovelReader project={project} scenes={scenes} variables={variables} exitHref={exitHref} />;
   }
 
-  return <DocumentReader project={project} scenes={scenes} variables={variables} />;
+  return <DocumentReader project={project} scenes={scenes} variables={variables} exitHref={exitHref} />;
 }
 
-function ReaderBar({ project, scenes }: { project: Project; scenes: Scene[] }) {
+function ReaderBar({ project, scenes, exitHref }: { project: Project; scenes: Scene[]; exitHref?: string }) {
   return (
     <header className={styles.readerBar}>
-      <Link href={`/project/${project.id}`} className={styles.backLink} aria-label={`Quitter la lecture de ${project.name}`}>
+      <Link href={exitHref || `/project/${project.id}`} className={styles.backLink} aria-label={`Quitter la lecture de ${project.name}`}>
         <ArrowLeftIcon />
         <span>Quitter la lecture</span>
       </Link>
@@ -130,10 +130,10 @@ function ReaderBar({ project, scenes }: { project: Project; scenes: Scene[] }) {
   );
 }
 
-function EmptyReader({ project, variables }: { project: Project; variables: CSSProperties }) {
+function EmptyReader({ project, variables, exitHref }: { project: Project; variables: CSSProperties; exitHref?: string }) {
   return (
     <div className={styles.emptyReader} style={variables}>
-      <Link href={`/project/${project.id}`} className={styles.backLink}><ArrowLeftIcon />Retour au projet</Link>
+      <Link href={exitHref || `/project/${project.id}`} className={styles.backLink}><ArrowLeftIcon />Retour à l’histoire</Link>
       <div>
         <span className={styles.formatLabel}>{TYPE_LABELS[project.type] || "Projet narratif"}</span>
         <h1>{project.pageTitle || project.name}</h1>
@@ -144,7 +144,7 @@ function EmptyReader({ project, variables }: { project: Project; variables: CSSP
   );
 }
 
-function VisualNovelReader({ project, scenes, variables }: { project: Project; scenes: Scene[]; variables: CSSProperties }) {
+function VisualNovelReader({ project, scenes, variables, exitHref }: { project: Project; scenes: Scene[]; variables: CSSProperties; exitHref?: string }) {
   const beats = useMemo(
     () => {
       let activeMusic: Block | null = null;
@@ -180,6 +180,22 @@ function VisualNovelReader({ project, scenes, variables }: { project: Project; s
   const fadeTimersRef = useRef<Map<HTMLAudioElement, number>>(new Map());
   const current = beats[index];
   const hasAudio = scenes.some((scene) => scene.blocks.some(isAudioCommand));
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/projects/${project.id}/progress`, { signal: controller.signal }).then(async (response) => {
+      if (!response.ok) return;
+      const saved = await response.json() as { blockId?: string | null };
+      const savedIndex = saved.blockId ? beats.findIndex((beat) => beat.block.id === saved.blockId) : -1;
+      if (savedIndex >= 0) setIndex(savedIndex);
+    }).catch(() => undefined);
+    return () => controller.abort();
+  }, [beats, project.id]);
+
+  useEffect(() => {
+    if (!current) return;
+    void fetch(`/api/projects/${project.id}/progress`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sceneId: current.scene.id, blockId: current.block.id, percentage: ((index + 1) / beats.length) * 100 }) });
+  }, [beats.length, current, index, project.id]);
 
   const goNext = () => setIndex((value) => Math.min(value + 1, beats.length));
   const goPrevious = () => setIndex((value) => Math.max(value - 1, 0));
@@ -289,7 +305,7 @@ function VisualNovelReader({ project, scenes, variables }: { project: Project; s
   if (beats.length === 0) {
     return (
       <div className={styles.emptyReader} style={variables}>
-        <Link href={`/project/${project.id}`} className={styles.backLink}><ArrowLeftIcon />Retour au projet</Link>
+        <Link href={exitHref || `/project/${project.id}`} className={styles.backLink}><ArrowLeftIcon />Retour à l’histoire</Link>
         <div>
           <span className={styles.formatLabel}>Visual Novel</span>
           <h1>Aucun passage à jouer</h1>
@@ -308,7 +324,7 @@ function VisualNovelReader({ project, scenes, variables }: { project: Project; s
           <h1>{project.pageTitle || project.name}</h1>
           <p>{beats.length} passages lus</p>
           <button type="button" onClick={() => setIndex(0)}><RestartIcon />Recommencer</button>
-          <Link href={`/project/${project.id}`}>Retour au projet</Link>
+          <Link href={exitHref || `/project/${project.id}`}>Retour à l’histoire</Link>
         </div>
       </div>
     );
@@ -339,6 +355,7 @@ function VisualNovelReader({ project, scenes, variables }: { project: Project; s
       <div
         ref={stageRef}
         className={styles.vnStage}
+        data-project-letter={project.name.charAt(0)}
         style={{ ...variables, backgroundImage: backdrop ? `url("${backdrop.replace(/["\\]/g, "")}")` : undefined }}
       >
         <div className={styles.vnShade} aria-hidden="true" />
@@ -355,6 +372,7 @@ function VisualNovelReader({ project, scenes, variables }: { project: Project; s
     <div
       ref={stageRef}
       className={styles.vnStage}
+      data-project-letter={project.name.charAt(0)}
       style={{
         ...variables,
         backgroundImage: backdrop ? `url("${backdrop.replace(/["\\]/g, "")}")` : undefined,
@@ -365,7 +383,7 @@ function VisualNovelReader({ project, scenes, variables }: { project: Project; s
 
       {showHud && (
         <div className={styles.vnHud}>
-          <Link href={`/project/${project.id}`} className={styles.vnIconButton} aria-label="Quitter la lecture"><ArrowLeftIcon /></Link>
+          <Link href={exitHref || `/project/${project.id}`} className={styles.vnIconButton} aria-label="Quitter la lecture"><ArrowLeftIcon /></Link>
           <div className={styles.vnChapter}>
             <span>{scene.node?.title || `Scène ${sceneIndex + 1}`}</span>
             <strong>{scene.title}</strong>
@@ -424,15 +442,29 @@ function VisualNovelReader({ project, scenes, variables }: { project: Project; s
   );
 }
 
-function DocumentReader({ project, scenes, variables }: { project: Project; scenes: Scene[]; variables: CSSProperties }) {
+function DocumentReader({ project, scenes, variables, exitHref }: { project: Project; scenes: Scene[]; variables: CSSProperties; exitHref?: string }) {
   const coverStyle = {
     backgroundImage: project.pageBackgroundUrl ? `url("${project.pageBackgroundUrl.replace(/["\\]/g, "")}")` : undefined,
   };
   const typeClass = styles[`format_${project.type}`] || styles.format_story;
 
+  useEffect(() => {
+    const articles = Array.from(document.querySelectorAll<HTMLElement>("[data-reader-scene]"));
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a,b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      const sceneId = (visible.target as HTMLElement).dataset.readerScene;
+      const sceneIndex = scenes.findIndex((scene) => scene.id === sceneId);
+      if (!sceneId || sceneIndex < 0) return;
+      void fetch(`/api/projects/${project.id}/progress`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sceneId, percentage: ((sceneIndex + 1) / scenes.length) * 100 }) });
+    }, { threshold: [.35,.7] });
+    articles.forEach((article) => observer.observe(article));
+    return () => observer.disconnect();
+  }, [project.id, scenes]);
+
   return (
     <div className={`${styles.documentReader} ${typeClass}`} style={variables}>
-      <ReaderBar project={project} scenes={scenes} />
+      <ReaderBar project={project} scenes={scenes} exitHref={exitHref} />
       <section className={styles.documentCover} style={coverStyle}>
         <div className={styles.documentCoverShade} aria-hidden="true" />
         <div className={styles.documentCoverContent}>
@@ -446,7 +478,7 @@ function DocumentReader({ project, scenes, variables }: { project: Project; scen
         {scenes.map((scene, index) => (
           <SceneArticle key={scene.id} scene={scene} index={index} type={project.type} />
         ))}
-        <footer className={styles.endMark}><span>Fin</span><Link href={`/project/${project.id}`}>Retour au projet</Link></footer>
+        <footer className={styles.endMark}><span>Fin</span><Link href={exitHref || `/project/${project.id}`}>Retour à l’histoire</Link></footer>
       </main>
     </div>
   );
@@ -477,7 +509,7 @@ function SceneArticle({ scene, index, type }: { scene: Scene; index: number; typ
   }
 
   return (
-    <article className={styles.sceneArticle}>
+    <article id={scene.id} data-reader-scene={scene.id} className={styles.sceneArticle}>
       <header className={styles.sceneHeader}>
         <div><span>{scene.node?.title || `Scène ${index + 1}`}</span><h2>{scene.title}</h2></div>
         {scene.location && <p>{scene.location.name}</p>}
