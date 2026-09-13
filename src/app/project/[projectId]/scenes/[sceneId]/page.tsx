@@ -405,7 +405,7 @@ export default function SceneDetailPage() {
   }
 
   const nodeOptions = flattenNarrativeNodes(structure);
-  const wordCount = blocks.reduce((acc, b) => acc + b.content.split(/\s+/).filter(Boolean).length, 0);
+  const wordCount = blocks.reduce((acc, b) => acc + (["music", "sfx", "background"].includes(b.type) ? 0 : b.content.split(/\s+/).filter(Boolean).length), 0);
   const onlineCount = onlineUsers.size;
 
   return (
@@ -535,6 +535,7 @@ export default function SceneDetailPage() {
           <button onClick={() => addBlock("dialogue")} className="btn-ghost text-sm">+ Dialogue</button>
           <button onClick={() => addBlock("action")} className="btn-ghost text-sm">+ Action</button>
           <button onClick={() => addBlock("heading")} className="btn-ghost text-sm">+ Titre</button>
+          <button onClick={() => addBlock("background")} className="btn-ghost text-sm">+ Arrière-plan</button>
           <button onClick={() => addBlock("music")} className="btn-ghost text-sm">+ Musique</button>
           <button onClick={() => addBlock("sfx")} className="btn-ghost text-sm">+ SFX</button>
           <div className="flex-1" />

@@ -311,7 +311,7 @@ export default function EditPage() {
   const selectedSceneData = scenes.find((s) => s.id === selectedScene);
   const selectedBlockIndex = selectedBlockId ? blocks.findIndex((block) => block.id === selectedBlockId) : -1;
   const planBlocks = blocks.filter((block) => block.type === "heading");
-  const wordCount = blocks.reduce((acc, b) => acc + b.content.split(/\s+/).filter(Boolean).length, 0);
+  const wordCount = blocks.reduce((acc, b) => acc + (["music", "sfx", "background"].includes(b.type) ? 0 : b.content.split(/\s+/).filter(Boolean).length), 0);
   const totalWords = scenes.reduce((acc, s) => acc + s.wordCount, 0);
 
   return (
@@ -426,6 +426,7 @@ export default function EditPage() {
                 <button onClick={() => addBlock("dialogue", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Dial</button>
                 <button onClick={() => addBlock("action", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Act</button>
                 <button onClick={() => addBlock("heading", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Plan</button>
+                <button onClick={() => addBlock("background", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Fond</button>
                 <button onClick={() => addBlock("music", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+Musique</button>
                 <button onClick={() => addBlock("sfx", selectedBlockId)} className="btn-ghost text-xs px-2 py-1">+SFX</button>
                 <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} compact />

@@ -90,7 +90,7 @@ export async function PUT(
 
     const wordCount = allBlocks.reduce(
       (acc, block) =>
-        block.type === "music" || block.type === "sfx"
+        block.type === "music" || block.type === "sfx" || block.type === "background"
           ? acc
           : acc + block.content.split(/\s+/).filter(Boolean).length,
       0

@@ -81,7 +81,7 @@
 .comicScene > header h2 { margin-top: .5rem; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1; letter-spacing: -.035em; text-wrap: balance; }
 .sceneHeader > p { color: color-mix(in srgb, var(--reader-ink), transparent 35%); font-family: "Source Serif 4", Georgia, serif; font-size: .9rem; font-style: italic; }
 .blocks { width: min(44rem, 100%); margin: 0 auto; }
-.block { max-width: 70ch; margin: 0; color: color-mix(in srgb, var(--reader-ink), transparent 6%); font-family: "Source Serif 4", Georgia, serif; font-size: clamp(1.05rem, 1.6vw, 1.18rem); line-height: 1.82; }
+.block { max-width: 70ch; margin: 0; color: color-mix(in srgb, var(--reader-ink), transparent 6%); font-family: "Source Serif 4", Georgia, serif; font-size: clamp(1.05rem, 1.6vw, 1.18rem); line-height: 1.82; overflow-wrap: anywhere; white-space: pre-wrap; }
 .block + .block { margin-top: .75rem; }
 .block_heading { margin-top: 3.5rem !important; margin-bottom: 1.25rem !important; color: var(--reader-ink); font-size: 1.65rem; line-height: 1.2; }
 .block_transition { margin: 3rem auto !important; color: color-mix(in srgb, var(--reader-ink), transparent 42%); text-align: center; font-style: italic; }
@@ -131,7 +131,7 @@
 .panelNumber { position: absolute; top: .75rem; left: .75rem; padding: .25rem .45rem; color: var(--reader-bg); background: var(--reader-accent); font-size: .7rem; font-weight: 800; }
 .comicCaption { width: 100%; margin: 1rem; padding: 1rem; color: var(--reader-ink); background: color-mix(in srgb, var(--reader-bg), transparent 8%); border: 1px solid color-mix(in srgb, var(--reader-ink), transparent 80%); }
 .comicCaption strong { display: block; margin-bottom: .35rem; font-size: .75rem; text-transform: uppercase; }
-.comicCaption p { font-family: "Source Serif 4", Georgia, serif; line-height: 1.5; }
+.comicCaption p { font-family: "Source Serif 4", Georgia, serif; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
 
 .vnStage { position: fixed; inset: 0; width: 100%; min-height: 100svh; isolation: isolate; overflow: hidden; background-color: var(--reader-bg); background-size: cover; background-position: center; }
 .vnShade { position: absolute; inset: 0; z-index: 0; background: linear-gradient(0deg, rgba(0,0,0,.82) 0%, rgba(0,0,0,.22) 58%, rgba(0,0,0,.48) 100%), radial-gradient(circle at center, transparent 30%, rgba(0,0,0,.28) 100%); }
@@ -155,7 +155,7 @@
 .vnSpeaker { position: absolute; top: -1.05rem; left: 1.5rem; display: flex; align-items: baseline; gap: .65rem; padding: .55rem 1.1rem; background: var(--reader-bg); border: 1px solid currentColor; }
 .vnSpeaker strong { color: inherit; font-size: .86rem; letter-spacing: .05em; text-transform: uppercase; }
 .vnSpeaker span { color: color-mix(in srgb, var(--reader-ink), transparent 38%); font-size: .7rem; text-transform: capitalize; }
-.vnDialogue > p { max-width: 72ch; margin: .35rem 0 1.35rem; font-family: "Source Serif 4", Georgia, serif; font-size: clamp(1.05rem, 1.8vw, 1.3rem); line-height: 1.6; }
+.vnDialogue > p { max-width: 72ch; margin: .35rem 0 1.35rem; font-family: "Source Serif 4", Georgia, serif; font-size: clamp(1.05rem, 1.8vw, 1.3rem); line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
 .vnDialogueFooter { display: flex; justify-content: flex-end; align-items: center; gap: 1rem; color: color-mix(in srgb, var(--reader-ink), transparent 38%); font-family: "IBM Plex Mono", monospace; font-size: .72rem; }
 .vnDialogueFooter > span { margin-right: auto; font-variant-numeric: tabular-nums; }
 .vnDialogueFooter button { padding: .35rem .1rem; color: color-mix(in srgb, var(--reader-ink), transparent 18%); font: inherit; background: transparent; border: 0; }

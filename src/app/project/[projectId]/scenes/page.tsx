@@ -307,7 +307,7 @@ export default function ScenesPage() {
   const selectedScenePath = selectedSceneData?.node
     ? nodeMetadata.get(selectedSceneData.node.id)?.path
     : undefined;
-  const wordCount = blocks.reduce((acc, b) => acc + b.content.split(/\s+/).filter(Boolean).length, 0);
+  const wordCount = blocks.reduce((acc, b) => acc + (["music", "sfx", "background"].includes(b.type) ? 0 : b.content.split(/\s+/).filter(Boolean).length), 0);
 
   return (
     <div className="min-h-screen md:flex">
@@ -450,6 +450,7 @@ export default function ScenesPage() {
                 <button onClick={() => addBlock("heading")} className="btn-ghost text-sm">
                   + Titre
                 </button>
+                <button onClick={() => addBlock("background")} className="btn-ghost text-sm">+ Arrière-plan</button>
                 <button onClick={() => addBlock("music")} className="btn-ghost text-sm">+ Musique</button>
                 <button onClick={() => addBlock("sfx")} className="btn-ghost text-sm">+ SFX</button>
                 <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} />

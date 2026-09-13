@@ -82,6 +82,7 @@ export const BlockType = z.enum([
   "transition",
   "note",
   "heading",
+  "background",
   "music",
   "sfx",
 ]);

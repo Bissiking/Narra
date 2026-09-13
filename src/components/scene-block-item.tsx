@@ -48,6 +48,7 @@ const BLOCK_TYPES = [
   { value: "heading", label: "Titre / plan" },
   { value: "transition", label: "Transition" },
   { value: "note", label: "Note" },
+  { value: "background", label: "Arrière-plan" },
   { value: "music", label: "Musique" },
   { value: "sfx", label: "SFX" },
 ] as const;
@@ -80,6 +81,7 @@ function SceneBlockItem({
     (image) => image.emotion === block.emotion
   );
   const isAudioBlock = block.type === "music" || block.type === "sfx";
+  const isBackgroundBlock = block.type === "background";
   const audioAction = block.type === "music" ? block.audioAction || "play" : "play";
 
   return (
@@ -271,6 +273,22 @@ function SceneBlockItem({
             </div>
           )}
 
+          {isBackgroundBlock && projectId && (
+            <div className="mb-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3">
+              <label className="label">Nouvel arrière-plan</label>
+              <MediaPicker
+                projectId={projectId}
+                value={block.mediaUrl || ""}
+                onChange={(mediaUrl) => onUpdate(block.id, { mediaUrl: mediaUrl || null })}
+                label="Choisir"
+                accept="image/*"
+              />
+              <p className="mt-2 text-xs text-narra-muted">
+                L’image reste affichée jusqu’au prochain changement d’arrière-plan ou à la scène suivante.
+              </p>
+            </div>
+          )}
+
           <textarea
             value={block.content}
             onChange={(e) => onUpdate(block.id, { content: e.target.value })}
@@ -291,6 +309,8 @@ function SceneBlockItem({
             placeholder={
               isAudioBlock
                 ? "Note facultative pour ce son..."
+                : isBackgroundBlock
+                ? "Note facultative pour ce changement de décor..."
                 : block.type === "dialogue"
                 ? "Le dialogue..."
                 : block.type === "heading"

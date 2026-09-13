@@ -68,13 +68,17 @@ function characterName(character: Character | null) {
 
 function countWords(scenes: Scene[]) {
   return scenes.reduce(
-    (total, scene) => total + scene.blocks.reduce((sum, block) => sum + (isAudioCommand(block) ? 0 : block.content.split(/\s+/).filter(Boolean).length), 0),
+    (total, scene) => total + scene.blocks.reduce((sum, block) => sum + (isReaderCommand(block) ? 0 : block.content.split(/\s+/).filter(Boolean).length), 0),
     0,
   );
 }
 
 function isAudioCommand(block: Block) {
   return block.type === "music" || block.type === "sfx";
+}
+
+function isReaderCommand(block: Block) {
+  return isAudioCommand(block) || block.type === "background";
 }
 
 function ArrowLeftIcon() {
@@ -145,20 +149,22 @@ function VisualNovelReader({ project, scenes, variables }: { project: Project; s
     () => {
       let activeMusic: Block | null = null;
       let pendingSfx: Block[] = [];
-      const visible: { block: Block; scene: Scene; sceneIndex: number; activeMusic: Block | null; sfx: Block[] }[] = [];
+      const visible: { block: Block; scene: Scene; sceneIndex: number; activeMusic: Block | null; sfx: Block[]; backdrop: string | null }[] = [];
       scenes.forEach((scene, sceneIndex) => {
+        let activeBackdrop = scene.location?.imageUrl || project.pageBackgroundUrl;
         scene.blocks.forEach((block) => {
           if (block.type === "music") activeMusic = block;
           else if (block.type === "sfx") pendingSfx.push(block);
+          else if (block.type === "background") activeBackdrop = block.mediaUrl || scene.location?.imageUrl || project.pageBackgroundUrl;
           else {
-            visible.push({ block, scene, sceneIndex, activeMusic, sfx: pendingSfx });
+            visible.push({ block, scene, sceneIndex, activeMusic, sfx: pendingSfx, backdrop: activeBackdrop });
             pendingSfx = [];
           }
         });
       });
       return visible;
     },
-    [scenes],
+    [project.pageBackgroundUrl, scenes],
   );
   const [index, setIndex] = useState(0);
   const [showHud, setShowHud] = useState(true);
@@ -314,7 +320,7 @@ function VisualNovelReader({ project, scenes, variables }: { project: Project; s
     (image) => block.emotion && image.emotion.toLocaleLowerCase("fr") === block.emotion.toLocaleLowerCase("fr"),
   )?.url;
   const portrait = emotionPortrait || block.character?.portraitUrl;
-  const backdrop = scene.location?.imageUrl || project.pageBackgroundUrl;
+  const backdrop = current.backdrop;
   const portraitPosition = block.position === "left" ? styles.portraitLeft : block.position === "right" ? styles.portraitRight : styles.portraitCenter;
   const progress = beats.length ? ((index + 1) / beats.length) * 100 : 0;
 
@@ -452,7 +458,7 @@ function SceneArticle({ scene, index, type }: { scene: Scene; index: number; typ
       <article className={styles.comicScene}>
         <header><span>{scene.node?.title || `Séquence ${index + 1}`}</span><h2>{scene.title}</h2></header>
         <div className={styles.comicGrid}>
-          {scene.blocks.filter((block) => !isAudioCommand(block)).map((block, blockIndex) => {
+          {scene.blocks.filter((block) => !isReaderCommand(block)).map((block, blockIndex) => {
             const speaker = characterName(block.character);
             const image = block.character?.portraitUrl || scene.location?.imageUrl;
             return (
@@ -477,7 +483,7 @@ function SceneArticle({ scene, index, type }: { scene: Scene; index: number; typ
         {scene.location && <p>{scene.location.name}</p>}
       </header>
       <div className={styles.blocks}>
-        {scene.blocks.filter((block) => !isAudioCommand(block)).map((block) => <RenderedBlock key={block.id} block={block} type={type} />)}
+        {scene.blocks.filter((block) => !isReaderCommand(block)).map((block) => <RenderedBlock key={block.id} block={block} type={type} />)}
       </div>
     </article>
   );
