@@ -95,7 +95,7 @@ app.prepare().then(() => {
     }
   });
 
-  const wss = new WebSocketServer({ server, path: "/api/ws" });
+  const wss = new WebSocketServer({ server });
 
   // Scene rooms: Map<sceneId, Map<userId, { ws, userName }>>
   const rooms = new Map<string, Map<string, { ws: WebSocket; userName: string }>>();
@@ -112,14 +112,20 @@ app.prepare().then(() => {
 
   wss.on("connection", (ws, req) => {
     const url = parse(req.url || "", true);
-    const pathParts = url.pathname?.split("/") || [];
-    // /api/ws/scenes/:sceneId
-    const sceneId = pathParts[3];
+    const pathParts = (url.pathname || "").split("/");
 
-    if (!sceneId) {
-      ws.close();
+    // Expected path: /api/ws/scenes/:sceneId
+    if (
+      pathParts[1] !== "api" ||
+      pathParts[2] !== "ws" ||
+      pathParts[3] !== "scenes" ||
+      !pathParts[4]
+    ) {
+      ws.close(1008, "Invalid WebSocket route");
       return;
     }
+
+    const sceneId = pathParts[4];
 
     const userId = "user-" + Math.random().toString(36).slice(2, 8);
     let userName = "Anonyme";
@@ -166,6 +172,6 @@ app.prepare().then(() => {
 
   server.listen(port, hostname, () => {
     console.log(`> Narra ready on http://${hostname}:${port}`);
-    console.log(`> WebSocket server ready on ws://${hostname}:${port}/api/ws`);
+    console.log(`> WebSocket server ready on ws://${hostname}:${port}/api/ws/scenes/:sceneId`);
   });
 });
