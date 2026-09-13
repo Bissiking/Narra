@@ -9,7 +9,7 @@ const PROJECT_TYPES = [
   { value: "novel", label: "Roman" },
   { value: "screenplay", label: "Scénario" },
   { value: "vn", label: "Visual Novel" },
-  { value: "comic", label: "Bande dessinée" },
+  { value: "comic", label: "Bande dessinée (DEV)" },
   { value: "universe", label: "Univers narratif" },
 ];
 
@@ -124,6 +124,11 @@ export default function NewProjectPage() {
                   </option>
                 ))}
               </select>
+              {type === "comic" && (
+                <p className="mt-2 text-xs leading-relaxed text-narra-muted">
+                  Format en développement. Un éditeur complet de planches et une lecture avec SFX et musique optionnelle sont prévus.
+                </p>
+              )}
             </div>
 
             <div>

@@ -57,7 +57,7 @@ const TYPE_LABELS: Record<string, string> = {
   novel: "Roman",
   screenplay: "Scénario",
   vn: "Visual Novel",
-  comic: "Bande dessinée",
+  comic: "Bande dessinée (DEV)",
   universe: "Univers narratif",
 };
 

@@ -94,7 +94,7 @@ const formats: Record<string, ProjectFormat> = {
     presentation: { title: "Page du scénario", fallbackPitch: "Ajoutez une logline pour présenter votre scénario.", action: "Lire le scénario" },
   },
   comic: {
-    label: "Bande dessinée",
+    label: "Bande dessinée (DEV)",
     content: { singular: "planche", plural: "planches", definite: "la planche", indefinite: "une planche", ofDefinite: "de la planche", newLabel: "Nouvelle planche", emptyLabel: "Aucune planche", recentLabel: "Planches récentes", titlePlaceholder: "Ex. Planche 01" },
     structure: {
       title: "Découpage de la BD",
@@ -176,8 +176,8 @@ const profiles: Record<string, EditorProfile> = {
   },
   comic: {
     key: "comic",
-    label: "Découpage BD",
-    description: "Chaque bloc décrit ce que le lecteur voit ou lit dans une case.",
+    label: "Découpage BD (DEV)",
+    description: "Format en développement : chaque bloc décrit une case. L’éditeur complet de planches et la lecture sonore restent à construire.",
     unit: ["case", "cases"],
     blocks: [
       { value: "action", label: "Description de case", shortLabel: "Case" },
