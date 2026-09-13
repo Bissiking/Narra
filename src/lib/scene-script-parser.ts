@@ -23,6 +23,8 @@ export interface ParsedSceneScriptBlock {
   position: "left" | "center" | "right" | null;
   speakerNote: string | null;
   mediaUrl: string | null;
+  showPortrait: boolean | null;
+  portraitImageUrl: string | null;
   audioAction: "play" | "stop" | null;
   volume: number | null;
   fadeDuration: number | null;
@@ -102,6 +104,8 @@ function emptyBlock(type: SceneScriptBlockType): ParsedSceneScriptBlock {
     position: null,
     speakerNote: null,
     mediaUrl: null,
+    showPortrait: null,
+    portraitImageUrl: null,
     audioAction: type === "music" ? "play" : null,
     volume: type === "music" || type === "sfx" ? 100 : null,
     fadeDuration: type === "music" ? 1 : null,

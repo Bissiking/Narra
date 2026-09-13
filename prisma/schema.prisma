@@ -189,6 +189,8 @@ model SceneBlock {
   speakerNote String?    @map("speaker_note")
   mediaUrl    String?    @map("media_url")
   displayMode String?    @map("display_mode")
+  showPortrait Boolean   @default(true) @map("show_portrait")
+  portraitImageUrl String? @map("portrait_image_url")
   audioAction String?    @map("audio_action")
   volume      Int?       @default(100)
   fadeDuration Float?    @map("fade_duration")

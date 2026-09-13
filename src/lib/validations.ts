@@ -96,6 +96,15 @@ export const createSceneBlockSchema = z.object({
   position: z.enum(["left", "center", "right"]).optional(),
   speakerNote: z.string().max(500).optional(),
   displayMode: z.enum(["solo", "caption"]).optional(),
+  showPortrait: z.boolean().optional(),
+  portraitImageUrl: z
+    .string()
+    .max(2000)
+    .refine(
+      (value) => value.startsWith("/uploads/") || z.string().url().safeParse(value).success,
+      "URL de portrait invalide",
+    )
+    .nullish(),
   mediaUrl: z
     .string()
     .max(2000)

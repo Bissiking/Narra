@@ -12,7 +12,7 @@ type Character = {
   alias: string | null;
   nameColor: string;
   portraitUrl: string | null;
-  images: { emotion: string; url: string }[];
+  images: { id: string; label: string; emotion: string; url: string }[];
 };
 
 type Block = {
@@ -24,6 +24,8 @@ type Block = {
   speakerNote: string | null;
   mediaUrl: string | null;
   displayMode: string | null;
+  showPortrait: boolean;
+  portraitImageUrl: string | null;
   audioAction: string | null;
   volume: number | null;
   fadeDuration: number | null;
@@ -341,11 +343,10 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
   const emotionPortrait = block.character?.images.find(
     (image) => block.emotion && image.emotion.toLocaleLowerCase("fr") === block.emotion.toLocaleLowerCase("fr"),
   )?.url;
-  const portrait = emotionPortrait || block.character?.portraitUrl;
+  const portrait = block.showPortrait === false ? null : block.portraitImageUrl || emotionPortrait || block.character?.portraitUrl;
   const backdrop = current.backdrop;
   const isBackdropBeat = block.type === "background";
   const isBackdropSolo = isBackdropBeat && (block.displayMode || (block.content.trim() ? "caption" : "solo")) === "solo";
-  const portraitPosition = block.position === "left" ? styles.portraitLeft : block.position === "right" ? styles.portraitRight : styles.portraitCenter;
   const progress = beats.length ? ((index + 1) / beats.length) * 100 : 0;
 
   async function toggleFullscreen() {
@@ -408,15 +409,6 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
 
       {scene.location && <div className={styles.locationTag}>{scene.location.name}</div>}
 
-      {portrait && block.type === "dialogue" && (
-        <img
-          key={`${block.id}-${portrait}`}
-          src={portrait}
-          alt={speaker || "Personnage"}
-          className={`${styles.vnPortrait} ${portraitPosition}`}
-        />
-      )}
-
       <button type="button" className={styles.vnAdvanceLayer} onClick={goNext} aria-label="Afficher la suite" />
 
       {block.type === "heading" ? (
@@ -435,25 +427,33 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
           </div>
         </section>
       ) : (
-        <section
-          key={block.id}
-          className={`${styles.vnDialogue} ${block.type === "transition" ? styles.vnTransition : ""}`}
-          aria-live="polite"
-        >
-          {speaker && block.type === "dialogue" && (
-            <div className={styles.vnSpeaker} style={{ color: block.character?.nameColor || project.pageAccentColor }}>
-              <strong>{speaker}</strong>
-              {block.emotion && <span>{block.emotion}</span>}
-            </div>
+        <div key={block.id} className={`${styles.vnDialogueFrame} ${block.type === "transition" ? styles.vnDialogueFrameTransition : ""}`}>
+          {portrait && block.type === "dialogue" && (
+            <img
+              src={portrait}
+              alt={speaker ? `Portrait de ${speaker}` : "Portrait du personnage"}
+              className={styles.vnPortrait}
+            />
           )}
-          {block.type === "action" && <span className={styles.vnBlockType}>Action</span>}
-          <p>{block.content}</p>
-          <div className={styles.vnDialogueFooter}>
-            <span>{index + 1} / {beats.length}</span>
-            <button type="button" onClick={goPrevious} disabled={index === 0}>Précédent</button>
-            <button type="button" onClick={goNext}>Continuer <span aria-hidden="true">›</span></button>
-          </div>
-        </section>
+          <section
+            className={`${styles.vnDialogue} ${block.type === "transition" ? styles.vnTransition : ""}`}
+            aria-live="polite"
+          >
+            {speaker && block.type === "dialogue" && (
+              <div className={styles.vnSpeaker} style={{ color: block.character?.nameColor || project.pageAccentColor }}>
+                <strong>{speaker}</strong>
+                {block.emotion && <span>{block.emotion}</span>}
+              </div>
+            )}
+            {block.type === "action" && <span className={styles.vnBlockType}>Action</span>}
+            <p>{block.content}</p>
+            <div className={styles.vnDialogueFooter}>
+              <span>{index + 1} / {beats.length}</span>
+              <button type="button" onClick={goPrevious} disabled={index === 0}>Précédent</button>
+              <button type="button" onClick={goNext}>Continuer <span aria-hidden="true">›</span></button>
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );

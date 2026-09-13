@@ -20,7 +20,7 @@ export async function getPublishedStory(slug: string) {
               character: {
                 select: {
                   firstName: true, lastName: true, alias: true, nameColor: true, portraitUrl: true,
-                  images: { select: { emotion: true, url: true }, orderBy: { order: "asc" } },
+                  images: { select: { id: true, label: true, emotion: true, url: true }, orderBy: { order: "asc" } },
                 },
               },
             },

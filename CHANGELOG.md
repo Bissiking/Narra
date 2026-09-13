@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.2 — 2026-09-13
+
+- Chaque dialogue du Visual Novel peut masquer le portrait ou afficher précisément le portrait principal ou une image du personnage.
+
 ## 0.10.0 — 2026-09-13
 
 - Nouvelle bibliothèque éditoriale avec œuvres à la une, couvertures, métadonnées et progression.

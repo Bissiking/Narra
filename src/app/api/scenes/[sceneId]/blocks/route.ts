@@ -25,6 +25,8 @@ export async function GET(
             portraitUrl: true,
             images: {
               select: {
+                id: true,
+                label: true,
                 emotion: true,
                 url: true,
               },
@@ -76,6 +78,8 @@ export async function PUT(
           speakerNote: block.speakerNote || null,
           mediaUrl: block.mediaUrl || null,
           displayMode: block.displayMode || null,
+          showPortrait: block.showPortrait !== false,
+          portraitImageUrl: block.portraitImageUrl || null,
           audioAction: block.audioAction || null,
           volume: typeof block.volume === "number" ? Math.max(0, Math.min(100, block.volume)) : null,
           fadeDuration: typeof block.fadeDuration === "number" ? Math.max(0, Math.min(30, block.fadeDuration)) : null,

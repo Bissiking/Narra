@@ -27,6 +27,8 @@ interface SceneBlock {
   position: string | null;
   mediaUrl?: string | null;
   displayMode?: "solo" | "caption" | null;
+  showPortrait?: boolean | null;
+  portraitImageUrl?: string | null;
   audioAction?: string | null;
   volume?: number | null;
   fadeDuration?: number | null;
@@ -73,6 +75,8 @@ function SceneBlockItem({
   const expressionImage = speakingCharacter?.images?.find(
     (image) => image.emotion === block.emotion
   );
+  const showPortrait = block.showPortrait !== false;
+  const selectedPortraitUrl = block.portraitImageUrl || expressionImage?.url || speakingCharacter?.portraitUrl || "";
   const isAudioBlock = block.type === "music" || block.type === "sfx";
   const isBackgroundBlock = block.type === "background";
   const backgroundDisplayMode = block.displayMode || (block.content.trim() ? "caption" : "solo");
@@ -160,17 +164,17 @@ function SceneBlockItem({
 
             {block.type === "dialogue" && (
               <>
-                {expressionImage && (
+                {showPortrait && selectedPortraitUrl && (
                   <img
-                    src={expressionImage.url}
-                    alt={expressionImage.label}
+                    src={selectedPortraitUrl}
+                    alt="Aperçu du portrait"
                     className="h-9 w-9 shrink-0 object-cover"
                   />
                 )}
                 <select
                   value={block.characterId || ""}
                   onChange={(e) =>
-                    onUpdate(block.id, { characterId: e.target.value || null })
+                    onUpdate(block.id, { characterId: e.target.value || null, portraitImageUrl: null })
                   }
                   className="select text-xs py-1 px-2"
                   style={{ color: speakingCharacter?.nameColor }}
@@ -201,6 +205,51 @@ function SceneBlockItem({
               </>
             )}
           </div>
+
+          {block.type === "dialogue" && (
+            <div className="mb-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <span className="label block">Portrait du dialogue</span>
+                  <span className="text-xs text-narra-muted">Choisissez si le personnage apparaît pendant cette réplique.</span>
+                </div>
+                <label className="flex min-h-8 items-center gap-2 text-sm text-narra-text">
+                  <input
+                    type="checkbox"
+                    checked={showPortrait}
+                    onChange={(event) => onUpdate(block.id, { showPortrait: event.target.checked })}
+                    className="accent-amber-500"
+                  />
+                  Afficher le portrait
+                </label>
+              </div>
+
+              {showPortrait && (
+                <div className="mt-3 grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_3rem]">
+                  <label className="min-w-0">
+                    <span className="label">Image affichée</span>
+                    <select
+                      className="select"
+                      value={block.portraitImageUrl || ""}
+                      onChange={(event) => onUpdate(block.id, { portraitImageUrl: event.target.value || null })}
+                      disabled={!speakingCharacter}
+                    >
+                      <option value="">Automatique — émotion puis portrait principal</option>
+                      {speakingCharacter?.portraitUrl && <option value={speakingCharacter.portraitUrl}>Portrait principal</option>}
+                      {speakingCharacter?.images?.map((image) => (
+                        <option key={image.id} value={image.url}>{image.label || image.emotion}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {selectedPortraitUrl ? (
+                    <img src={selectedPortraitUrl} alt="Aperçu de l’image sélectionnée" className="h-12 w-12 border border-narra-border object-cover" />
+                  ) : (
+                    <span className="grid h-12 w-12 place-items-center border border-narra-border text-xs text-narra-muted" aria-hidden="true">—</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {isAudioBlock && (
             <div className="mb-3 grid gap-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto]">

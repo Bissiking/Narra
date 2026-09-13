@@ -97,6 +97,8 @@ export interface SceneBlockWithCharacter {
   position: string | null;
   speakerNote: string | null;
   mediaUrl: string | null;
+  showPortrait: boolean;
+  portraitImageUrl: string | null;
   audioAction: string | null;
   volume: number | null;
   fadeDuration: number | null;

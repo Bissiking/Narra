@@ -32,6 +32,8 @@ type ReaderScene = {
     speakerNote: string | null;
     mediaUrl: string | null;
     displayMode: string | null;
+    showPortrait: boolean;
+    portraitImageUrl: string | null;
     audioAction: string | null;
     volume: number | null;
     fadeDuration: number | null;
@@ -42,7 +44,7 @@ type ReaderScene = {
       alias: string | null;
       nameColor: string;
       portraitUrl: string | null;
-      images: { emotion: string; url: string }[];
+      images: { id: string; label: string; emotion: string; url: string }[];
     } | null;
   }[];
 };
