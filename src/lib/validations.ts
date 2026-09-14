@@ -95,7 +95,7 @@ export const createSceneBlockSchema = z.object({
   emotion: z.string().max(100).nullish(),
   position: z.enum(["left", "center", "right"]).nullish(),
   speakerNote: z.string().max(500).nullish(),
-  displayMode: z.enum(["solo", "caption"]).nullish(),
+  displayMode: z.enum(["solo", "caption", "layer"]).nullish(),
   showPortrait: z.boolean().optional(),
   portraitImageUrl: z
     .string()

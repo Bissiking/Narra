@@ -53,7 +53,7 @@ interface SceneBlock {
   position: string | null;
   speakerNote: string | null;
   mediaUrl?: string | null;
-  displayMode?: "solo" | "caption" | null;
+  displayMode?: "solo" | "caption" | "layer" | null;
   showPortrait?: boolean | null;
   portraitImageUrl?: string | null;
   audioAction?: string | null;

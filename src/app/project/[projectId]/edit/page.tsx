@@ -24,7 +24,7 @@ import SceneBlockItem from "@/components/scene-block-item";
 import SceneScriptImporter from "@/components/scene-script-importer";
 import type { ParsedSceneScriptBlock } from "@/lib/scene-script-parser";
 import { getEditorProfile, getProjectFormat } from "@/lib/editor-profiles";
-import { buildCompositePlans, PLAN_EFFECT_TYPES, type CompositePlan } from "@/lib/scene-composition";
+import { buildCompositePlans, isPlanLayer, type CompositePlan } from "@/lib/scene-composition";
 import editorStyles from "./editor-workspace.module.css";
 
 interface Scene {
@@ -52,7 +52,7 @@ interface Character {
 interface SceneBlock {
   id: string; type: string; content: string; order: number;
   characterId: string | null; emotion: string | null; position: string | null; speakerNote: string | null;
-  mediaUrl?: string | null; displayMode?: "solo" | "caption" | null; showPortrait?: boolean | null; portraitImageUrl?: string | null; audioAction?: string | null; volume?: number | null; fadeDuration?: number | null; loop?: boolean | null;
+  mediaUrl?: string | null; displayMode?: "solo" | "caption" | "layer" | null; showPortrait?: boolean | null; portraitImageUrl?: string | null; audioAction?: string | null; volume?: number | null; fadeDuration?: number | null; loop?: boolean | null;
 }
 
 interface PreviewSettings {
@@ -266,6 +266,7 @@ export default function EditPage() {
 
   const addLayerToPlan = useCallback((type: "background" | "sfx", planId: string) => {
     const layer = createDraftBlock(type, characters);
+    if (type === "background") layer.displayMode = "layer";
     setBlocks((current) => {
       const plan = buildCompositePlans(current).find((item) => item.id === planId);
       const leadIndex = plan ? current.findIndex((block) => block.id === plan.lead.id) : current.length;
@@ -636,7 +637,7 @@ function PreviewMonitor({ scene, blocks, selectedBlockId, onSelect, characters, 
   const selectedIndex = Math.max(0, plans.findIndex((plan) => plan.blocks.some((block) => block.id === selectedBlockId)));
   const plan = plans[selectedIndex];
   const selectedBlock = plan?.blocks.find((block) => block.id === selectedBlockId);
-  const block = selectedBlock && !PLAN_EFFECT_TYPES.has(selectedBlock.type) ? selectedBlock : plan?.lead;
+  const block = selectedBlock && !isPlanLayer(selectedBlock) ? selectedBlock : plan?.lead;
   const character = characters.find((item) => item.id === block?.characterId);
   const expression = character?.images.find((image) => block?.emotion && image.emotion.toLocaleLowerCase("fr") === block.emotion.toLocaleLowerCase("fr"));
   const portrait = block?.showPortrait === false ? null : block?.portraitImageUrl || expression?.url || character?.portraitUrl;

@@ -1,6 +1,7 @@
 export interface ComposableSceneBlock {
   id: string;
   type: string;
+  displayMode?: string | null;
 }
 
 export interface CompositePlan<T extends ComposableSceneBlock> {
@@ -10,14 +11,16 @@ export interface CompositePlan<T extends ComposableSceneBlock> {
   blocks: T[];
 }
 
-export const PLAN_EFFECT_TYPES = new Set(["background", "sfx"]);
+export function isPlanLayer(block: ComposableSceneBlock) {
+  return block.type === "sfx" || (block.type === "background" && block.displayMode === "layer");
+}
 
 export function buildCompositePlans<T extends ComposableSceneBlock>(blocks: T[]): CompositePlan<T>[] {
   const plans: CompositePlan<T>[] = [];
   let pendingLayers: T[] = [];
 
   blocks.filter((block) => block.type !== "music").forEach((block) => {
-    if (PLAN_EFFECT_TYPES.has(block.type)) {
+    if (isPlanLayer(block)) {
       pendingLayers.push(block);
       return;
     }

@@ -26,7 +26,7 @@ interface SceneBlock {
   emotion: string | null;
   position: string | null;
   mediaUrl?: string | null;
-  displayMode?: "solo" | "caption" | null;
+  displayMode?: "solo" | "caption" | "layer" | null;
   showPortrait?: boolean | null;
   portraitImageUrl?: string | null;
   audioAction?: string | null;
@@ -321,10 +321,11 @@ function SceneBlockItem({
               <select
                 className="select mb-3"
                 value={backgroundDisplayMode}
-                onChange={(event) => onUpdate(block.id, { displayMode: event.target.value as "solo" | "caption" })}
+                onChange={(event) => onUpdate(block.id, { displayMode: event.target.value as "solo" | "caption" | "layer" })}
               >
                 <option value="solo">Image seule</option>
                 <option value="caption">Image + texte</option>
+                <option value="layer">Décor du plan (sans écran séparé)</option>
               </select>
               <label className="label">Nouvel arrière-plan</label>
               <MediaPicker
