@@ -3,10 +3,11 @@
 // FORM KEY: pinned-adaptive-reader-v1 — the project type selects the reading grammar.
 
 import Link from "next/link";
-import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, type ChangeEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./project-reader.module.css";
 
 type Character = {
+  id: string;
   firstName: string | null;
   lastName: string | null;
   alias: string | null;
@@ -19,6 +20,8 @@ type Block = {
   id: string;
   type: string;
   content: string;
+  order: number;
+  characterId: string | null;
   emotion: string | null;
   position: string | null;
   speakerNote: string | null;
@@ -54,6 +57,28 @@ type Project = {
   pageAccentColor: string;
   pageTheme: string;
 };
+
+type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
+type BlockUpdate = Partial<Omit<Block, "id" | "order">>;
+type ReaderMode = "read" | "edit";
+
+const EDITABLE_FIELDS = ["type", "content", "characterId", "emotion", "position", "speakerNote", "mediaUrl", "displayMode", "showPortrait", "portraitImageUrl", "audioAction", "volume", "fadeDuration", "loop"] as const;
+const INSERT_TYPES = [
+  ["heading", "Plan"], ["action", "Action"], ["narration", "Narration"],
+  ["dialogue", "Dialogue"], ["transition", "Transition"], ["note", "Note"],
+] as const;
+
+function editablePayload(block: Block) {
+  return Object.fromEntries(EDITABLE_FIELDS.map((field) => [field, block[field]]));
+}
+
+function saveLabel(state: SaveState) {
+  if (state === "dirty") return "Modification…";
+  if (state === "saving") return "Sauvegarde…";
+  if (state === "saved") return "Sauvegardé";
+  if (state === "error") return "Erreur — réessayer";
+  return "";
+}
 
 const TYPE_LABELS: Record<string, string> = {
   story: "Histoire",
@@ -96,25 +121,247 @@ function RestartIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M5.5 15a7 7 0 1 0 1.2-7.9L4 10" /></svg>;
 }
 
-export default function ProjectReader({ project, scenes, exitHref }: { project: Project; scenes: Scene[]; exitHref?: string }) {
+export default function ProjectReader({ project, scenes, characters = [], canEdit = false, exitHref }: { project: Project; scenes: Scene[]; characters?: Character[]; canEdit?: boolean; exitHref?: string }) {
+  const [readerScenes, setReaderScenes] = useState(scenes);
+  const [mode, setMode] = useState<ReaderMode>("read");
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const sceneStateRef = useRef(readerScenes);
+  const timersRef = useRef<Map<string, number>>(new Map());
+  const revisionsRef = useRef<Map<string, number>>(new Map());
+  const pendingRef = useRef<Set<string>>(new Set());
+  const wsRef = useRef<WebSocket | null>(null);
+  const wsSceneRef = useRef<string | null>(null);
+
+  useEffect(() => { setReaderScenes(scenes); sceneStateRef.current = scenes; }, [scenes]);
+  useEffect(() => () => timersRef.current.forEach((timer) => window.clearTimeout(timer)), []);
+
+  const activeSceneId = useMemo(() => {
+    const owner = readerScenes.find((scene) => scene.blocks.some((block) => block.id === activeBlockId));
+    return owner?.id || readerScenes[0]?.id || null;
+  }, [activeBlockId, readerScenes]);
+
+  const sendWs = useCallback((sceneId: string, message: object) => {
+    if (wsSceneRef.current === sceneId && wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify(message));
+  }, []);
+
+  useEffect(() => {
+    if (!activeSceneId) return;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    let socket: WebSocket | null = null;
+    let reconnectTimer: number | null = null;
+    let disposed = false;
+    const connect = () => {
+      socket = new WebSocket(`${protocol}//${window.location.host}/api/ws/scenes/${activeSceneId}`);
+      wsRef.current = socket;
+      wsSceneRef.current = activeSceneId;
+      socket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data) as { type: string; block?: Block; blockId?: string; blocks?: { id: string; order: number }[] };
+        if (message.type === "block:delete" && message.blockId) {
+          const timer = timersRef.current.get(message.blockId);
+          if (timer) window.clearTimeout(timer);
+          timersRef.current.delete(message.blockId);
+          pendingRef.current.delete(message.blockId);
+          revisionsRef.current.delete(message.blockId);
+        }
+        setReaderScenes((current) => {
+          let next = current;
+          if (message.type === "block:update" && message.block) {
+            if (pendingRef.current.has(message.block.id)) return current;
+            next = current.map((scene) => scene.id === activeSceneId ? { ...scene, blocks: scene.blocks.map((block) => block.id === message.block!.id ? message.block! : block) } : scene);
+          } else if (message.type === "block:create" && message.block) {
+            next = current.map((scene) => scene.id === activeSceneId ? { ...scene, blocks: [...scene.blocks, message.block!].sort((a, b) => a.order - b.order).map((block, order) => ({ ...block, order })) } : scene);
+          } else if (message.type === "block:delete" && message.blockId) {
+            next = current.map((scene) => scene.id === activeSceneId ? { ...scene, blocks: scene.blocks.filter((block) => block.id !== message.blockId).map((block, order) => ({ ...block, order })) } : scene);
+          } else if (message.type === "block:reorder" && message.blocks) {
+            const orders = new Map(message.blocks.map((block) => [block.id, block.order]));
+            next = current.map((scene) => scene.id === activeSceneId ? { ...scene, blocks: scene.blocks.map((block) => ({ ...block, order: orders.get(block.id) ?? block.order })).sort((a, b) => a.order - b.order) } : scene);
+          }
+          sceneStateRef.current = next;
+          return next;
+        });
+      } catch {}
+      };
+      socket.onclose = () => { if (!disposed) reconnectTimer = window.setTimeout(connect, 3000); };
+      socket.onerror = () => socket?.close();
+    };
+    connect();
+    return () => {
+      disposed = true;
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      socket?.close();
+      if (wsRef.current === socket) { wsRef.current = null; wsSceneRef.current = null; }
+    };
+  }, [activeSceneId]);
+
+  const persistBlock = useCallback(async (sceneId: string, blockId: string, revision: number) => {
+    const block = sceneStateRef.current.find((scene) => scene.id === sceneId)?.blocks.find((item) => item.id === blockId);
+    if (!block) return;
+    setSaveState("saving");
+    pendingRef.current.add(blockId);
+    try {
+      const response = await fetch(`/api/scenes/${sceneId}/blocks/${blockId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editablePayload(block)),
+      });
+      if (!response.ok) throw new Error("save");
+      const saved = await response.json() as Block;
+      sendWs(sceneId, { type: "block:update", blockId, block: saved });
+      if (revisionsRef.current.get(blockId) === revision) {
+        setReaderScenes((current) => {
+          const next = current.map((scene) => scene.id === sceneId ? { ...scene, blocks: scene.blocks.map((item) => item.id === blockId ? saved : item) } : scene);
+          sceneStateRef.current = next; return next;
+        });
+        pendingRef.current.delete(blockId);
+        if (pendingRef.current.size === 0) setSaveState("saved");
+      }
+    } catch {
+      if (revisionsRef.current.get(blockId) === revision) setSaveState("error");
+    }
+  }, [sendWs]);
+
+  const updateBlock = useCallback((sceneId: string, blockId: string, updates: BlockUpdate) => {
+    const revision = (revisionsRef.current.get(blockId) || 0) + 1;
+    revisionsRef.current.set(blockId, revision);
+    pendingRef.current.add(blockId);
+    setReaderScenes((current) => {
+      const next = current.map((scene) => scene.id === sceneId ? { ...scene, blocks: scene.blocks.map((block) => block.id === blockId ? { ...block, ...updates } : block) } : scene);
+      sceneStateRef.current = next;
+      return next;
+    });
+    setSaveState("dirty");
+    const previous = timersRef.current.get(blockId);
+    if (previous) window.clearTimeout(previous);
+    timersRef.current.set(blockId, window.setTimeout(() => { timersRef.current.delete(blockId); void persistBlock(sceneId, blockId, revision); }, 600));
+  }, [persistBlock]);
+
+  const saveActive = useCallback(() => {
+    if ((!activeBlockId || !activeSceneId) && pendingRef.current.size === 0) return;
+    if ((!activeBlockId || !pendingRef.current.has(activeBlockId)) && pendingRef.current.size > 0) {
+      pendingRef.current.forEach((blockId) => {
+        const scene = sceneStateRef.current.find((item) => item.blocks.some((block) => block.id === blockId));
+        if (scene) void persistBlock(scene.id, blockId, revisionsRef.current.get(blockId) || 0);
+      });
+      return;
+    }
+    if (!activeBlockId || !activeSceneId) return;
+    const timer = timersRef.current.get(activeBlockId);
+    if (timer) window.clearTimeout(timer);
+    timersRef.current.delete(activeBlockId);
+    const revision = revisionsRef.current.get(activeBlockId) || 0;
+    void persistBlock(activeSceneId, activeBlockId, revision);
+  }, [activeBlockId, activeSceneId, persistBlock]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (mode !== "edit") return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") { event.preventDefault(); saveActive(); }
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); saveActive(); setEditingBlockId(null); }
+      if (event.key === "Escape") setEditingBlockId(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mode, saveActive]);
+
+  const createBlock = useCallback(async (sceneId: string, type: string, order: number, source?: Block) => {
+    setSaveState("saving");
+    const payload = source ? { ...editablePayload(source), type, order } : {
+      type, content: "", order, characterId: type === "dialogue" ? characters[0]?.id : undefined,
+      showPortrait: type === "dialogue", position: type === "dialogue" ? "center" : undefined,
+    };
+    try {
+      const response = await fetch(`/api/scenes/${sceneId}/blocks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!response.ok) throw new Error("create");
+      const created = await response.json() as Block;
+      setReaderScenes((current) => {
+        const next = current.map((scene) => scene.id === sceneId ? { ...scene, blocks: [...scene.blocks, created].sort((a, b) => a.order - b.order).map((block, blockOrder) => ({ ...block, order: blockOrder })) } : scene);
+        sceneStateRef.current = next; return next;
+      });
+      setActiveBlockId(created.id); setEditingBlockId(created.id); setSaveState("saved");
+      sendWs(sceneId, { type: "block:create", block: created });
+      requestAnimationFrame(() => document.getElementById(`block-${created.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+    } catch { setSaveState("error"); }
+  }, [characters, sendWs]);
+
+  const deleteBlock = useCallback(async (sceneId: string, blockId: string) => {
+    const scene = sceneStateRef.current.find((item) => item.id === sceneId);
+    const index = scene?.blocks.findIndex((block) => block.id === blockId) ?? -1;
+    const block = scene?.blocks[index];
+    if (!block || (block.content.trim() && !window.confirm("Supprimer ce bloc et son contenu ?"))) return;
+    setSaveState("saving");
+    try {
+      const response = await fetch(`/api/scenes/${sceneId}/blocks/${blockId}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("delete");
+      const nextSelection = scene?.blocks[index - 1]?.id || scene?.blocks[index + 1]?.id || null;
+      setReaderScenes((current) => { const next = current.map((item) => item.id === sceneId ? { ...item, blocks: item.blocks.filter((candidate) => candidate.id !== blockId).map((candidate, order) => ({ ...candidate, order })) } : item); sceneStateRef.current = next; return next; });
+      setActiveBlockId(nextSelection); setEditingBlockId(null); setSaveState("saved");
+      sendWs(sceneId, { type: "block:delete", blockId });
+    } catch { setSaveState("error"); }
+  }, [sendWs]);
+
+  const moveBlock = useCallback(async (sceneId: string, blockId: string, direction: -1 | 1) => {
+    const scene = sceneStateRef.current.find((item) => item.id === sceneId);
+    if (!scene) return;
+    const from = scene.blocks.findIndex((block) => block.id === blockId); const to = from + direction;
+    if (from < 0 || to < 0 || to >= scene.blocks.length) return;
+    const reordered = [...scene.blocks]; [reordered[from], reordered[to]] = [reordered[to], reordered[from]];
+    const ordered = reordered.map((block, order) => ({ ...block, order }));
+    setReaderScenes((current) => { const next = current.map((item) => item.id === sceneId ? { ...item, blocks: ordered } : item); sceneStateRef.current = next; return next; });
+    setSaveState("saving");
+    try {
+      const blocks = ordered.map(({ id, order }) => ({ id, order }));
+      const response = await fetch(`/api/scenes/${sceneId}/blocks/reorder`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ blocks }) });
+      if (!response.ok) throw new Error("reorder");
+      setSaveState("saved"); sendWs(sceneId, { type: "block:reorder", blocks });
+    } catch { setSaveState("error"); }
+  }, [sendWs]);
+
+  const setReaderMode = useCallback((next: ReaderMode) => { setMode(next); if (next === "read") setEditingBlockId(null); }, []);
   const variables = {
     "--reader-bg": project.pageBackgroundColor,
     "--reader-ink": project.pageTextColor,
     "--reader-accent": project.pageAccentColor,
   } as CSSProperties;
 
-  if (scenes.length === 0) {
+  if (readerScenes.length === 0) {
     return <EmptyReader project={project} variables={variables} exitHref={exitHref} />;
   }
 
+  const editor = useMemo(() => ({ mode, setMode: setReaderMode, saveState, saveActive, activeBlockId, setActiveBlockId, editingBlockId, setEditingBlockId, updateBlock, createBlock, deleteBlock, moveBlock, characters, canEdit }), [mode, setReaderMode, saveState, saveActive, activeBlockId, editingBlockId, updateBlock, createBlock, deleteBlock, moveBlock, characters, canEdit]);
+
   if (project.type === "vn" || project.pageTheme === "visual-novel") {
-    return <VisualNovelReader project={project} scenes={scenes} variables={variables} exitHref={exitHref} />;
+    return <VisualNovelReader project={project} scenes={readerScenes} variables={variables} exitHref={exitHref} editor={editor} />;
   }
 
-  return <DocumentReader project={project} scenes={scenes} variables={variables} exitHref={exitHref} />;
+  return <DocumentReader project={project} scenes={readerScenes} variables={variables} exitHref={exitHref} editor={editor} />;
 }
 
-function ReaderBar({ project, scenes, exitHref }: { project: Project; scenes: Scene[]; exitHref?: string }) {
+type EditorControls = {
+  mode: ReaderMode; setMode: (mode: ReaderMode) => void; saveState: SaveState; saveActive: () => void;
+  activeBlockId: string | null; setActiveBlockId: (id: string | null) => void;
+  editingBlockId: string | null; setEditingBlockId: (id: string | null) => void;
+  updateBlock: (sceneId: string, blockId: string, updates: BlockUpdate) => void;
+  createBlock: (sceneId: string, type: string, order: number, source?: Block) => void;
+  deleteBlock: (sceneId: string, blockId: string) => void;
+  moveBlock: (sceneId: string, blockId: string, direction: -1 | 1) => void;
+  characters: Character[]; canEdit: boolean;
+};
+
+function ModeControls({ editor }: { editor: EditorControls }) {
+  if (!editor.canEdit) return null;
+  return <div className={styles.modeControls}>
+    <div className={styles.modeSwitch} aria-label="Mode du lecteur">
+      <button type="button" onClick={() => editor.setMode("read")} aria-pressed={editor.mode === "read"}>Lecture</button>
+      <button type="button" onClick={() => editor.setMode("edit")} aria-pressed={editor.mode === "edit"}>Édition</button>
+    </div>
+    {editor.mode === "edit" && editor.saveState !== "idle" && (editor.saveState === "error"
+      ? <button type="button" className={`${styles.saveStatus} ${styles.saveError}`} onClick={editor.saveActive}>{saveLabel(editor.saveState)}</button>
+      : <span className={styles.saveStatus} role="status">{saveLabel(editor.saveState)}</span>)}
+  </div>;
+}
+
+function ReaderBar({ project, scenes, exitHref, editor }: { project: Project; scenes: Scene[]; exitHref?: string; editor: EditorControls }) {
   return (
     <header className={styles.readerBar}>
       <Link href={exitHref || `/project/${project.id}`} className={styles.backLink} aria-label={`Quitter la lecture de ${project.name}`}>
@@ -125,9 +372,12 @@ function ReaderBar({ project, scenes, exitHref }: { project: Project; scenes: Sc
         <strong>{project.name}</strong>
         <span>{TYPE_LABELS[project.type] || "Projet narratif"}</span>
       </div>
-      <div className={styles.readerStats} aria-label="Statistiques de lecture">
-        <span>{scenes.length} {scenes.length > 1 ? "scènes" : "scène"}</span>
-        <span>{countWords(scenes).toLocaleString("fr-FR")} mots</span>
+      <div className={styles.readerActions}>
+        <div className={styles.readerStats} aria-label="Statistiques de lecture">
+          <span>{scenes.length} {scenes.length > 1 ? "scènes" : "scène"}</span>
+          <span>{countWords(scenes).toLocaleString("fr-FR")} mots</span>
+        </div>
+        <ModeControls editor={editor} />
       </div>
     </header>
   );
@@ -147,7 +397,7 @@ function EmptyReader({ project, variables, exitHref }: { project: Project; varia
   );
 }
 
-function VisualNovelReader({ project, scenes, variables, exitHref }: { project: Project; scenes: Scene[]; variables: CSSProperties; exitHref?: string }) {
+function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { project: Project; scenes: Scene[]; variables: CSSProperties; exitHref?: string; editor: EditorControls }) {
   const beats = useMemo(
     () => {
       let activeMusic: Block | null = null;
@@ -174,7 +424,12 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
     },
     [project.pageBackgroundUrl, scenes],
   );
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => {
+    if (typeof window === "undefined") return 0;
+    const requested = new URLSearchParams(window.location.search).get("block");
+    const found = requested ? beats.findIndex((beat) => beat.block.id === requested) : -1;
+    return found >= 0 ? found : 0;
+  });
   const [showHud, setShowHud] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenError, setFullscreenError] = useState<string | null>(null);
@@ -190,6 +445,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
   const hasAudio = scenes.some((scene) => scene.blocks.some(isAudioCommand));
 
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("block")) return;
     const controller = new AbortController();
     fetch(`/api/projects/${project.id}/progress`, { signal: controller.signal }).then(async (response) => {
       if (!response.ok) return;
@@ -202,10 +458,27 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
 
   useEffect(() => {
     if (!current) return;
+    editor.setActiveBlockId(current.block.id);
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("block") !== current.block.id) {
+      url.searchParams.set("block", current.block.id);
+      window.history.replaceState(null, "", url);
+    }
+    sessionStorage.setItem(`narra:reader-position:${current.scene.id}`, JSON.stringify({ blockId: current.block.id, offset: 0 }));
+  }, [current?.block.id, current?.scene.id]);
+
+  useEffect(() => {
+    if (!editor.activeBlockId || editor.activeBlockId === current?.block.id) return;
+    const requestedIndex = beats.findIndex((beat) => beat.block.id === editor.activeBlockId);
+    if (requestedIndex >= 0) setIndex(requestedIndex);
+  }, [beats, current?.block.id, editor.activeBlockId]);
+
+  useEffect(() => {
+    if (!current) return;
     void fetch(`/api/projects/${project.id}/progress`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sceneId: current.scene.id, blockId: current.block.id, percentage: ((index + 1) / beats.length) * 100 }) });
   }, [beats.length, current, index, project.id]);
 
-  const goNext = () => setIndex((value) => Math.min(value + 1, beats.length));
+  const goNext = () => { if (editor.mode === "read") setIndex((value) => Math.min(value + 1, beats.length)); };
   const goPrevious = () => setIndex((value) => Math.max(value - 1, 0));
 
   useEffect(() => {
@@ -228,7 +501,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [audioUnlocked, beats.length, hasAudio]);
+  }, [audioUnlocked, beats.length, hasAudio, editor.mode]);
 
   useEffect(() => {
     const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -314,11 +587,12 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
     return (
       <div className={styles.emptyReader} style={variables}>
         <Link href={exitHref || `/project/${project.id}`} className={styles.backLink}><ArrowLeftIcon />Retour à l’histoire</Link>
+        <div className={styles.emptyModeControls}><ModeControls editor={editor} /></div>
         <div>
           <span className={styles.formatLabel}>Visual Novel</span>
           <h1>Aucun passage à jouer</h1>
           <p>Les scènes existent, mais elles ne contiennent pas encore de narration ou de dialogue.</p>
-          <Link href={`/project/${project.id}/edit`} className={styles.primaryAction}>Écrire un passage</Link>
+          {editor.mode === "edit" ? <FirstBlockControl scene={scenes[0]} editor={editor} /> : <Link href={`/project/${project.id}/edit`} className={styles.primaryAction}>Écrire un passage</Link>}
         </div>
       </div>
     );
@@ -398,6 +672,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
             <strong>{scene.title}</strong>
           </div>
           <div className={styles.vnHudActions}>
+            <ModeControls editor={editor} />
             <button type="button" onClick={() => setIndex(0)} className={styles.vnIconButton} aria-label="Recommencer"><RestartIcon /></button>
             <button type="button" onClick={toggleFullscreen} className={styles.vnIconButton} aria-label={isFullscreen ? "Quitter le plein écran" : "Passer en plein écran"} aria-pressed={isFullscreen}><ExpandIcon /></button>
           </div>
@@ -409,13 +684,14 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
 
       {scene.location && <div className={styles.locationTag}>{scene.location.name}</div>}
 
-      <button type="button" className={styles.vnAdvanceLayer} onClick={goNext} aria-label="Afficher la suite" />
+      {editor.mode === "read" && <button type="button" className={styles.vnAdvanceLayer} onClick={goNext} aria-label="Afficher la suite" />}
 
       {block.type === "heading" ? (
-        <section key={block.id} className={styles.vnTitleBeat} aria-live="polite">
+        <section key={block.id} id={`block-${block.id}`} data-block-id={block.id} className={`${styles.vnTitleBeat} ${editor.mode === "edit" ? styles.editableBlock : ""} ${editor.activeBlockId === block.id ? styles.selectedBlock : ""}`} aria-live="polite">
           <span>{scene.node?.title || `Scène ${sceneIndex + 1}`}</span>
-          <h1>{block.content}</h1>
-          <button type="button" onClick={goNext}>Entrer dans la scène <span aria-hidden="true">›</span></button>
+          {editor.mode === "edit" && editor.editingBlockId === block.id ? <textarea autoFocus value={block.content} onChange={(event) => editor.updateBlock(scene.id, block.id, { content: event.target.value })} className={styles.vnTitleEditor} /> : <h1 onClick={() => editor.mode === "edit" && editor.setEditingBlockId(block.id)}>{block.content}</h1>}
+          {editor.mode === "read" && <button type="button" onClick={goNext}>Entrer dans la scène <span aria-hidden="true">›</span></button>}
+          {editor.mode === "edit" && <BlockToolbar block={block} sceneId={scene.id} index={scene.blocks.findIndex((item) => item.id === block.id)} blockCount={scene.blocks.length} editor={editor} />}
         </section>
       ) : isBackdropSolo ? (
         <section key={block.id} className={styles.vnBackdropBeat} aria-live="polite">
@@ -427,7 +703,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
           </div>
         </section>
       ) : (
-        <div key={block.id} className={`${styles.vnDialogueFrame} ${block.type === "transition" ? styles.vnDialogueFrameTransition : ""}`}>
+        <div key={block.id} id={`block-${block.id}`} data-block-id={block.id} className={`${styles.vnDialogueFrame} ${block.type === "transition" ? styles.vnDialogueFrameTransition : ""} ${editor.mode === "edit" ? styles.editableBlock : ""} ${editor.activeBlockId === block.id ? styles.selectedBlock : ""}`}>
           {portrait && block.type === "dialogue" && (
             <img
               src={portrait}
@@ -446,11 +722,14 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
               </div>
             )}
             {block.type === "action" && <span className={styles.vnBlockType}>Action</span>}
-            <p>{block.content}</p>
+            {editor.mode === "edit" && editor.editingBlockId === block.id ? (
+              <EditorFields block={block} sceneId={scene.id} editor={editor} visualNovel />
+            ) : <p onClick={() => editor.mode === "edit" && editor.setEditingBlockId(block.id)}>{block.content}</p>}
+            {editor.mode === "edit" && <BlockToolbar block={block} sceneId={scene.id} index={scene.blocks.findIndex((item) => item.id === block.id)} blockCount={scene.blocks.length} editor={editor} />}
             <div className={styles.vnDialogueFooter}>
               <span>{index + 1} / {beats.length}</span>
               <button type="button" onClick={goPrevious} disabled={index === 0}>Précédent</button>
-              <button type="button" onClick={goNext}>Continuer <span aria-hidden="true">›</span></button>
+              {editor.mode === "read" && <button type="button" onClick={goNext}>Continuer <span aria-hidden="true">›</span></button>}
             </div>
           </section>
         </div>
@@ -459,29 +738,60 @@ function VisualNovelReader({ project, scenes, variables, exitHref }: { project: 
   );
 }
 
-function DocumentReader({ project, scenes, variables, exitHref }: { project: Project; scenes: Scene[]; variables: CSSProperties; exitHref?: string }) {
+function DocumentReader({ project, scenes, variables, exitHref, editor }: { project: Project; scenes: Scene[]; variables: CSSProperties; exitHref?: string; editor: EditorControls }) {
   const coverStyle = {
     backgroundImage: project.pageBackgroundUrl ? `url("${project.pageBackgroundUrl.replace(/["\\]/g, "")}")` : undefined,
   };
   const typeClass = styles[`format_${project.type}`] || styles.format_story;
+  const lastSceneRef = useRef<string | null>(null);
+  const restoredRef = useRef(false);
+  const observedBlockIds = scenes.flatMap((scene) => scene.blocks.filter((block) => !isReaderCommand(block)).map((block) => block.id)).join(":");
 
   useEffect(() => {
-    const articles = Array.from(document.querySelectorAll<HTMLElement>("[data-reader-scene]"));
+    const requestedBlock = new URLSearchParams(window.location.search).get("block");
+    if (requestedBlock && !restoredRef.current) {
+      restoredRef.current = true;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const element = document.getElementById(`block-${requestedBlock}`);
+        if (!element) return;
+        const sceneId = element.closest<HTMLElement>("[data-reader-scene]")?.dataset.readerScene;
+        let offset = 0;
+        if (sceneId) {
+          try {
+            const saved = JSON.parse(sessionStorage.getItem(`narra:reader-position:${sceneId}`) || "null") as { blockId?: string; offset?: number } | null;
+            if (saved?.blockId === requestedBlock) offset = saved.offset || 0;
+          } catch {}
+        }
+        element.scrollIntoView({ behavior: "auto", block: "center" });
+        if (offset) window.scrollBy({ top: offset, behavior: "auto" });
+      }));
+    }
+
+    const blocks = Array.from(document.querySelectorAll<HTMLElement>("[data-block-id]"));
     const observer = new IntersectionObserver((entries) => {
       const visible = entries.filter((entry) => entry.isIntersecting).sort((a,b) => b.intersectionRatio - a.intersectionRatio)[0];
       if (!visible) return;
-      const sceneId = (visible.target as HTMLElement).dataset.readerScene;
+      const target = visible.target as HTMLElement;
+      const blockId = target.dataset.blockId;
+      const sceneId = target.closest<HTMLElement>("[data-reader-scene]")?.dataset.readerScene;
       const sceneIndex = scenes.findIndex((scene) => scene.id === sceneId);
-      if (!sceneId || sceneIndex < 0) return;
-      void fetch(`/api/projects/${project.id}/progress`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sceneId, percentage: ((sceneIndex + 1) / scenes.length) * 100 }) });
-    }, { threshold: [.35,.7] });
-    articles.forEach((article) => observer.observe(article));
+      if (!sceneId || !blockId || sceneIndex < 0) return;
+      editor.setActiveBlockId(blockId);
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("block") !== blockId) { url.searchParams.set("block", blockId); window.history.replaceState(null, "", url); }
+      sessionStorage.setItem(`narra:reader-position:${sceneId}`, JSON.stringify({ blockId, offset: Math.round(target.getBoundingClientRect().top - window.innerHeight / 2) }));
+      if (lastSceneRef.current !== sceneId) {
+        lastSceneRef.current = sceneId;
+        void fetch(`/api/projects/${project.id}/progress`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sceneId, blockId, percentage: ((sceneIndex + 1) / scenes.length) * 100 }) });
+      }
+    }, { threshold: [.25, .5, .75] });
+    blocks.forEach((block) => observer.observe(block));
     return () => observer.disconnect();
-  }, [project.id, scenes]);
+  }, [observedBlockIds, project.id]);
 
   return (
     <div className={`${styles.documentReader} ${typeClass}`} style={variables}>
-      <ReaderBar project={project} scenes={scenes} exitHref={exitHref} />
+      <ReaderBar project={project} scenes={scenes} exitHref={exitHref} editor={editor} />
       <section className={styles.documentCover} style={coverStyle}>
         <div className={styles.documentCoverShade} aria-hidden="true" />
         <div className={styles.documentCoverContent}>
@@ -493,7 +803,7 @@ function DocumentReader({ project, scenes, variables, exitHref }: { project: Pro
       </section>
       <main id="lecture" className={styles.documentContent}>
         {scenes.map((scene, index) => (
-          <SceneArticle key={scene.id} scene={scene} index={index} type={project.type} />
+          <SceneArticle key={scene.id} scene={scene} index={index} type={project.type} editor={editor} />
         ))}
         <footer className={styles.endMark}><span>Fin</span><Link href={exitHref || `/project/${project.id}`}>Retour à l’histoire</Link></footer>
       </main>
@@ -501,7 +811,7 @@ function DocumentReader({ project, scenes, variables, exitHref }: { project: Pro
   );
 }
 
-function SceneArticle({ scene, index, type }: { scene: Scene; index: number; type: string }) {
+function SceneArticle({ scene, index, type, editor }: { scene: Scene; index: number; type: string; editor: EditorControls }) {
   if (type === "comic") {
     return (
       <article className={styles.comicScene}>
@@ -511,12 +821,13 @@ function SceneArticle({ scene, index, type }: { scene: Scene; index: number; typ
             const speaker = characterName(block.character);
             const image = block.character?.portraitUrl || scene.location?.imageUrl;
             return (
-              <section key={block.id} className={styles.comicPanel} style={{ backgroundImage: image ? `url("${image.replace(/["\\]/g, "")}")` : undefined }}>
+              <section key={block.id} id={`block-${block.id}`} data-block-id={block.id} onClick={() => editor.mode === "edit" && editor.setActiveBlockId(block.id)} className={`${styles.comicPanel} ${editor.mode === "edit" ? styles.editableBlock : ""} ${editor.activeBlockId === block.id ? styles.selectedBlock : ""}`} style={{ backgroundImage: image ? `url("${image.replace(/["\\]/g, "")}")` : undefined }}>
                 <span className={styles.panelNumber}>{index + 1}.{blockIndex + 1}</span>
                 <div className={styles.comicCaption}>
                   {speaker && <strong style={{ color: block.character?.nameColor }}>{speaker}</strong>}
-                  <p>{block.content}</p>
+                  {editor.mode === "edit" && editor.editingBlockId === block.id ? <EditorFields block={block} sceneId={scene.id} editor={editor} /> : <p onClick={() => editor.mode === "edit" && editor.setEditingBlockId(block.id)}>{block.content}</p>}
                 </div>
+                {editor.mode === "edit" && <BlockToolbar block={block} sceneId={scene.id} index={blockIndex} blockCount={scene.blocks.length} editor={editor} />}
               </section>
             );
           })}
@@ -532,22 +843,40 @@ function SceneArticle({ scene, index, type }: { scene: Scene; index: number; typ
         {scene.location && <p>{scene.location.name}</p>}
       </header>
       <div className={styles.blocks}>
-        {scene.blocks.filter((block) => !isReaderCommand(block)).map((block) => <RenderedBlock key={block.id} block={block} type={type} />)}
+        {scene.blocks.filter((block) => !isReaderCommand(block)).map((block, blockIndex, visibleBlocks) => <RenderedBlock key={block.id} block={block} sceneId={scene.id} blockIndex={blockIndex} blockCount={visibleBlocks.length} type={type} editor={editor} />)}
+        {editor.mode === "edit" && !scene.blocks.some((block) => !isReaderCommand(block)) && <FirstBlockControl scene={scene} editor={editor} />}
       </div>
     </article>
   );
 }
 
-function RenderedBlock({ block, type }: { block: Block; type: string }) {
+const RenderedBlock = memo(function RenderedBlock({ block, sceneId, blockIndex, blockCount, type, editor }: { block: Block; sceneId: string; blockIndex: number; blockCount: number; type: string; editor: EditorControls }) {
   const speaker = characterName(block.character);
   const className = `${styles.block} ${styles[`block_${block.type}`] || ""}`;
+  const editing = editor.mode === "edit" && editor.editingBlockId === block.id;
 
-  if (block.type === "heading") return <h3 className={className}>{block.content}</h3>;
-  if (block.type === "transition") return <p className={className}>{block.content}</p>;
+  return (
+    <div
+      id={`block-${block.id}`}
+      data-block-id={block.id}
+      className={`${styles.blockShell} ${editor.mode === "edit" ? styles.editableBlock : ""} ${editor.activeBlockId === block.id ? styles.selectedBlock : ""}`}
+      onClick={() => { if (editor.mode === "edit") editor.setActiveBlockId(block.id); }}
+    >
+      {editing ? <EditorFields block={block} sceneId={sceneId} editor={editor} /> : <BlockContent block={block} type={type} className={className} speaker={speaker} onEdit={() => { editor.setActiveBlockId(block.id); editor.setEditingBlockId(block.id); }} editable={editor.mode === "edit"} />}
+      {editor.mode === "edit" && <BlockToolbar block={block} sceneId={sceneId} index={blockIndex} blockCount={blockCount} editor={editor} />}
+    </div>
+  );
+});
+
+function BlockContent({ block, type, className, speaker, onEdit, editable }: { block: Block; type: string; className: string; speaker: string | null; onEdit: () => void; editable: boolean }) {
+  const props = { className, onClick: editable ? onEdit : undefined };
+
+  if (block.type === "heading") return <h3 {...props}>{block.content}</h3>;
+  if (block.type === "transition") return <p {...props}>{block.content}</p>;
 
   if (block.type === "dialogue") {
     return (
-      <div className={className}>
+      <div {...props}>
         {speaker && <strong style={{ color: block.character?.nameColor }}>{speaker}{type === "screenplay" && ":"}</strong>}
         {block.emotion && <span className={styles.emotion}>({block.emotion})</span>}
         <p>{block.content}</p>
@@ -555,5 +884,62 @@ function RenderedBlock({ block, type }: { block: Block; type: string }) {
     );
   }
 
-  return <p className={className}>{block.content}</p>;
+  return <p {...props}>{block.content}</p>;
+}
+
+function EditorFields({ block, sceneId, editor, visualNovel = false }: { block: Block; sceneId: string; editor: EditorControls; visualNovel?: boolean }) {
+  const emotions = Array.from(new Map([
+    ["neutral", "Neutre"], ["happy", "Joyeux"], ["sad", "Triste"], ["angry", "En colère"], ["surprised", "Surpris"], ["worried", "Inquiet"],
+    ...(block.character?.images || []).map((image) => [image.emotion, image.label || image.emotion] as [string, string]),
+  ]).entries()).filter(([value]) => value);
+  return <div className={`${styles.editorFields} ${visualNovel ? styles.vnEditorFields : ""}`} onClick={(event) => event.stopPropagation()}>
+    {block.type === "dialogue" && <div className={styles.dialogueFields}>
+      <select aria-label="Personnage" value={block.characterId || ""} onChange={(event) => {
+        const character = editor.characters.find((item) => item.id === event.target.value) || null;
+        editor.updateBlock(sceneId, block.id, { characterId: character?.id || null, character, portraitImageUrl: null });
+      }}>
+        <option value="">Personnage…</option>
+        {editor.characters.map((character) => <option key={character.id} value={character.id}>{characterName(character) || "Personnage sans nom"}</option>)}
+      </select>
+      <select aria-label="Émotion" value={block.emotion || ""} onChange={(event) => editor.updateBlock(sceneId, block.id, { emotion: event.target.value || null, portraitImageUrl: null })}>
+        <option value="">Émotion…</option>
+        {emotions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select>
+      <select aria-label="Position" value={block.position || "center"} onChange={(event) => editor.updateBlock(sceneId, block.id, { position: event.target.value })}>
+        <option value="left">Gauche</option><option value="center">Centre</option><option value="right">Droite</option>
+      </select>
+      <label className={styles.portraitToggle}><input type="checkbox" checked={block.showPortrait !== false} onChange={(event) => editor.updateBlock(sceneId, block.id, { showPortrait: event.target.checked })} /> Portrait</label>
+    </div>}
+    <textarea
+      autoFocus value={block.content} rows={Math.max(2, block.content.split("\n").length)}
+      aria-label="Contenu du bloc" onChange={(event) => editor.updateBlock(sceneId, block.id, { content: event.target.value })}
+      onFocus={(event) => requestAnimationFrame(() => event.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" }))}
+    />
+  </div>;
+}
+
+function BlockToolbar({ block, sceneId, index, blockCount, editor }: { block: Block; sceneId: string; index: number; blockCount: number; editor: EditorControls }) {
+  const insert = (event: ChangeEvent<HTMLSelectElement>, order: number) => {
+    if (event.target.value) void editor.createBlock(sceneId, event.target.value, order);
+    event.target.value = "";
+  };
+  return <div className={styles.blockToolbar} role="toolbar" aria-label="Actions du bloc" onClick={(event) => event.stopPropagation()}>
+    <button type="button" onClick={() => editor.setEditingBlockId(block.id)}>Modifier</button>
+    <select defaultValue="" onChange={(event) => insert(event, block.order)} aria-label="Ajouter avant"><option value="" disabled>+ Avant</option>{INSERT_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+    <select defaultValue="" onChange={(event) => insert(event, block.order + 1)} aria-label="Ajouter après"><option value="" disabled>+ Après</option>{INSERT_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+    <button type="button" onClick={() => void editor.createBlock(sceneId, block.type, block.order + 1, block)}>Dupliquer</button>
+    <button type="button" onClick={() => void editor.moveBlock(sceneId, block.id, -1)} disabled={index <= 0}>Monter</button>
+    <button type="button" onClick={() => void editor.moveBlock(sceneId, block.id, 1)} disabled={index === blockCount - 1}>Descendre</button>
+    <button type="button" className={styles.deleteAction} onClick={() => void editor.deleteBlock(sceneId, block.id)}>Supprimer</button>
+  </div>;
+}
+
+function FirstBlockControl({ scene, editor }: { scene: Scene; editor: EditorControls }) {
+  return <label className={styles.firstBlockControl}>
+    <span>Ajouter le premier bloc</span>
+    <select defaultValue="" onChange={(event) => { if (event.target.value) void editor.createBlock(scene.id, event.target.value, 0); event.target.value = ""; }}>
+      <option value="" disabled>Choisir un type…</option>
+      {INSERT_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+    </select>
+  </label>;
 }

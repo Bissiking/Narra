@@ -1,6 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireProjectAccess } from "@/lib/project-access";
+import { createSceneBlockSchema } from "@/lib/validations";
+import { ZodError } from "zod";
+
+const blockInclude = {
+  character: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      alias: true,
+      nameColor: true,
+      portraitUrl: true,
+      images: {
+        select: { id: true, label: true, emotion: true, url: true },
+        orderBy: { order: "asc" as const },
+      },
+    },
+  },
+};
+
+async function refreshWordCount(sceneId: string) {
+  const blocks = await db.sceneBlock.findMany({ where: { sceneId }, select: { type: true, content: true } });
+  const wordCount = blocks.reduce((total, block) =>
+    block.type === "music" || block.type === "sfx" || block.type === "background"
+      ? total
+      : total + block.content.split(/\s+/).filter(Boolean).length, 0);
+  await db.scene.update({ where: { id: sceneId }, data: { wordCount } });
+}
 
 export async function GET(
   request: NextRequest,
@@ -14,27 +42,7 @@ export async function GET(
 
     const blocks = await db.sceneBlock.findMany({
       where: { sceneId: params.sceneId },
-      include: {
-        character: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            alias: true,
-            nameColor: true,
-            portraitUrl: true,
-            images: {
-              select: {
-                id: true,
-                label: true,
-                emotion: true,
-                url: true,
-              },
-              orderBy: { order: "asc" },
-            },
-          },
-        },
-      },
+      include: blockInclude,
       orderBy: { order: "asc" },
     });
 
@@ -45,6 +53,46 @@ export async function GET(
       { error: "Erreur lors de la récupération des blocs" },
       { status: 500 }
     );
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { sceneId: string } }
+) {
+  try {
+    const scene = await db.scene.findUnique({ where: { id: params.sceneId }, select: { projectId: true } });
+    if (!scene) return NextResponse.json({ error: "Scène introuvable" }, { status: 404 });
+    const access = await requireProjectAccess(request, scene.projectId, true);
+    if (access instanceof NextResponse) return access;
+
+    const data = createSceneBlockSchema.parse(await request.json());
+    if (data.characterId) {
+      const character = await db.character.findFirst({
+        where: { id: data.characterId, projectId: scene.projectId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!character) return NextResponse.json({ error: "Personnage invalide" }, { status: 400 });
+    }
+
+    const block = await db.$transaction(async (tx) => {
+      await tx.sceneBlock.updateMany({
+        where: { sceneId: params.sceneId, order: { gte: data.order } },
+        data: { order: { increment: 1 } },
+      });
+      return tx.sceneBlock.create({
+        data: { ...data, sceneId: params.sceneId },
+        include: blockInclude,
+      });
+    });
+    await refreshWordCount(params.sceneId);
+    return NextResponse.json(block, { status: 201 });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message }, { status: 400 });
+    }
+    console.error("Error creating block:", error);
+    return NextResponse.json({ error: "Impossible de créer le bloc" }, { status: 500 });
   }
 }
 

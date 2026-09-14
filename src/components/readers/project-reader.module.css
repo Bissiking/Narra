@@ -49,6 +49,19 @@
 .readerIdentity strong { display: block; font-size: 0.9rem; }
 .readerIdentity span { display: block; margin-top: 0.25rem; color: #a1a1aa; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; }
 .readerStats { justify-self: end; display: flex; gap: 1.25rem; color: #a1a1aa; font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-variant-numeric: tabular-nums; }
+.readerActions { justify-self: end; display: flex; align-items: center; gap: 1.25rem; }
+.modeControls { display: flex; align-items: center; gap: .65rem; font-family: Inter, system-ui, sans-serif; }
+.modeSwitch { display: inline-flex; border: 1px solid rgba(255,255,255,.18); }
+.modeSwitch button { min-height: 2rem; padding: .35rem .65rem; color: #a1a1aa; background: transparent; border: 0; font-size: .72rem; }
+.modeSwitch button[aria-pressed="true"] { color: #09090b; background: var(--reader-accent); }
+.modeSwitch button:focus-visible,
+.saveStatus:focus-visible,
+.blockToolbar button:focus-visible,
+.blockToolbar select:focus-visible,
+.editorFields textarea:focus-visible,
+.editorFields select:focus-visible { outline: 3px solid var(--reader-accent); outline-offset: 2px; }
+.saveStatus { min-width: 6.5rem; padding: .3rem 0; color: #a1a1aa; background: transparent; border: 0; font-family: "IBM Plex Mono", monospace; font-size: .68rem; text-align: left; }
+.saveError { color: #fca5a5; cursor: pointer; }
 
 .documentCover {
   position: relative;
@@ -82,7 +95,8 @@
 .sceneHeader > p { color: color-mix(in srgb, var(--reader-ink), transparent 35%); font-family: "Source Serif 4", Georgia, serif; font-size: .9rem; font-style: italic; }
 .blocks { width: min(44rem, 100%); margin: 0 auto; }
 .block { max-width: 70ch; margin: 0; color: color-mix(in srgb, var(--reader-ink), transparent 6%); font-family: "Source Serif 4", Georgia, serif; font-size: clamp(1.05rem, 1.6vw, 1.18rem); line-height: 1.82; overflow-wrap: anywhere; white-space: pre-wrap; }
-.block + .block { margin-top: .75rem; }
+.blockShell + .blockShell { margin-top: .75rem; }
+.blockShell { position: relative; }
 .block_heading { margin-top: 3.5rem !important; margin-bottom: 1.25rem !important; color: var(--reader-ink); font-size: 1.65rem; line-height: 1.2; }
 .block_transition { margin: 3rem auto !important; color: color-mix(in srgb, var(--reader-ink), transparent 42%); text-align: center; font-style: italic; }
 .block_dialogue { margin: 1.75rem 0; padding: 1.25rem 0; }
@@ -90,6 +104,28 @@
 .emotion { margin-left: .5rem; color: color-mix(in srgb, var(--reader-ink), transparent 48%); font-size: .72rem; }
 .block_dialogue p { margin: 0; }
 .block_action { color: color-mix(in srgb, var(--reader-ink), transparent 28%); font-style: italic; }
+.editableBlock { cursor: text; outline: 1px solid transparent; outline-offset: .55rem; transition: outline-color 140ms ease-out, background-color 140ms ease-out; }
+.editableBlock:hover,
+.selectedBlock { outline-color: color-mix(in srgb, var(--reader-accent), transparent 45%); background: color-mix(in srgb, var(--reader-accent), transparent 96%); }
+.blockToolbar { position: absolute; z-index: 35; top: -.9rem; right: 0; display: flex; align-items: stretch; color: #d4d4d8; background: #18181b; border: 1px solid #3f3f46; opacity: 0; pointer-events: none; transform: translateY(-70%); transition: opacity 140ms ease-out; }
+.editableBlock:hover > .blockToolbar,
+.selectedBlock > .blockToolbar,
+.blockToolbar:focus-within { opacity: 1; pointer-events: auto; }
+.blockToolbar button,
+.blockToolbar select { min-height: 2rem; padding: .3rem .55rem; color: inherit; background: transparent; border: 0; border-right: 1px solid #3f3f46; font: 500 .68rem/1 Inter, system-ui, sans-serif; }
+.blockToolbar button:hover,
+.blockToolbar select:hover { color: #09090b; background: var(--reader-accent); }
+.blockToolbar button:disabled { opacity: .35; cursor: not-allowed; }
+.blockToolbar .deleteAction { color: #fca5a5; border-right: 0; }
+.editorFields { width: 100%; }
+.editorFields textarea { display: block; width: 100%; min-height: 5rem; padding: .5rem; resize: vertical; color: var(--reader-ink); background: color-mix(in srgb, var(--reader-bg), #fff 4%); border: 1px solid color-mix(in srgb, var(--reader-ink), transparent 72%); font: inherit; line-height: inherit; }
+.dialogueFields { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .5rem; font-family: Inter, system-ui, sans-serif; }
+.dialogueFields select { min-height: 2rem; max-width: 12rem; padding: .25rem .45rem; color: var(--reader-ink); background: var(--reader-bg); border: 1px solid color-mix(in srgb, var(--reader-ink), transparent 72%); font-size: .7rem; }
+.portraitToggle { display: inline-flex; align-items: center; gap: .35rem; min-height: 2rem; color: color-mix(in srgb, var(--reader-ink), transparent 28%); font-size: .7rem; }
+.portraitToggle input { accent-color: var(--reader-accent); }
+.firstBlockControl { display: grid; gap: .5rem; width: min(22rem, 100%); margin: 2rem auto; color: color-mix(in srgb, var(--reader-ink), transparent 28%); font-size: .75rem; text-align: left; }
+.firstBlockControl select { min-height: 2.75rem; padding: .5rem .7rem; color: var(--reader-ink); background: var(--reader-bg); border: 1px solid var(--reader-accent); }
+.emptyModeControls { position: absolute; top: 1.5rem; right: 1.5rem; }
 .endMark { display: flex; flex-direction: column; align-items: center; gap: 1.75rem; margin-top: 9rem; color: color-mix(in srgb, var(--reader-ink), transparent 45%); }
 .endMark span { font-family: "Source Serif 4", Georgia, serif; font-style: italic; }
 .endMark a { padding-bottom: .25rem; border-bottom: 1px solid var(--reader-accent); color: var(--reader-ink); font-size: .8rem; }
@@ -146,6 +182,7 @@
 .vnChapter span { display: block; margin-bottom: .2rem; color: var(--reader-accent); font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .vnChapter strong { display: block; font-size: .9rem; }
 .vnHudActions { justify-self: end; display: flex; gap: .5rem; }
+.vnHudActions .modeControls { color: var(--reader-ink); text-shadow: 0 2px 12px #000; }
 .vnError { position: absolute; z-index: 24; top: 4.75rem; right: clamp(1rem, 3vw, 3rem); max-width: 20rem; padding: .65rem .8rem; color: #fca5a5; background: rgba(9,9,11,.92); border: 1px solid #ef4444; font-size: .75rem; }
 .locationTag { position: absolute; z-index: 8; top: 6rem; left: clamp(1rem, 3vw, 3rem); color: color-mix(in srgb, var(--reader-ink), transparent 25%); font-size: .72rem; letter-spacing: .1em; text-shadow: 0 2px 10px #000; text-transform: uppercase; }
 .vnDialogueFrame { position: absolute; z-index: 10; left: 50%; bottom: clamp(1rem, 4vh, 3rem); width: min(72rem, calc(100% - 2rem)); transform: translateX(-50%); }
@@ -153,6 +190,10 @@
 .vnPortrait { position: absolute; z-index: 2; left: 1.5rem; bottom: calc(100% + 1.2rem); width: clamp(5.5rem, 10vw, 8.5rem); height: clamp(7rem, 18vh, 10.5rem); object-fit: contain; object-position: left bottom; filter: drop-shadow(0 12px 18px rgba(0,0,0,.48)); animation: portraitEnter 360ms cubic-bezier(.2,.8,.2,1) both; }
 .vnAdvanceLayer { position: absolute; z-index: 5; inset: 0; width: 100%; padding: 0; cursor: default; background: transparent; border: 0; }
 .vnDialogue { position: relative; width: 100%; min-height: 10.5rem; padding: 2rem 2.25rem 1rem; color: var(--reader-ink); background: color-mix(in srgb, var(--reader-bg), transparent 7%); border-top: 1px solid var(--reader-accent); box-shadow: 0 18px 55px rgba(0,0,0,.38); animation: dialogueEnter 260ms cubic-bezier(.2,.8,.2,1) both; }
+.vnEditorFields textarea { min-height: 5rem; font-family: "Source Serif 4", Georgia, serif; font-size: clamp(1.05rem, 1.8vw, 1.3rem); line-height: 1.6; }
+.vnTitleEditor { width: min(22ch, 80vw); min-height: 6rem; margin-top: .65rem; padding: .5rem; resize: vertical; color: var(--reader-ink); background: color-mix(in srgb, var(--reader-bg), transparent 12%); border: 1px solid var(--reader-accent); font: 700 clamp(1.5rem, 4.5vw, 3.5rem)/1.02 Inter, system-ui, sans-serif; text-align: center; pointer-events: auto; }
+.vnTitleBeat > .blockToolbar { top: 5rem; right: 1rem; pointer-events: auto; }
+.vnTitleBeat.editableBlock { pointer-events: auto; }
 .vnSpeaker { position: absolute; top: -1.05rem; left: 1.5rem; display: flex; align-items: baseline; gap: .65rem; padding: .55rem 1.1rem; background: var(--reader-bg); border: 1px solid currentColor; }
 .vnSpeaker strong { color: inherit; font-size: .86rem; letter-spacing: .05em; text-transform: uppercase; }
 .vnSpeaker span { color: color-mix(in srgb, var(--reader-ink), transparent 38%); font-size: .7rem; text-transform: capitalize; }
@@ -200,6 +241,7 @@
 @media (max-width: 720px) {
   .readerBar { grid-template-columns: 1fr auto; min-height: 3.75rem; }
   .backLink span, .readerStats { display: none; }
+  .readerActions { gap: .5rem; }
   .readerIdentity { text-align: right; }
   .documentCover { min-height: calc(100svh - 3.75rem); align-items: flex-end; padding-bottom: 4rem; }
   .documentCover h1 { font-size: clamp(2.8rem, 15vw, 4.6rem); }
@@ -211,6 +253,13 @@
   .vnHud { grid-template-columns: auto 1fr auto; padding: .8rem; }
   .vnChapter { text-align: left; }
   .vnHudActions .vnIconButton:first-child { display: none; }
+  .vnHudActions .modeControls { position: fixed; top: .75rem; right: 4.25rem; }
+  .saveStatus { display: none; }
+  .blockToolbar { position: static; width: 100%; margin-top: .65rem; overflow-x: auto; opacity: 0; transform: none; }
+  .selectedBlock > .blockToolbar { opacity: 1; }
+  .blockToolbar button, .blockToolbar select { flex: 0 0 auto; min-height: 2.75rem; }
+  .dialogueFields { display: grid; grid-template-columns: 1fr 1fr; }
+  .dialogueFields select { max-width: none; width: 100%; }
   .locationTag { top: 4.8rem; left: 1rem; }
   .vnPortrait { left: 1rem; bottom: calc(100% + 1.15rem); width: 5.5rem; height: 6.75rem; }
   .vnDialogueFrame, .vnDialogueFrameTransition { bottom: 0; width: 100%; }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { type CSSProperties, useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -13,13 +13,16 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  verticalListSortingStrategy,
+  horizontalListSortingStrategy,
   arrayMove,
+  useSortable,
 } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import SceneBlockItem from "@/components/scene-block-item";
 import SceneScriptImporter from "@/components/scene-script-importer";
 import type { ParsedSceneScriptBlock } from "@/lib/scene-script-parser";
 import { getEditorProfile, getProjectFormat } from "@/lib/editor-profiles";
+import editorStyles from "./editor-workspace.module.css";
 
 interface Scene {
   id: string;
@@ -28,7 +31,7 @@ interface Scene {
   order: number;
   wordCount: number;
   node: { id: string; title: string } | null;
-  location: { id: string; name: string } | null;
+  location: { id: string; name: string; imageUrl?: string | null } | null;
   characters: { character: { id: string; firstName: string | null; lastName: string | null; alias: string | null; portraitUrl: string | null } }[];
   _count: { blocks: number };
 }
@@ -47,6 +50,14 @@ interface SceneBlock {
   id: string; type: string; content: string; order: number;
   characterId: string | null; emotion: string | null; position: string | null; speakerNote: string | null;
   mediaUrl?: string | null; displayMode?: "solo" | "caption" | null; showPortrait?: boolean | null; portraitImageUrl?: string | null; audioAction?: string | null; volume?: number | null; fadeDuration?: number | null; loop?: boolean | null;
+}
+
+interface PreviewSettings {
+  name: string;
+  pageBackgroundUrl: string | null;
+  pageBackgroundColor: string;
+  pageTextColor: string;
+  pageAccentColor: string;
 }
 
 interface NarrativeNodeOption {
@@ -77,6 +88,7 @@ export default function EditPage() {
   const [structure, setStructure] = useState<NarrativeNode[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [projectType, setProjectType] = useState("story");
+  const [previewSettings, setPreviewSettings] = useState<PreviewSettings>({ name: "Narra", pageBackgroundUrl: null, pageBackgroundColor: "#09090b", pageTextColor: "#fafafa", pageAccentColor: "#f59e0b" });
   const [selectedScene, setSelectedScene] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<SceneBlock[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,10 +118,24 @@ export default function EditPage() {
         fetch(`/api/projects/${projectId}/characters`),
         fetch(`/api/projects/${projectId}`),
       ]);
-      if (scenesRes.ok) setScenes(await scenesRes.json());
+      if (scenesRes.ok) {
+        const loadedScenes = await scenesRes.json() as Scene[];
+        setScenes(loadedScenes);
+        setSelectedScene((current) => current || loadedScenes[0]?.id || null);
+      }
       if (structureRes.ok) setStructure(await structureRes.json());
       if (charsRes.ok) setCharacters(await charsRes.json());
-      if (projectRes.ok) setProjectType((await projectRes.json()).type || "story");
+      if (projectRes.ok) {
+        const project = await projectRes.json();
+        setProjectType(project.type || "story");
+        setPreviewSettings({
+          name: project.name || "Narra",
+          pageBackgroundUrl: project.pageBackgroundUrl || null,
+          pageBackgroundColor: project.pageBackgroundColor || "#09090b",
+          pageTextColor: project.pageTextColor || "#fafafa",
+          pageAccentColor: project.pageAccentColor || "#f59e0b",
+        });
+      }
       setLoading(false);
     }
     loadData();
@@ -121,7 +147,11 @@ export default function EditPage() {
     if (!selectedScene) { setBlocks([]); return; }
     async function loadBlocks() {
       const res = await fetch(`/api/scenes/${selectedScene}/blocks`);
-      if (res.ok) setBlocks(await res.json());
+      if (res.ok) {
+        const loadedBlocks = await res.json() as SceneBlock[];
+        setBlocks(loadedBlocks);
+        setSelectedBlockId(loadedBlocks[0]?.id || null);
+      }
     }
     loadBlocks();
     const scene = scenes.find((s) => s.id === selectedScene);
@@ -322,209 +352,184 @@ export default function EditPage() {
   const totalWords = scenes.reduce((acc, s) => acc + s.wordCount, 0);
   const editorProfile = getEditorProfile(projectType);
   const projectFormat = getProjectFormat(projectType);
-  const editorWidth = editorProfile.key === "comic" ? "max-w-6xl" : editorProfile.key === "screenplay" || editorProfile.key === "universe" ? "max-w-5xl" : editorProfile.key === "manuscript" ? "max-w-4xl" : "max-w-3xl";
+  const selectedBlock = selectedBlockIndex >= 0 ? blocks[selectedBlockIndex] : null;
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Sidebar - Scene list */}
-      <aside className="flex h-screen w-72 shrink-0 flex-col border-r border-narra-border">
-        <div className="p-4 border-b border-narra-border">
-          <Link href={`/project/${projectId}`} className="text-narra-muted hover:text-narra-text text-sm">← Projet</Link>
-          <div className="mt-2 flex items-center justify-between">
-            <div>
-              <h2 className="font-bold text-sm">{projectFormat.nav.edit}</h2>
-              <p className="text-xs text-narra-muted mt-0.5">{scenes.length} {projectFormat.content[scenes.length === 1 ? "singular" : "plural"]} · {totalWords.toLocaleString("fr-FR")} mots</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {onlineUsers.size > 0 && (
-                <span className="flex items-center gap-1 text-xs text-green-400">
-                  <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />
-                  {onlineUsers.size}
-                </span>
-              )}
-              <button onClick={() => setShowCreateScene(!showCreateScene)} className="btn-primary px-2 py-1 text-xs">
-                {showCreateScene ? "×" : "+"}
-              </button>
-            </div>
-          </div>
+    <div className={editorStyles.workspace}>
+      <header className={editorStyles.topbar}>
+        <Link href={`/project/${projectId}`} className={editorStyles.backButton} aria-label="Retour au projet"><BackIcon /></Link>
+        <div className={editorStyles.productTitle}>
+          <h1>Montage</h1>
+          <span>{previewSettings.name}</span>
         </div>
+        <div className={editorStyles.sceneTitle}>
+          {selectedScene && editTitle ? (
+            <input value={titleValue} onChange={(event) => setTitleValue(event.target.value)} onBlur={saveTitle} onKeyDown={(event) => event.key === "Enter" && saveTitle()} autoFocus aria-label="Titre de la scène" />
+          ) : (
+            <button type="button" onClick={() => selectedScene && setEditTitle(true)} disabled={!selectedScene}>{selectedSceneData?.title || "Aucune scène sélectionnée"}</button>
+          )}
+          {selectedScene && <span>{blocks.length} {editorProfile.unit[blocks.length === 1 ? 0 : 1]} · {wordCount} mots</span>}
+        </div>
+        <div className={editorStyles.topActions}>
+          {onlineUsers.size > 0 && <span className={editorStyles.presence}><i />{onlineUsers.size} en ligne</span>}
+          {lastSaved && !saving && <span className={editorStyles.savedState}>Sauvé à {lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>}
+          <button type="button" className={editorStyles.secondaryButton} onClick={() => setShowMetadata((value) => !value)} disabled={!selectedScene}>Réglages</button>
+          <button type="button" className={editorStyles.saveButton} onClick={saveBlocks} disabled={!selectedScene || saving}><SaveIcon />{saving ? "Sauvegarde" : "Sauver"}</button>
+        </div>
+      </header>
 
-        {showCreateScene && (
-          <form onSubmit={handleCreateScene} className="space-y-2 border-b border-narra-border p-3">
-            <input className="input text-sm" value={newSceneTitle} onChange={(e) => setNewSceneTitle(e.target.value)} placeholder={projectFormat.content.titlePlaceholder} aria-label={`Titre ${projectFormat.content.ofDefinite}`} autoFocus required />
-            <select className="select text-sm" value={newSceneNodeId} onChange={(e) => setNewSceneNodeId(e.target.value)}>
-              <option value="">Sans rattachement</option>
-              {nodeOptions.map((n) => <option key={n.id} value={n.id}>{`${"— ".repeat(n.depth)}${n.title}`}</option>)}
-            </select>
-            {createError && <p className="text-xs text-narra-danger">{createError}</p>}
-            <button type="submit" className="btn-primary w-full text-sm" disabled={creatingScene}>{creatingScene ? "…" : "Créer"}</button>
-          </form>
-        )}
-
-        <div className="flex-1 overflow-y-auto p-2">
-          {sceneGroups.map((group) => (
-            <section key={group.id} className="mb-3">
-              <h3 className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-narra-muted">{group.title}</h3>
-              {group.scenes.map((scene) => (
-                <button
-                  key={scene.id}
-                  onClick={() => setSelectedScene(scene.id)}
-                  className={`mb-0.5 w-full border-l-2 text-left px-3 py-2 transition-colors text-sm ${
-                    selectedScene === scene.id ? "border-narra-accent bg-narra-accent/10" : "border-transparent hover:bg-narra-border/30"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate font-medium">{scene.title}</span>
-                    <span className="text-[10px] text-narra-muted shrink-0">{scene._count.blocks}</span>
-                  </div>
-                  <div className="text-[10px] text-narra-muted mt-0.5 truncate">
-                    {scene.status !== "draft" && <span className="uppercase tracking-wider mr-1">{scene.status}</span>}
-                    {scene.node?.title || ""}
-                  </div>
-                </button>
-              ))}
-            </section>
-          ))}
+      <aside className={editorStyles.library} aria-label="Scènes du projet">
+        <div className={editorStyles.panelHeader}>
+          <div><strong>Scènes</strong><span>{scenes.length} · {totalWords.toLocaleString("fr-FR")} mots</span></div>
+          <button type="button" onClick={() => setShowCreateScene((value) => !value)} aria-expanded={showCreateScene} aria-label="Créer une scène"><PlusIcon /></button>
+        </div>
+        {showCreateScene && <form onSubmit={handleCreateScene} className={editorStyles.createSceneForm}>
+          <input value={newSceneTitle} onChange={(event) => setNewSceneTitle(event.target.value)} placeholder={projectFormat.content.titlePlaceholder} aria-label={`Titre ${projectFormat.content.ofDefinite}`} autoFocus required />
+          <select value={newSceneNodeId} onChange={(event) => setNewSceneNodeId(event.target.value)} aria-label="Rattachement narratif">
+            <option value="">Sans rattachement</option>
+            {nodeOptions.map((node) => <option key={node.id} value={node.id}>{`${"— ".repeat(node.depth)}${node.title}`}</option>)}
+          </select>
+          {createError && <p role="alert">{createError}</p>}
+          <button type="submit" disabled={creatingScene}>{creatingScene ? "Création…" : "Créer la scène"}</button>
+        </form>}
+        <div className={editorStyles.sceneList}>
+          {sceneGroups.map((group) => <section key={group.id}>
+            <h2>{group.title}</h2>
+            {group.scenes.map((scene, sceneIndex) => <button key={scene.id} type="button" onClick={() => setSelectedScene(scene.id)} aria-current={selectedScene === scene.id ? "true" : undefined}>
+              <span className={editorStyles.sceneIndex}>{String(sceneIndex + 1).padStart(2, "0")}</span>
+              <span className={editorStyles.sceneName}><strong>{scene.title}</strong><small>{scene.node?.title || "Sans séquence"}</small></span>
+              <span className={editorStyles.sceneCount}>{scene._count.blocks}</span>
+            </button>)}
+          </section>)}
         </div>
       </aside>
 
-      {/* Main editor area */}
-      <main className="flex h-screen min-h-0 min-w-0 flex-1 flex-col">
-        {selectedScene ? (
-          <>
-            {/* Editor toolbar */}
-            <header className="flex flex-wrap items-center gap-3 border-b border-narra-border px-4 py-2">
-              <div className="flex-1 min-w-0">
-                {editTitle ? (
-                  <input className="input text-sm font-bold" value={titleValue} onChange={(e) => setTitleValue(e.target.value)} onBlur={saveTitle} onKeyDown={(e) => e.key === "Enter" && saveTitle()} autoFocus />
-                ) : (
-                  <h2 className="font-bold text-sm truncate cursor-pointer hover:text-narra-accent" onClick={() => setEditTitle(true)}>
-                    {selectedSceneData?.title}
-                  </h2>
-                )}
-                <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-narra-muted">
-                  <span>{wordCount} mots</span>
-                  <span>{blocks.length} {editorProfile.unit[blocks.length === 1 ? 0 : 1]}</span>
-                  <span>{selectedBlockIndex >= 0 ? `Bloc actif #${selectedBlockIndex + 1}` : `Ajout à la fin ${projectFormat.content.ofDefinite}`}</span>
-                  <span>Ctrl + Entrée : insérer après</span>
-                  {lastSaved && <span>Sauvé {lastSaved.toLocaleTimeString("fr-FR")}</span>}
-                  {saving && <span className="text-narra-accent">…</span>}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-end gap-1">
-                {planBlocks.length > 0 && (
-                  <select
-                    defaultValue=""
-                    onChange={(event) => {
-                      if (event.target.value) jumpToBlock(event.target.value);
-                      event.target.value = "";
-                    }}
-                    className="border border-narra-border bg-narra-bg px-2 py-1 text-xs text-narra-muted focus:border-narra-accent focus:outline-none"
-                    aria-label="Aller rapidement à un plan"
-                  >
-                    <option value="" disabled>Aller au plan…</option>
-                    {planBlocks.map((block) => (
-                      <option key={block.id} value={block.id}>
-                        #{block.order + 1} · {block.content.slice(0, 64) || "Plan sans titre"}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <button onClick={() => setShowMetadata(!showMetadata)} className="btn-ghost text-xs px-2 py-1">Meta</button>
-                <span className="hidden border-r border-narra-border pr-2 text-xs text-narra-muted xl:inline">{editorProfile.label}</span>
-                {editorProfile.blocks.map((blockType) => (
-                  <button key={blockType.value} onClick={() => addBlock(blockType.value, selectedBlockId)} className="btn-ghost px-2 py-1 text-xs">
-                    +{blockType.shortLabel}
-                  </button>
-                ))}
-                <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} compact />
-                <button onClick={saveBlocks} className="btn-primary text-xs px-2 py-1">Sauver</button>
-                <button onClick={deleteScene} className="text-xs text-narra-danger px-2 py-1 hover:text-narra-danger">🗑</button>
-              </div>
-            </header>
-
-            {/* Metadata panel */}
-            {showMetadata && (
-              <div className="border-b border-narra-border px-4 py-3 bg-narra-surface/50">
-                <div className="flex gap-3 items-end">
-                  <div className="flex-1">
-                    <label className="label text-[10px]">Statut</label>
-                    <select className="select text-xs" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
-                      <option value="draft">Brouillon</option>
-                      <option value="writing">En cours</option>
-                      <option value="review">Révision</option>
-                      <option value="final">Final</option>
-                    </select>
-                  </div>
-                  <div className="flex-1">
-                    <label className="label text-[10px]">Nœud narratif</label>
-                    <select className="select text-xs" value={selectedNodeId} onChange={(e) => setSelectedNodeId(e.target.value)}>
-                      <option value="">Aucun</option>
-                      {nodeOptions.map((n) => <option key={n.id} value={n.id}>{`${"— ".repeat(n.depth)}${n.title}`}</option>)}
-                    </select>
-                  </div>
-                  <button onClick={saveMetadata} className="btn-primary text-xs px-3 py-1.5">OK</button>
-                </div>
-              </div>
-            )}
-
-            {/* Character bar */}
-            {selectedSceneData && selectedSceneData.characters.length > 0 && (
-              <div className="border-b border-narra-border px-4 py-1.5 flex gap-1.5 overflow-x-auto">
-                {selectedSceneData.characters.map(({ character }) => (
-                  <Link
-                    key={character.id}
-                    href={`/project/${projectId}/characters/${character.id}`}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded border border-narra-border hover:border-narra-accent text-xs shrink-0 transition-colors"
-                  >
-                    {character.portraitUrl ? <img src={character.portraitUrl} alt="" className="w-4 h-4 rounded-full object-cover" /> : <span className="w-4 h-4 rounded-full bg-narra-border flex items-center justify-center text-[8px]">{(character.firstName?.[0] || "?").toUpperCase()}</span>}
-                    <span>{character.alias || `${character.firstName || ""} ${character.lastName || ""}`.trim()}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            {/* Blocks */}
-            <div className={`mx-auto min-h-0 w-full ${editorWidth} flex-1 overflow-y-auto p-4 scrollbar-thin`}>
-              {blocks.length === 0 ? (
-                <div className="text-center py-16 text-narra-muted">
-                  <p className="mb-3 text-sm">Aucun bloc.</p>
-                  <button onClick={() => addBlock(editorProfile.blocks[0].value)} className="btn-primary text-sm">Commencer à écrire</button>
-                </div>
-              ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-3">
-                      {blocks.map((block) => (
-                        <SceneBlockItem
-                          key={block.id}
-                          block={block}
-                          characters={characters}
-                          onUpdate={updateBlock}
-                          onRemove={removeBlock}
-                          onInsertAfter={addBlock}
-                          onSelect={setSelectedBlockId}
-                          selected={selectedBlockId === block.id}
-                          projectId={projectId}
-                          projectType={projectType}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-narra-muted">
-            <div className="text-center">
-              <p className="text-lg mb-1">Sélectionnez {projectFormat.content.indefinite}</p>
-              <p className="text-sm">ou utilisez + pour créer votre premier contenu</p>
-            </div>
-          </div>
-        )}
+      <main className={editorStyles.monitorArea}>
+        {selectedSceneData ? <PreviewMonitor scene={selectedSceneData} blocks={blocks} selectedBlockId={selectedBlockId} onSelect={setSelectedBlockId} characters={characters} settings={previewSettings} /> : <div className={editorStyles.noSelection}><strong>Choisissez une scène</strong><span>Le moniteur affichera ici votre montage.</span></div>}
       </main>
+
+      <aside className={editorStyles.inspector} aria-label="Inspecteur">
+        <div className={editorStyles.panelHeader}>
+          <div><strong>Inspecteur</strong><span>{selectedBlock ? `Plan ${String(selectedBlockIndex + 1).padStart(2, "0")}` : "Aucun plan actif"}</span></div>
+        </div>
+        {showMetadata && selectedScene ? <div className={editorStyles.metadataPanel}>
+          <label>Statut<select value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)}><option value="draft">Brouillon</option><option value="writing">En cours</option><option value="review">Révision</option><option value="final">Final</option></select></label>
+          <label>Séquence<select value={selectedNodeId} onChange={(event) => setSelectedNodeId(event.target.value)}><option value="">Aucune</option>{nodeOptions.map((node) => <option key={node.id} value={node.id}>{`${"— ".repeat(node.depth)}${node.title}`}</option>)}</select></label>
+          <button type="button" onClick={saveMetadata}>Appliquer</button>
+        </div> : selectedBlock ? <div className={editorStyles.inspectorBody}>
+          <SceneBlockItem block={selectedBlock} characters={characters} onUpdate={updateBlock} onRemove={removeBlock} onSelect={setSelectedBlockId} selected projectId={projectId} projectType={projectType} inspector />
+          <div className={editorStyles.inspectorActions}>
+            <button type="button" onClick={() => addBlock("heading", selectedBlock.id)}><CutIcon />Nouveau plan après</button>
+            <button type="button" className={editorStyles.dangerButton} onClick={() => removeBlock(selectedBlock.id)}><DeleteIcon />Supprimer le bloc</button>
+          </div>
+        </div> : <div className={editorStyles.inspectorEmpty}><span>Sélectionnez un segment dans la timeline pour modifier son contenu.</span></div>}
+        {selectedSceneData?.characters.length ? <div className={editorStyles.castStrip}>
+          <span>Distribution</span>
+          <div>{selectedSceneData.characters.map(({ character }) => <Link key={character.id} href={`/project/${projectId}/characters/${character.id}`} title={character.alias || character.firstName || "Personnage"}>{character.portraitUrl ? <img src={character.portraitUrl} alt="" /> : <i>{(character.alias?.[0] || character.firstName?.[0] || "?").toUpperCase()}</i>}</Link>)}</div>
+        </div> : null}
+      </aside>
+
+      <section className={editorStyles.timeline} aria-label="Timeline de la scène">
+        <div className={editorStyles.timelineToolbar}>
+          <div><strong>Timeline</strong><span>{selectedBlockIndex >= 0 ? `TC ${formatTimecode(selectedBlockIndex)}` : "Prêt au montage"}</span></div>
+          <div className={editorStyles.quickAdd}>
+            <button type="button" onClick={() => addBlock("heading", selectedBlockId)} disabled={!selectedScene}><PlusIcon />Plan</button>
+            <button type="button" onClick={() => addBlock("action", selectedBlockId)} disabled={!selectedScene}>Action</button>
+            <button type="button" onClick={() => addBlock("dialogue", selectedBlockId)} disabled={!selectedScene}>Dialogue</button>
+            <select defaultValue="" onChange={(event) => { if (event.target.value) addBlock(event.target.value, selectedBlockId); event.target.value = ""; }} disabled={!selectedScene} aria-label="Ajouter un autre type de bloc">
+              <option value="" disabled>Autre…</option>{editorProfile.blocks.filter((type) => !["heading", "action", "dialogue"].includes(type.value)).map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+            </select>
+            <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} compact />
+          </div>
+        </div>
+        <div className={editorStyles.timelineViewport}>
+          {!selectedScene ? <div className={editorStyles.timelineEmpty}>Sélectionnez une scène pour commencer.</div> : blocks.length === 0 ? <div className={editorStyles.timelineEmpty}><button type="button" onClick={() => addBlock(editorProfile.blocks[0].value)}>Créer le premier plan</button></div> :
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={blocks.map((block) => block.id)} strategy={horizontalListSortingStrategy}>
+              <div className={editorStyles.track}>
+                {blocks.map((block) => <TimelineClip key={block.id} block={block} selected={selectedBlockId === block.id} onSelect={setSelectedBlockId} />)}
+              </div>
+            </SortableContext>
+          </DndContext>}
+        </div>
+        {selectedScene && <div className={editorStyles.timelineFooter}>
+          <span>{projectFormat.nav.edit} · {editorProfile.label}</span>
+          <button type="button" onClick={deleteScene}><DeleteIcon />Supprimer la scène</button>
+        </div>}
+      </section>
     </div>
   );
 }
+
+const BLOCK_LABELS: Record<string, string> = { heading: "Plan", action: "Action", narration: "Narration", dialogue: "Dialogue", transition: "Transition", note: "Note", background: "Décor", music: "Musique", sfx: "Effet" };
+
+function formatTimecode(index: number) {
+  const seconds = index * 3;
+  return `00:00:${String(seconds).padStart(2, "0")}:00`;
+}
+
+function characterName(character: Character | undefined) {
+  return character?.alias || [character?.firstName, character?.lastName].filter(Boolean).join(" ") || "Personnage";
+}
+
+function PreviewMonitor({ scene, blocks, selectedBlockId, onSelect, characters, settings }: { scene: Scene; blocks: SceneBlock[]; selectedBlockId: string | null; onSelect: (id: string) => void; characters: Character[]; settings: PreviewSettings }) {
+  const [playing, setPlaying] = useState(false);
+  const selectedIndex = Math.max(0, blocks.findIndex((block) => block.id === selectedBlockId));
+  const block = blocks[selectedIndex];
+  const character = characters.find((item) => item.id === block?.characterId);
+  const expression = character?.images.find((image) => block?.emotion && image.emotion.toLocaleLowerCase("fr") === block.emotion.toLocaleLowerCase("fr"));
+  const portrait = block?.showPortrait === false ? null : block?.portraitImageUrl || expression?.url || character?.portraitUrl;
+  const backdrop = [...blocks.slice(0, selectedIndex + 1)].reverse().find((item) => item.type === "background" && item.mediaUrl)?.mediaUrl || scene.location?.imageUrl || settings.pageBackgroundUrl;
+  const monitorVariables = { "--preview-bg": settings.pageBackgroundColor, "--preview-ink": settings.pageTextColor, "--preview-accent": settings.pageAccentColor } as CSSProperties;
+
+  useEffect(() => {
+    if (!playing || blocks.length < 2) return;
+    const timer = window.setInterval(() => {
+      const current = blocks.findIndex((item) => item.id === selectedBlockId);
+      if (current >= blocks.length - 1) { setPlaying(false); return; }
+      onSelect(blocks[current + 1].id);
+    }, 2200);
+    return () => window.clearInterval(timer);
+  }, [blocks, onSelect, playing, selectedBlockId]);
+
+  useEffect(() => { if (!block) setPlaying(false); }, [block]);
+
+  return <div className={editorStyles.monitor} style={monitorVariables}>
+    <div className={editorStyles.monitorHeader}><span>Preview · {scene.title}</span><span>{formatTimecode(selectedIndex)}</span></div>
+    <div className={editorStyles.previewStage} style={{ backgroundImage: backdrop ? `url("${backdrop.replace(/["\\]/g, "")}")` : undefined }}>
+      <div className={editorStyles.previewShade} />
+      {!block ? <div className={editorStyles.previewEmpty}>Ajoutez un premier bloc à la timeline.</div> : block.type === "background" && !block.content ? <div className={editorStyles.previewType}>Nouveau décor</div> : <div className={`${editorStyles.previewContent} ${editorStyles[`preview_${block.type}`] || ""}`}>
+        {portrait && block.type === "dialogue" && <img src={portrait} alt={`Portrait de ${characterName(character)}`} />}
+        {block.type === "dialogue" && <strong style={{ color: character?.nameColor || settings.pageAccentColor }}>{characterName(character)}{block.emotion && <small>{block.emotion}</small>}</strong>}
+        <p>{block.content || `${BLOCK_LABELS[block.type] || "Bloc"} sans contenu`}</p>
+      </div>}
+    </div>
+    <div className={editorStyles.transport}>
+      <button type="button" onClick={() => block && selectedIndex > 0 && onSelect(blocks[selectedIndex - 1].id)} disabled={!block || selectedIndex === 0} aria-label="Bloc précédent"><PreviousIcon /></button>
+      <button type="button" className={editorStyles.playButton} onClick={() => setPlaying((value) => !value)} disabled={!block} aria-label={playing ? "Mettre en pause" : "Lire la scène"}>{playing ? <PauseIcon /> : <PlayIcon />}</button>
+      <button type="button" onClick={() => block && selectedIndex < blocks.length - 1 && onSelect(blocks[selectedIndex + 1].id)} disabled={!block || selectedIndex === blocks.length - 1} aria-label="Bloc suivant"><NextIcon /></button>
+      <span>{block ? `${selectedIndex + 1} / ${blocks.length}` : "0 / 0"}</span>
+    </div>
+  </div>;
+}
+
+function TimelineClip({ block, selected, onSelect }: { block: SceneBlock; selected: boolean; onSelect: (id: string) => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  return <button ref={setNodeRef} style={style} type="button" data-type={block.type} className={`${editorStyles.clip} ${selected ? editorStyles.clipSelected : ""} ${isDragging ? editorStyles.clipDragging : ""}`} onClick={() => onSelect(block.id)} {...attributes} {...listeners}>
+    <span>{String(block.order + 1).padStart(2, "0")} · {BLOCK_LABELS[block.type] || block.type}</span>
+    <strong>{block.content.trim().split("\n")[0] || "Sans contenu"}</strong>
+    <i aria-hidden="true" />
+  </button>;
+}
+
+function Icon({ children }: { children: React.ReactNode }) { return <svg viewBox="0 0 24 24" aria-hidden="true">{children}</svg>; }
+function BackIcon() { return <Icon><path d="M15 18l-6-6 6-6M9 12h11" /></Icon>; }
+function PlusIcon() { return <Icon><path d="M12 5v14M5 12h14" /></Icon>; }
+function SaveIcon() { return <Icon><path d="M5 4h12l2 2v14H5zM8 4v6h8V4M8 20v-6h8v6" /></Icon>; }
+function DeleteIcon() { return <Icon><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" /></Icon>; }
+function CutIcon() { return <Icon><circle cx="6" cy="7" r="3" /><circle cx="6" cy="17" r="3" /><path d="M8.5 8.5L19 19M8.5 15.5L19 5" /></Icon>; }
+function PlayIcon() { return <Icon><path d="M8 5l11 7-11 7z" /></Icon>; }
+function PauseIcon() { return <Icon><path d="M8 5v14M16 5v14" /></Icon>; }
+function PreviousIcon() { return <Icon><path d="M18 6l-8 6 8 6zM6 6v12" /></Icon>; }
+function NextIcon() { return <Icon><path d="M6 6l8 6-8 6zM18 6v12" /></Icon>; }

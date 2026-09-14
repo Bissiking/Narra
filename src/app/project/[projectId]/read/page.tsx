@@ -16,6 +16,17 @@ type ReaderProject = {
   pageTextColor: string;
   pageAccentColor: string;
   pageTheme: string;
+  canEdit: boolean;
+};
+
+type ReaderCharacter = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  alias: string | null;
+  nameColor: string;
+  portraitUrl: string | null;
+  images: { id: string; label: string; emotion: string; url: string }[];
 };
 
 type ReaderScene = {
@@ -27,6 +38,8 @@ type ReaderScene = {
     id: string;
     type: string;
     content: string;
+    order: number;
+    characterId: string | null;
     emotion: string | null;
     position: string | null;
     speakerNote: string | null;
@@ -39,6 +52,7 @@ type ReaderScene = {
     fadeDuration: number | null;
     loop: boolean | null;
     character: {
+      id: string;
       firstName: string | null;
       lastName: string | null;
       alias: string | null;
@@ -53,6 +67,7 @@ export default function ReadPage() {
   const { projectId } = useParams() as { projectId: string };
   const [project, setProject] = useState<ReaderProject | null>(null);
   const [scenes, setScenes] = useState<ReaderScene[]>([]);
+  const [characters, setCharacters] = useState<ReaderCharacter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,18 +79,20 @@ export default function ReadPage() {
       setError(null);
 
       try {
-        const [projectResponse, scenesResponse] = await Promise.all([
+        const [projectResponse, scenesResponse, charactersResponse] = await Promise.all([
           fetch(`/api/projects/${projectId}/presentation`, { signal: controller.signal }),
           fetch(`/api/projects/${projectId}/scenes`, { signal: controller.signal }),
+          fetch(`/api/projects/${projectId}/characters`, { signal: controller.signal }),
         ]);
 
-        if (!projectResponse.ok || !scenesResponse.ok) {
+        if (!projectResponse.ok || !scenesResponse.ok || !charactersResponse.ok) {
           throw new Error("Impossible de charger ce projet.");
         }
 
-        const [projectData, sceneList] = await Promise.all([
+        const [projectData, sceneList, characterList] = await Promise.all([
           projectResponse.json() as Promise<ReaderProject>,
           scenesResponse.json() as Promise<Omit<ReaderScene, "blocks">[]>,
+          charactersResponse.json() as Promise<ReaderCharacter[]>,
         ]);
 
         const scenesWithBlocks = await Promise.all(
@@ -90,6 +107,7 @@ export default function ReadPage() {
 
         setProject(projectData);
         setScenes(scenesWithBlocks);
+        setCharacters(characterList);
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
         setError(cause instanceof Error ? cause.message : "Impossible de charger la lecture.");
@@ -126,5 +144,5 @@ export default function ReadPage() {
     );
   }
 
-  return <ProjectReader project={project} scenes={scenes} />;
+  return <ProjectReader project={project} scenes={scenes} characters={characters} canEdit={project.canEdit} />;
 }

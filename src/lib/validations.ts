@@ -91,11 +91,11 @@ export const createSceneBlockSchema = z.object({
   type: BlockType,
   content: z.string().max(50000),
   order: z.number().int().min(0).default(0),
-  characterId: z.string().uuid().optional(),
-  emotion: z.string().max(100).optional(),
-  position: z.enum(["left", "center", "right"]).optional(),
-  speakerNote: z.string().max(500).optional(),
-  displayMode: z.enum(["solo", "caption"]).optional(),
+  characterId: z.string().uuid().nullish(),
+  emotion: z.string().max(100).nullish(),
+  position: z.enum(["left", "center", "right"]).nullish(),
+  speakerNote: z.string().max(500).nullish(),
+  displayMode: z.enum(["solo", "caption"]).nullish(),
   showPortrait: z.boolean().optional(),
   portraitImageUrl: z
     .string()

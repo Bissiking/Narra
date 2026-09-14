@@ -45,6 +45,7 @@ interface SceneBlockItemProps {
   selected?: boolean;
   projectId?: string;
   projectType?: string;
+  inspector?: boolean;
 }
 
 function SceneBlockItem({
@@ -57,6 +58,7 @@ function SceneBlockItem({
   selected = false,
   projectId,
   projectType = "story",
+  inspector = false,
 }: SceneBlockItemProps) {
   const {
     attributes,
@@ -65,7 +67,7 @@ function SceneBlockItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: block.id });
+  } = useSortable({ id: block.id, disabled: inspector });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -102,12 +104,12 @@ function SceneBlockItem({
       data-block-type={block.type}
       style={style}
       onFocusCapture={() => onSelect?.(block.id)}
-      className={`${editorStyles.root} ${editorStyles[profile.key]} card group p-4 transition-colors ${
+      className={`${editorStyles.root} ${editorStyles[profile.key]} ${inspector ? editorStyles.inspector : "card p-4"} group transition-colors ${
         selected ? "border-narra-accent bg-narra-accent/5" : ""
       } ${isDragging ? "opacity-50 border-narra-accent" : ""}`}
     >
       <div className="flex items-start gap-4">
-        <div className="flex flex-col gap-1 pt-1">
+        {!inspector && <div className="flex flex-col gap-1 pt-1">
           <button
             className="min-h-8 min-w-8 cursor-grab touch-none text-xs text-narra-muted opacity-60 transition-opacity hover:text-narra-text hover:opacity-100 active:cursor-grabbing"
             {...attributes}
@@ -123,7 +125,7 @@ function SceneBlockItem({
           >
             ✕
           </button>
-        </div>
+        </div>}
 
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -190,7 +192,7 @@ function SceneBlockItem({
                 <select
                   value={block.emotion || ""}
                   onChange={(e) =>
-                    onUpdate(block.id, { emotion: e.target.value || null })
+                    onUpdate(block.id, { emotion: e.target.value || null, portraitImageUrl: null })
                   }
                   className="select text-xs py-1 px-2"
                 >
@@ -224,29 +226,10 @@ function SceneBlockItem({
                 </label>
               </div>
 
-              {showPortrait && (
-                <div className="mt-3 grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_3rem]">
-                  <label className="min-w-0">
-                    <span className="label">Image affichée</span>
-                    <select
-                      className="select"
-                      value={block.portraitImageUrl || ""}
-                      onChange={(event) => onUpdate(block.id, { portraitImageUrl: event.target.value || null })}
-                      disabled={!speakingCharacter}
-                    >
-                      <option value="">Automatique — émotion puis portrait principal</option>
-                      {speakingCharacter?.portraitUrl && <option value={speakingCharacter.portraitUrl}>Portrait principal</option>}
-                      {speakingCharacter?.images?.map((image) => (
-                        <option key={image.id} value={image.url}>{image.label || image.emotion}</option>
-                      ))}
-                    </select>
-                  </label>
-                  {selectedPortraitUrl ? (
-                    <img src={selectedPortraitUrl} alt="Aperçu de l’image sélectionnée" className="h-12 w-12 border border-narra-border object-cover" />
-                  ) : (
-                    <span className="grid h-12 w-12 place-items-center border border-narra-border text-xs text-narra-muted" aria-hidden="true">—</span>
-                  )}
-                </div>
+              {showPortrait && speakingCharacter && (
+                <p className="mt-2 text-xs text-narra-muted">
+                  Le portrait suit automatiquement l’émotion sélectionnée, puis utilise le portrait principal par défaut.
+                </p>
               )}
             </div>
           )}

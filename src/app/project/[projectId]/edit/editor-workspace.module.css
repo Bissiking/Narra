@@ -1,0 +1,269 @@
+.workspace {
+  --edit-bg: #09090b;
+  --edit-surface: #121214;
+  --edit-raised: #18181b;
+  --edit-border: #2e2e33;
+  --edit-ink: #fafafa;
+  --edit-muted: #a1a1aa;
+  --edit-accent: #f59e0b;
+  --edit-danger: #fca5a5;
+  display: grid;
+  grid-template-columns: 15rem minmax(26rem, 1fr) 23rem;
+  grid-template-rows: 3.75rem minmax(20rem, 1fr) 17rem;
+  grid-template-areas:
+    "topbar topbar topbar"
+    "library monitor inspector"
+    "library timeline timeline";
+  width: 100%;
+  height: 100svh;
+  color: var(--edit-ink);
+  background: var(--edit-bg);
+  overflow: hidden;
+}
+
+.workspace button,
+.workspace input,
+.workspace select,
+.workspace textarea { border-radius: 0; }
+
+.workspace button:focus-visible,
+.workspace a:focus-visible,
+.workspace input:focus-visible,
+.workspace select:focus-visible,
+.workspace textarea:focus-visible {
+  outline: 3px solid var(--edit-accent);
+  outline-offset: 2px;
+}
+
+.workspace svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.topbar {
+  grid-area: topbar;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: auto auto minmax(12rem, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  padding: 0 .75rem;
+  background: var(--edit-surface);
+  border-bottom: 1px solid var(--edit-border);
+}
+
+.backButton {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--edit-muted);
+  border: 1px solid var(--edit-border);
+}
+
+.backButton:hover { color: var(--edit-ink); border-color: var(--edit-muted); }
+
+.productTitle { display: flex; align-items: baseline; gap: .65rem; padding-right: 1rem; border-right: 1px solid var(--edit-border); }
+.productTitle h1 { font-size: 1rem; font-weight: 700; letter-spacing: -.02em; }
+.productTitle span { color: var(--edit-muted); font-size: .75rem; }
+.sceneTitle { min-width: 0; }
+.sceneTitle button,
+.sceneTitle input { display: block; width: 100%; padding: 0; color: var(--edit-ink); background: transparent; border: 0; font-size: .875rem; font-weight: 600; text-align: left; }
+.sceneTitle button:disabled { color: var(--edit-muted); }
+.sceneTitle > span { display: block; margin-top: .15rem; color: var(--edit-muted); font-family: "IBM Plex Mono", monospace; font-size: .68rem; }
+
+.topActions { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
+.presence,
+.savedState { color: var(--edit-muted); font-size: .7rem; white-space: nowrap; }
+.presence { display: inline-flex; align-items: center; gap: .4rem; }
+.presence i { width: .4rem; height: .4rem; background: #4ade80; border-radius: 50%; }
+.secondaryButton,
+.saveButton { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-height: 2.25rem; padding: .45rem .75rem; font-size: .75rem; font-weight: 600; }
+.secondaryButton { color: var(--edit-muted); background: transparent; border: 1px solid var(--edit-border); }
+.secondaryButton:hover { color: var(--edit-ink); border-color: var(--edit-muted); }
+.saveButton { color: #09090b; background: var(--edit-accent); border: 1px solid var(--edit-accent); }
+.secondaryButton:disabled,
+.saveButton:disabled { opacity: .4; cursor: not-allowed; }
+
+.library,
+.inspector,
+.timeline,
+.monitorArea { min-width: 0; min-height: 0; }
+.library { grid-area: library; display: flex; flex-direction: column; background: var(--edit-surface); border-right: 1px solid var(--edit-border); }
+.inspector { grid-area: inspector; display: flex; flex-direction: column; background: var(--edit-surface); border-left: 1px solid var(--edit-border); overflow: hidden; }
+.monitorArea { grid-area: monitor; display: grid; place-items: center; padding: clamp(1rem, 3vw, 2.5rem); background: var(--edit-bg); overflow: hidden; }
+.timeline { grid-area: timeline; display: grid; grid-template-rows: auto 1fr auto; background: var(--edit-surface); border-top: 1px solid var(--edit-border); overflow: hidden; }
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 3.5rem;
+  padding: .75rem 1rem;
+  border-bottom: 1px solid var(--edit-border);
+}
+.panelHeader > div { min-width: 0; }
+.panelHeader strong { display: block; font-size: .8rem; }
+.panelHeader span { display: block; margin-top: .15rem; color: var(--edit-muted); font-size: .68rem; }
+.panelHeader > button { display: grid; place-items: center; width: 2rem; height: 2rem; color: var(--edit-accent); background: transparent; border: 1px solid var(--edit-border); }
+.panelHeader > button:hover { color: var(--edit-bg); background: var(--edit-accent); border-color: var(--edit-accent); }
+
+.createSceneForm { display: grid; gap: .5rem; padding: .75rem; border-bottom: 1px solid var(--edit-border); }
+.createSceneForm input,
+.createSceneForm select,
+.metadataPanel select { width: 100%; min-height: 2.5rem; padding: .5rem .65rem; color: var(--edit-ink); background: var(--edit-bg); border: 1px solid var(--edit-border); font-size: .75rem; }
+.createSceneForm p { color: var(--edit-danger); font-size: .7rem; }
+.createSceneForm button,
+.metadataPanel button { min-height: 2.5rem; color: var(--edit-bg); background: var(--edit-accent); border: 0; font-size: .75rem; font-weight: 700; }
+
+.sceneList { flex: 1; padding: .75rem .5rem 2rem; overflow-y: auto; scrollbar-color: var(--edit-border) transparent; scrollbar-width: thin; }
+.sceneList section + section { margin-top: 1rem; }
+.sceneList h2 { margin: 0 .5rem .35rem; color: var(--edit-muted); font-size: .68rem; font-weight: 600; letter-spacing: .04em; }
+.sceneList section > button { display: grid; grid-template-columns: 1.5rem minmax(0,1fr) auto; align-items: center; gap: .45rem; width: 100%; min-height: 3.25rem; padding: .5rem; color: var(--edit-muted); background: transparent; border: 1px solid transparent; text-align: left; }
+.sceneList section > button:hover { color: var(--edit-ink); background: var(--edit-raised); }
+.sceneList section > button[aria-current="true"] { color: var(--edit-ink); background: color-mix(in srgb, var(--edit-accent), transparent 92%); border-color: var(--edit-accent); }
+.sceneIndex,
+.sceneCount { font-family: "IBM Plex Mono", monospace; font-size: .65rem; font-variant-numeric: tabular-nums; }
+.sceneIndex { color: var(--edit-accent); }
+.sceneCount { color: var(--edit-muted); }
+.sceneName { min-width: 0; }
+.sceneName strong,
+.sceneName small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sceneName strong { font-size: .76rem; font-weight: 600; }
+.sceneName small { margin-top: .2rem; color: var(--edit-muted); font-size: .65rem; }
+
+.monitor { width: min(60rem, 100%); }
+.monitorHeader { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; color: var(--edit-muted); font-family: "IBM Plex Mono", monospace; font-size: .68rem; font-variant-numeric: tabular-nums; }
+.previewStage { position: relative; aspect-ratio: 16 / 9; isolation: isolate; display: grid; place-items: center; color: var(--preview-ink); background-color: var(--preview-bg); background-position: center; background-size: cover; border: 1px solid var(--edit-border); overflow: hidden; }
+.previewStage::before { content: ""; position: absolute; inset: .75rem; z-index: 5; border: 1px solid color-mix(in srgb, var(--preview-ink), transparent 86%); pointer-events: none; }
+.previewShade { position: absolute; inset: 0; z-index: -1; background: color-mix(in srgb, var(--preview-bg), transparent 24%); }
+.previewContent { position: absolute; left: 6%; right: 6%; bottom: 7%; min-height: 28%; padding: clamp(1rem, 2.5vw, 2rem); background: color-mix(in srgb, var(--preview-bg), transparent 8%); border-top: 1px solid var(--preview-accent); }
+.previewContent > img { position: absolute; left: 1.5rem; bottom: calc(100% + .75rem); width: clamp(4.5rem, 9vw, 8rem); height: clamp(5.5rem, 14vw, 10rem); object-fit: contain; object-position: left bottom; filter: drop-shadow(0 .75rem 1rem rgba(0,0,0,.45)); }
+.previewContent > strong { display: flex; align-items: baseline; gap: .65rem; color: var(--preview-accent); font-size: .8rem; text-transform: uppercase; }
+.previewContent > strong small { color: color-mix(in srgb, var(--preview-ink), transparent 45%); font-size: .65rem; font-weight: 400; text-transform: none; }
+.previewContent p { max-width: 65ch; margin-top: .4rem; font-family: "Source Serif 4", Georgia, serif; font-size: clamp(.9rem, 1.6vw, 1.2rem); line-height: 1.55; white-space: pre-wrap; }
+.preview_heading { inset: 0; display: grid; place-content: center; text-align: center; background: transparent; border: 0; }
+.preview_heading p { max-width: 20ch; color: var(--preview-ink); font-family: Inter, system-ui, sans-serif; font-size: clamp(1.5rem, 4vw, 3rem); font-weight: 700; line-height: 1.05; letter-spacing: -.03em; }
+.preview_action p { color: color-mix(in srgb, var(--preview-ink), transparent 20%); font-style: italic; }
+.preview_transition { left: 18%; right: 18%; min-height: auto; text-align: center; }
+.previewType,
+.previewEmpty { color: color-mix(in srgb, var(--preview-ink), transparent 30%); font-family: "IBM Plex Mono", monospace; font-size: .75rem; }
+
+.transport { position: relative; display: flex; align-items: center; justify-content: center; gap: .35rem; min-height: 3.25rem; }
+.transport button { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; color: var(--edit-muted); background: transparent; border: 1px solid transparent; }
+.transport button:hover:not(:disabled) { color: var(--edit-ink); border-color: var(--edit-border); }
+.transport .playButton { width: 2.75rem; height: 2.75rem; color: var(--edit-bg); background: var(--edit-accent); border-color: var(--edit-accent); }
+.transport button:disabled { opacity: .25; cursor: not-allowed; }
+.transport > span { position: absolute; right: 0; color: var(--edit-muted); font-family: "IBM Plex Mono", monospace; font-size: .68rem; }
+.noSelection { display: grid; justify-items: center; gap: .35rem; color: var(--edit-muted); text-align: center; }
+.noSelection strong { color: var(--edit-ink); font-size: 1rem; }
+.noSelection span { font-size: .8rem; }
+
+.inspectorBody { flex: 1; padding: 1rem; overflow-y: auto; scrollbar-color: var(--edit-border) transparent; scrollbar-width: thin; }
+.inspectorBody > div:first-child { width: 100%; }
+.inspectorActions { display: grid; grid-template-columns: 1fr; gap: .5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--edit-border); }
+.inspectorActions button,
+.timelineFooter button { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-height: 2.5rem; color: var(--edit-muted); background: transparent; border: 1px solid var(--edit-border); font-size: .72rem; }
+.inspectorActions button:hover { color: var(--edit-ink); border-color: var(--edit-muted); }
+.inspectorActions .dangerButton,
+.timelineFooter button { color: var(--edit-danger); }
+.inspectorEmpty { flex: 1; display: grid; place-items: center; padding: 2rem; color: var(--edit-muted); font-size: .8rem; line-height: 1.6; text-align: center; }
+.metadataPanel { display: grid; gap: 1rem; padding: 1rem; }
+.metadataPanel label { color: var(--edit-muted); font-size: .7rem; }
+.metadataPanel select { display: block; margin-top: .4rem; }
+.castStrip { padding: .85rem 1rem; border-top: 1px solid var(--edit-border); }
+.castStrip > span { display: block; margin-bottom: .5rem; color: var(--edit-muted); font-size: .68rem; }
+.castStrip > div { display: flex; gap: .4rem; overflow-x: auto; }
+.castStrip a,
+.castStrip img,
+.castStrip i { width: 2rem; height: 2rem; }
+.castStrip a { flex: 0 0 auto; border: 1px solid var(--edit-border); }
+.castStrip img { object-fit: cover; }
+.castStrip i { display: grid; place-items: center; color: var(--edit-accent); background: var(--edit-bg); font-size: .7rem; font-style: normal; }
+
+.timelineToolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 3.5rem; padding: .6rem 1rem; border-bottom: 1px solid var(--edit-border); }
+.timelineToolbar > div:first-child strong { display: block; font-size: .8rem; }
+.timelineToolbar > div:first-child span { display: block; margin-top: .15rem; color: var(--edit-accent); font-family: "IBM Plex Mono", monospace; font-size: .65rem; font-variant-numeric: tabular-nums; }
+.quickAdd { display: flex; align-items: center; gap: .35rem; }
+.quickAdd > button,
+.quickAdd > select { display: inline-flex; align-items: center; gap: .35rem; min-height: 2.1rem; padding: .35rem .55rem; color: var(--edit-muted); background: transparent; border: 1px solid var(--edit-border); font-size: .68rem; }
+.quickAdd > button:hover,
+.quickAdd > select:hover { color: var(--edit-ink); border-color: var(--edit-accent); }
+.quickAdd > button:disabled,
+.quickAdd > select:disabled { opacity: .35; cursor: not-allowed; }
+.quickAdd svg { width: .85rem; height: .85rem; }
+
+.timelineViewport { min-width: 0; padding: 1.15rem 1rem; overflow-x: auto; overflow-y: hidden; scrollbar-color: var(--edit-accent) var(--edit-bg); scrollbar-width: thin; }
+.track { position: relative; display: flex; align-items: stretch; gap: .35rem; min-width: max-content; height: 7.25rem; padding-top: 1.1rem; border-top: 1px solid var(--edit-border); }
+.track::before { content: "MONTAGE"; position: absolute; top: -1rem; left: 0; color: var(--edit-muted); font-family: "IBM Plex Mono", monospace; font-size: .6rem; letter-spacing: .08em; }
+.clip { position: relative; flex: 0 0 9.5rem; display: grid; grid-template-rows: auto 1fr auto; gap: .35rem; min-width: 0; padding: .65rem; color: var(--edit-muted); background: var(--edit-raised); border: 1px solid var(--edit-border); text-align: left; cursor: grab; overflow: visible; transition: border-color 140ms ease-out, transform 140ms ease-out; }
+.clip:hover { color: var(--edit-ink); border-color: var(--edit-muted); }
+.clip:active { cursor: grabbing; }
+.clip > span { color: inherit; font-family: "IBM Plex Mono", monospace; font-size: .62rem; text-transform: uppercase; }
+.clip > strong { display: -webkit-box; overflow: hidden; font-size: .72rem; font-weight: 500; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.clip > i { display: block; width: 45%; height: 2px; background: var(--edit-muted); opacity: .35; }
+.clip[data-type="dialogue"] > i { width: 72%; }
+.clip[data-type="music"] > i,
+.clip[data-type="sfx"] > i { width: 90%; box-shadow: .65rem 0 0 var(--edit-muted), 1.3rem 0 0 var(--edit-muted); }
+.clipSelected { color: var(--edit-ink); border-color: var(--edit-accent); }
+.clipSelected::before { content: ""; position: absolute; top: -1.2rem; bottom: -.5rem; left: -.25rem; width: 1px; background: var(--edit-accent); pointer-events: none; }
+.clipSelected::after { content: ""; position: absolute; top: -1.35rem; left: -.43rem; width: .4rem; height: .4rem; background: var(--edit-accent); transform: rotate(45deg); }
+.clipDragging { z-index: 5; opacity: .7; }
+.timelineEmpty { display: grid; place-items: center; min-height: 6rem; color: var(--edit-muted); font-size: .8rem; }
+.timelineEmpty button { min-height: 2.5rem; padding: .5rem .8rem; color: var(--edit-bg); background: var(--edit-accent); border: 0; font-weight: 600; }
+.timelineFooter { display: flex; align-items: center; justify-content: space-between; min-height: 2.2rem; padding: .25rem 1rem; color: var(--edit-muted); background: var(--edit-bg); border-top: 1px solid var(--edit-border); font-size: .65rem; }
+.timelineFooter button { min-height: 1.75rem; padding: .2rem .4rem; border: 0; }
+
+@media (max-width: 1100px) {
+  .workspace { grid-template-columns: 12rem minmax(22rem, 1fr) 19rem; }
+  .savedState,
+  .presence { display: none; }
+  .quickAdd > button:nth-of-type(2) { display: none; }
+}
+
+@media (max-width: 820px) {
+  .workspace {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 8rem minmax(20rem, 48svh) 16rem auto;
+    grid-template-areas: "topbar" "library" "monitor" "timeline" "inspector";
+    height: auto;
+    min-height: 100svh;
+    overflow: visible;
+  }
+  .topbar { position: sticky; top: 0; grid-template-columns: auto minmax(0,1fr) auto; min-height: 3.75rem; }
+  .productTitle { display: none; }
+  .sceneTitle > span,
+  .secondaryButton { display: none; }
+  .saveButton { padding: .45rem; }
+  .saveButton svg { width: 1.2rem; height: 1.2rem; }
+  .saveButton { font-size: 0; }
+  .library { border-right: 0; border-bottom: 1px solid var(--edit-border); overflow: hidden; }
+  .library .panelHeader { min-height: 2.75rem; padding-block: .4rem; }
+  .sceneList { display: flex; gap: .4rem; padding: .45rem; overflow-x: auto; overflow-y: hidden; }
+  .sceneList section { display: flex; gap: .4rem; margin: 0 !important; }
+  .sceneList h2 { display: none; }
+  .sceneList section > button { flex: 0 0 11rem; min-height: 3rem; }
+  .createSceneForm { position: fixed; z-index: 50; top: 3.75rem; left: .75rem; right: .75rem; background: var(--edit-surface); border: 1px solid var(--edit-border); }
+  .monitorArea { padding: .75rem; }
+  .monitorHeader { padding-top: 0; }
+  .inspector { min-height: 30rem; border-top: 1px solid var(--edit-border); border-left: 0; }
+  .timeline { min-height: 16rem; }
+  .timelineToolbar { align-items: flex-start; padding: .5rem .75rem; }
+  .quickAdd > button:nth-of-type(2),
+  .quickAdd > button:nth-of-type(3),
+  .quickAdd > select { display: none; }
+  .timelineViewport { padding-inline: .75rem; }
+  .previewContent { left: 4%; right: 4%; bottom: 5%; padding: .8rem; }
+  .previewContent p { font-size: .9rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clip { transition: none; }
+}

@@ -19,7 +19,7 @@ export async function getPublishedStory(slug: string) {
             include: {
               character: {
                 select: {
-                  firstName: true, lastName: true, alias: true, nameColor: true, portraitUrl: true,
+                  id: true, firstName: true, lastName: true, alias: true, nameColor: true, portraitUrl: true,
                   images: { select: { id: true, label: true, emotion: true, url: true }, orderBy: { order: "asc" } },
                 },
               },

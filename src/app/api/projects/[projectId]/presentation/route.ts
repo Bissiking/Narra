@@ -31,7 +31,7 @@ export async function GET(
     select: fields,
   });
   if (!project) return NextResponse.json({ error: "Projet introuvable" }, { status: 404 });
-  return NextResponse.json(project);
+  return NextResponse.json({ ...project, canEdit: access.role !== "viewer" });
 }
 
 export async function PATCH(

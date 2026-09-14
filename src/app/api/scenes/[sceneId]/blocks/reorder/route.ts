@@ -18,8 +18,8 @@ export async function POST(
 
     await db.$transaction(
       blocks.map((block) =>
-        db.sceneBlock.update({
-          where: { id: block.id },
+        db.sceneBlock.updateMany({
+          where: { id: block.id, sceneId: params.sceneId },
           data: { order: block.order },
         })
       )

@@ -5,6 +5,12 @@
   min-width: 0;
 }
 
+.inspector {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
 .root textarea {
   width: 100%;
   max-width: 100%;
