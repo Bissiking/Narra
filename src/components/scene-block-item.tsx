@@ -46,6 +46,7 @@ interface SceneBlockItemProps {
   projectId?: string;
   projectType?: string;
   inspector?: boolean;
+  playlistMode?: boolean;
 }
 
 function SceneBlockItem({
@@ -59,6 +60,7 @@ function SceneBlockItem({
   projectId,
   projectType = "story",
   inspector = false,
+  playlistMode = false,
 }: SceneBlockItemProps) {
   const {
     attributes,
@@ -295,7 +297,7 @@ function SceneBlockItem({
                         className="input py-1.5 text-xs"
                       />
                     </label>
-                    {audioAction === "play" && (
+                    {audioAction === "play" && !playlistMode && (
                       <label className="flex min-h-8 items-center gap-2 text-xs text-narra-muted">
                         <input
                           type="checkbox"
@@ -306,6 +308,7 @@ function SceneBlockItem({
                         Lire en boucle
                       </label>
                     )}
+                    {audioAction === "play" && playlistMode && <p className="text-xs text-narra-muted">La boucle se règle pour toute la playlist depuis la piste Musique.</p>}
                   </>
                 )}
               </div>

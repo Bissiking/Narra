@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { CSSProperties, type ChangeEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { buildCompositePlans } from "@/lib/scene-composition";
 import styles from "./project-reader.module.css";
 
 type Character = {
@@ -405,19 +406,12 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
       scenes.forEach((scene, sceneIndex) => {
         let activeBackdrop = scene.location?.imageUrl || project.pageBackgroundUrl;
         const musicPlaylist = scene.blocks.filter((block) => block.type === "music" && block.audioAction !== "stop" && block.mediaUrl);
-        scene.blocks.forEach((block) => {
-          if (block.type === "music") return;
-          else if (block.type === "sfx") pendingSfx.push(block);
-          else if (block.type === "background") {
-            activeBackdrop = block.mediaUrl || scene.location?.imageUrl || project.pageBackgroundUrl;
-            if (block.mediaUrl) {
-              visible.push({ block, scene, sceneIndex, musicPlaylist, sfx: pendingSfx, backdrop: activeBackdrop });
-              pendingSfx = [];
-            }
-          } else {
-            visible.push({ block, scene, sceneIndex, musicPlaylist, sfx: pendingSfx, backdrop: activeBackdrop });
-            pendingSfx = [];
-          }
+        buildCompositePlans(scene.blocks).forEach((plan) => {
+          const background = plan.layers.filter((layer) => layer.type === "background" && layer.mediaUrl).at(-1);
+          if (background) activeBackdrop = background.mediaUrl || activeBackdrop;
+          pendingSfx.push(...plan.layers.filter((layer) => layer.type === "sfx"));
+          visible.push({ block: plan.lead, scene, sceneIndex, musicPlaylist, sfx: pendingSfx, backdrop: activeBackdrop });
+          pendingSfx = [];
         });
       });
       return visible;

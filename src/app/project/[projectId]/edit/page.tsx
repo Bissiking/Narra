@@ -24,6 +24,7 @@ import SceneBlockItem from "@/components/scene-block-item";
 import SceneScriptImporter from "@/components/scene-script-importer";
 import type { ParsedSceneScriptBlock } from "@/lib/scene-script-parser";
 import { getEditorProfile, getProjectFormat } from "@/lib/editor-profiles";
+import { buildCompositePlans, PLAN_EFFECT_TYPES, type CompositePlan } from "@/lib/scene-composition";
 import editorStyles from "./editor-workspace.module.css";
 
 interface Scene {
@@ -60,39 +61,6 @@ interface PreviewSettings {
   pageBackgroundColor: string;
   pageTextColor: string;
   pageAccentColor: string;
-}
-
-interface CompositePlan {
-  id: string;
-  lead: SceneBlock;
-  layers: SceneBlock[];
-  blocks: SceneBlock[];
-}
-
-const PLAN_EFFECT_TYPES = new Set(["background", "sfx"]);
-
-function buildCompositePlans(blocks: SceneBlock[]) {
-  const plans: CompositePlan[] = [];
-  let pendingLayers: SceneBlock[] = [];
-  blocks.filter((block) => block.type !== "music").forEach((block) => {
-    if (PLAN_EFFECT_TYPES.has(block.type)) {
-      pendingLayers.push(block);
-      return;
-    }
-    plans.push({ id: `plan-${block.id}`, lead: block, layers: pendingLayers, blocks: [...pendingLayers, block] });
-    pendingLayers = [];
-  });
-  if (pendingLayers.length > 0) {
-    const last = plans.at(-1);
-    if (last) {
-      last.layers.push(...pendingLayers);
-      last.blocks.push(...pendingLayers);
-    } else {
-      const lead = pendingLayers[0];
-      plans.push({ id: `plan-${lead.id}`, lead, layers: pendingLayers.slice(1), blocks: pendingLayers });
-    }
-  }
-  return plans;
 }
 
 function createDraftBlock(type: string, characters: Character[]): SceneBlock {
@@ -153,6 +121,7 @@ export default function EditPage() {
   const [blockReloadKey, setBlockReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showCreateScene, setShowCreateScene] = useState(false);
   const [newSceneTitle, setNewSceneTitle] = useState("");
@@ -168,6 +137,13 @@ export default function EditPage() {
   const [onlineUsers, setOnlineUsers] = useState<Map<string, string>>(new Map());
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<NodeJS.Timeout | null>(null);
+  const editVersionRef = useRef(0);
+  const allowLeaveRef = useRef(false);
+
+  const markDirty = useCallback(() => {
+    editVersionRef.current += 1;
+    setDirty(true);
+  }, []);
 
   // Load data
   useEffect(() => {
@@ -218,6 +194,7 @@ export default function EditPage() {
         if (!active) return;
         setBlocks(loadedBlocks);
         setSelectedBlockId(loadedBlocks[0]?.id || null);
+        setDirty(false);
       } catch (error) {
         if (!active || (error instanceof DOMException && error.name === "AbortError")) return;
         console.error("Block loading error:", error);
@@ -279,12 +256,13 @@ export default function EditPage() {
       return next.map((item, index) => ({ ...item, order: index }));
     });
     setSelectedBlockId(block.id);
+    markDirty();
     window.requestAnimationFrame(() => {
       const element = document.getElementById(`scene-block-${block.id}`);
       element?.scrollIntoView({ behavior: "smooth", block: "center" });
       element?.querySelector("textarea")?.focus({ preventScroll: true });
     });
-  }, [characters]);
+  }, [characters, markDirty]);
 
   const addLayerToPlan = useCallback((type: "background" | "sfx", planId: string) => {
     const layer = createDraftBlock(type, characters);
@@ -296,7 +274,8 @@ export default function EditPage() {
       return next.map((item, index) => ({ ...item, order: index }));
     });
     setSelectedBlockId(layer.id);
-  }, [characters]);
+    markDirty();
+  }, [characters, markDirty]);
 
   function importBlocks(imported: ParsedSceneScriptBlock[], mode: "append" | "replace") {
     setBlocks((current) => {
@@ -309,6 +288,7 @@ export default function EditPage() {
       }));
       return [...base, ...additions].map((block, index) => ({ ...block, order: index }));
     });
+    markDirty();
   }
 
   const updateBlock = useCallback((id: string, updates: Partial<SceneBlock>) => {
@@ -318,13 +298,15 @@ export default function EditPage() {
       if (block && !block.id.startsWith("temp-")) sendWs({ type: "block:update", blockId: id, block });
       return next;
     });
-  }, [sendWs]);
+    markDirty();
+  }, [markDirty, sendWs]);
 
   const removeBlock = useCallback((id: string) => {
     setBlocks((prev) => prev.filter((b) => b.id !== id).map((block, index) => ({ ...block, order: index })));
     setSelectedBlockId((selected) => selected === id ? null : selected);
     if (!id.startsWith("temp-")) sendWs({ type: "block:delete", blockId: id });
-  }, [sendWs]);
+    markDirty();
+  }, [markDirty, sendWs]);
 
   const jumpToBlock = useCallback((id: string) => {
     const element = document.getElementById(`scene-block-${id}`);
@@ -351,6 +333,7 @@ export default function EditPage() {
       const music = items.filter((block) => block.type === "music");
       return [...reorderedContent, ...music].map((block, order) => ({ ...block, order }));
     });
+    markDirty();
   }
 
   function handleMusicDragEnd(event: DragEndEvent) {
@@ -364,24 +347,70 @@ export default function EditPage() {
       if (from < 0 || to < 0) return items;
       return [...content, ...arrayMove(music, from, to)].map((block, order) => ({ ...block, order }));
     });
+    markDirty();
   }
 
   // Save blocks
   const saveBlocks = useCallback(async () => {
-    if (!selectedScene || blocks.length === 0 || blocksLoading || blockLoadError) return;
+    if (!selectedScene || blocksLoading || blockLoadError) return false;
+    if (!dirty) return true;
+    const savedVersion = editVersionRef.current;
+    const selectedOrder = blocks.find((block) => block.id === selectedBlockId)?.order ?? 0;
     setSaving(true);
     setSaveError(null);
     try {
       const response = await fetch(`/api/scenes/${selectedScene}/blocks`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ blocks }) });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json() as { blocks: SceneBlock[] };
+      if (editVersionRef.current === savedVersion) {
+        setBlocks(result.blocks);
+        setSelectedBlockId(result.blocks.find((block) => block.order === selectedOrder)?.id || result.blocks[0]?.id || null);
+        setDirty(false);
+      }
       setLastSaved(new Date());
+      return true;
     } catch (err) {
       console.error("Save error:", err);
       setSaveError("Échec de la sauvegarde. Vos modifications restent dans l’éditeur.");
+      return false;
     } finally { setSaving(false); }
-  }, [selectedScene, blocks, blocksLoading, blockLoadError]);
+  }, [selectedScene, selectedBlockId, blocks, blocksLoading, blockLoadError, dirty]);
 
   useEffect(() => { const i = setInterval(saveBlocks, 30000); return () => clearInterval(i); }, [saveBlocks]);
+
+  useEffect(() => {
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      if (!dirty || allowLeaveRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+  }, [dirty]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const saveBeforeLink = (event: MouseEvent) => {
+      const anchor = (event.target as HTMLElement | null)?.closest("a[href]") as HTMLAnchorElement | null;
+      if (!anchor || anchor.target === "_blank" || anchor.origin !== window.location.origin || anchor.href === window.location.href) return;
+      event.preventDefault();
+      void saveBlocks().then((saved) => {
+        if (!saved && !window.confirm("La sauvegarde a échoué. Quitter quand même l’éditeur ?")) return;
+        allowLeaveRef.current = true;
+        window.location.assign(anchor.href);
+      });
+    };
+    document.addEventListener("click", saveBeforeLink, true);
+    return () => document.removeEventListener("click", saveBeforeLink, true);
+  }, [dirty, saveBlocks]);
+
+  const selectScene = useCallback(async (sceneId: string) => {
+    if (sceneId === selectedScene) return;
+    if (dirty && !(await saveBlocks())) {
+      if (!window.confirm("La scène n’a pas pu être sauvegardée. Changer de scène et conserver les modifications uniquement dans cet onglet ?")) return;
+    }
+    setSelectedScene(sceneId);
+  }, [dirty, saveBlocks, selectedScene]);
 
   // Save scene title
   async function saveTitle() {
@@ -406,6 +435,7 @@ export default function EditPage() {
   async function handleCreateScene(e: React.FormEvent) {
     e.preventDefault();
     if (!newSceneTitle.trim()) return;
+    if (dirty && !(await saveBlocks())) { setCreateError("Sauvegardez la scène actuelle avant d’en créer une autre."); return; }
     setCreatingScene(true);
     setCreateError(null);
     try {
@@ -476,7 +506,8 @@ export default function EditPage() {
         </div>
         <div className={editorStyles.topActions}>
           {onlineUsers.size > 0 && <span className={editorStyles.presence}><i />{onlineUsers.size} en ligne</span>}
-          {lastSaved && !saving && <span className={editorStyles.savedState}>Sauvé à {lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>}
+          {dirty && !saving && !saveError && <span className={editorStyles.dirtyState}>Modifié</span>}
+          {lastSaved && !saving && !dirty && <span className={editorStyles.savedState}>Sauvé à {lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>}
           {saveError && <span className={editorStyles.saveError} role="alert">Non sauvegardé</span>}
           <button type="button" className={editorStyles.secondaryButton} onClick={() => setShowMetadata((value) => !value)} disabled={!selectedScene}>Réglages</button>
           <button type="button" className={editorStyles.saveButton} onClick={saveBlocks} disabled={!selectedScene || saving || blocksLoading || !!blockLoadError}><SaveIcon />{saving ? "Sauvegarde" : "Sauver"}</button>
@@ -500,7 +531,7 @@ export default function EditPage() {
         <div className={editorStyles.sceneList}>
           {sceneGroups.map((group) => <section key={group.id}>
             <h2>{group.title}</h2>
-            {group.scenes.map((scene, sceneIndex) => <button key={scene.id} type="button" onClick={() => setSelectedScene(scene.id)} aria-current={selectedScene === scene.id ? "true" : undefined}>
+            {group.scenes.map((scene, sceneIndex) => <button key={scene.id} type="button" onClick={() => void selectScene(scene.id)} aria-current={selectedScene === scene.id ? "true" : undefined}>
               <span className={editorStyles.sceneIndex}>{String(sceneIndex + 1).padStart(2, "0")}</span>
               <span className={editorStyles.sceneName}><strong>{scene.title}</strong><small>{scene.node?.title || "Sans séquence"}</small></span>
               <span className={editorStyles.sceneCount}>{scene._count.blocks}</span>
@@ -522,7 +553,7 @@ export default function EditPage() {
           <label>Séquence<select value={selectedNodeId} onChange={(event) => setSelectedNodeId(event.target.value)}><option value="">Aucune</option>{nodeOptions.map((node) => <option key={node.id} value={node.id}>{`${"— ".repeat(node.depth)}${node.title}`}</option>)}</select></label>
           <button type="button" onClick={saveMetadata}>Appliquer</button>
         </div> : selectedBlock ? <div className={editorStyles.inspectorBody}>
-          <SceneBlockItem block={selectedBlock} characters={characters} onUpdate={updateBlock} onRemove={removeBlock} onSelect={setSelectedBlockId} selected projectId={projectId} projectType={projectType} inspector />
+          <SceneBlockItem block={selectedBlock} characters={characters} onUpdate={updateBlock} onRemove={removeBlock} onSelect={setSelectedBlockId} selected projectId={projectId} projectType={projectType} inspector playlistMode={selectedBlock.type === "music"} />
           <div className={editorStyles.inspectorActions}>
             {selectedBlock.type !== "music" && <button type="button" onClick={() => addBlock("heading", selectedPlan?.blocks.at(-1)?.id || selectedBlock.id)}><CutIcon />Nouveau plan après</button>}
             <button type="button" className={editorStyles.dangerButton} onClick={() => removeBlock(selectedBlock.id)}><DeleteIcon />Supprimer le bloc</button>
@@ -571,7 +602,7 @@ export default function EditPage() {
                     </div>
                   </SortableContext>
                 </DndContext>
-                <PlaylistControls blocks={musicBlocks} loop={playlistLoops} onToggleLoop={(loop) => setBlocks((current) => current.map((block) => block.type === "music" ? { ...block, loop } : block))} />
+                <PlaylistControls blocks={musicBlocks} loop={playlistLoops} onToggleLoop={(loop) => { setBlocks((current) => current.map((block) => block.type === "music" ? { ...block, loop } : block)); markDirty(); }} />
               </div>
             </div>
           </div>}
@@ -654,7 +685,7 @@ function PreviewMonitor({ scene, blocks, selectedBlockId, onSelect, characters, 
   </div>;
 }
 
-function PlanClip({ plan, index, selectedBlockId, onSelect, onAddLayer }: { plan: CompositePlan; index: number; selectedBlockId: string | null; onSelect: (id: string) => void; onAddLayer: (type: "background" | "sfx", planId: string) => void }) {
+function PlanClip({ plan, index, selectedBlockId, onSelect, onAddLayer }: { plan: CompositePlan<SceneBlock>; index: number; selectedBlockId: string | null; onSelect: (id: string) => void; onAddLayer: (type: "background" | "sfx", planId: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: plan.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const selected = plan.blocks.some((block) => block.id === selectedBlockId);
@@ -715,7 +746,7 @@ function PlaylistControls({ blocks, loop, onToggleLoop }: { blocks: SceneBlock[]
 
   return <div className={editorStyles.playlistControls}>
     <button type="button" onClick={() => setPlaying((value) => !value)} disabled={playable.length === 0} aria-label={playing ? "Mettre la playlist en pause" : "Lire la playlist"}>{playing ? <PauseIcon /> : <PlayIcon />}</button>
-    <span>{error || (playing && track ? `Lecture ${currentIndex + 1}/${playable.length}` : `${playable.length} prête${playable.length > 1 ? "s" : ""}`)}</span>
+    <span role="status" aria-live="polite">{error || (playing && track ? `Lecture ${currentIndex + 1}/${playable.length}` : `${playable.length} prête${playable.length > 1 ? "s" : ""}`)}</span>
     <label><input type="checkbox" checked={loop} onChange={(event) => onToggleLoop(event.target.checked)} disabled={blocks.length === 0} />Boucler la playlist</label>
   </div>;
 }

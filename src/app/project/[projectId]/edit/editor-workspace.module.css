@@ -80,7 +80,9 @@
 
 .topActions { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
 .presence,
-.savedState { color: var(--edit-muted); font-size: .7rem; white-space: nowrap; }
+.savedState,
+.dirtyState { color: var(--edit-muted); font-size: .7rem; white-space: nowrap; }
+.dirtyState { color: var(--edit-accent); }
 .presence { display: inline-flex; align-items: center; gap: .4rem; }
 .presence i { width: .4rem; height: .4rem; background: #4ade80; border-radius: 50%; }
 .secondaryButton,
@@ -111,7 +113,7 @@
 .panelHeader > div { min-width: 0; }
 .panelHeader strong { display: block; font-size: .8rem; }
 .panelHeader span { display: block; margin-top: .15rem; color: var(--edit-muted); font-size: .68rem; }
-.panelHeader > button { display: grid; place-items: center; width: 2rem; height: 2rem; color: var(--edit-accent); background: transparent; border: 1px solid var(--edit-border); }
+.panelHeader > button { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; color: var(--edit-accent); background: transparent; border: 1px solid var(--edit-border); }
 .panelHeader > button:hover { color: var(--edit-bg); background: var(--edit-accent); border-color: var(--edit-accent); }
 
 .createSceneForm { display: grid; gap: .5rem; padding: .75rem; border-bottom: 1px solid var(--edit-border); }
@@ -192,16 +194,16 @@
 .timelineToolbar > div:first-child span { display: block; margin-top: .15rem; color: var(--edit-accent); font-family: "IBM Plex Mono", monospace; font-size: .65rem; font-variant-numeric: tabular-nums; }
 .quickAdd { display: flex; align-items: center; gap: .35rem; }
 .quickAdd > button,
-.quickAdd > select { display: inline-flex; align-items: center; gap: .35rem; min-height: 2.1rem; padding: .35rem .55rem; color: var(--edit-muted); background: transparent; border: 1px solid var(--edit-border); font-size: .68rem; }
+.quickAdd > select { display: inline-flex; align-items: center; gap: .35rem; min-height: 2.75rem; padding: .35rem .55rem; color: var(--edit-muted); background: transparent; border: 1px solid var(--edit-border); font-size: .68rem; }
 .quickAdd > button:hover,
 .quickAdd > select:hover { color: var(--edit-ink); border-color: var(--edit-accent); }
 .quickAdd > button:disabled,
 .quickAdd > select:disabled { opacity: .35; cursor: not-allowed; }
 .quickAdd svg { width: .85rem; height: .85rem; }
 
-.timelineViewport { min-width: 0; padding: .65rem 1rem .85rem; overflow: auto; scrollbar-color: var(--edit-accent) var(--edit-bg); scrollbar-width: thin; }
-.trackStack { display: grid; gap: .55rem; min-width: max-content; }
-.trackRow { display: grid; grid-template-columns: 4.75rem minmax(max-content, 1fr); min-height: 7.8rem; background: color-mix(in srgb, var(--edit-bg), #fff 2%); border: 1px solid var(--edit-border); }
+.timelineViewport { min-width: 0; padding: .65rem 1rem .85rem; overflow: hidden; }
+.trackStack { display: grid; gap: .55rem; min-width: 0; overflow: auto; scrollbar-color: var(--edit-accent) var(--edit-bg); scrollbar-width: thin; }
+.trackRow { display: grid; grid-template-columns: 4.75rem minmax(max-content, 1fr); width: max-content; min-width: 100%; min-height: 7.8rem; background: color-mix(in srgb, var(--edit-bg), #fff 2%); border: 1px solid var(--edit-border); }
 .trackLabel { position: sticky; left: 0; z-index: 8; display: flex; padding: .65rem .55rem; flex-direction: column; justify-content: space-between; color: var(--edit-muted); background: var(--edit-surface); border-right: 1px solid var(--edit-border); }
 .trackLabel strong { color: var(--edit-ink); font-size: .68rem; text-transform: uppercase; }
 .trackLabel span { font-family: "IBM Plex Mono", monospace; font-size: .6rem; }
@@ -214,7 +216,7 @@
 .planLead > strong { display: -webkit-box; overflow: hidden; color: var(--edit-ink); font-size: .72rem; font-weight: 500; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .layerStrip { display: flex; align-items: center; gap: .25rem; min-width: 0; padding: .3rem; background: var(--edit-bg); border-top: 1px solid var(--edit-border); overflow-x: auto; }
 .layerStrip button,
-.layerStrip select { display: inline-flex; align-items: center; gap: .25rem; min-height: 1.75rem; padding: .25rem .35rem; flex: 0 0 auto; color: var(--edit-muted); background: transparent; border: 1px solid var(--edit-border); font-size: .6rem; }
+.layerStrip select { display: inline-flex; align-items: center; gap: .25rem; min-height: 2.75rem; padding: .25rem .35rem; flex: 0 0 auto; color: var(--edit-muted); background: transparent; border: 1px solid var(--edit-border); font-size: .6rem; }
 .layerStrip button:hover,
 .layerStrip button[aria-pressed="true"],
 .layerStrip select:hover { color: var(--edit-ink); border-color: var(--edit-accent); }
@@ -223,9 +225,9 @@
 .clipSelected::before { content: ""; position: absolute; top: -1.2rem; bottom: -.5rem; left: -.25rem; width: 1px; background: var(--edit-accent); pointer-events: none; }
 .clipSelected::after { content: ""; position: absolute; top: -1.35rem; left: -.43rem; width: .4rem; height: .4rem; background: var(--edit-accent); transform: rotate(45deg); }
 .clipDragging { z-index: 5; opacity: .7; }
-.musicTrackRow { position: relative; min-height: 4.7rem; padding-right: 15rem; }
-.musicTrackContent { display: contents; }
-.musicTrack { grid-column: 2; display: flex; align-items: stretch; gap: .35rem; min-width: max-content; padding: .4rem; }
+.musicTrackRow { min-height: 4.7rem; }
+.musicTrackContent { grid-column: 2; display: flex; min-width: max-content; }
+.musicTrack { display: flex; flex: 1 1 auto; align-items: stretch; gap: .35rem; min-width: max-content; padding: .4rem; }
 .musicClip { flex: 0 0 12rem; display: grid; grid-template-columns: auto auto minmax(0,1fr) auto; align-items: center; gap: .4rem; padding: .5rem; color: var(--edit-muted); background: var(--edit-raised); border: 1px solid var(--edit-border); text-align: left; cursor: grab; }
 .musicClip:hover,
 .musicClipSelected { color: var(--edit-ink); border-color: var(--edit-accent); }
@@ -233,10 +235,10 @@
 .musicClip span,
 .musicClip small { font-family: "IBM Plex Mono", monospace; font-size: .58rem; }
 .musicClip strong { overflow: hidden; font-size: .68rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.addMusic { display: inline-flex; min-width: 10rem; align-items: center; justify-content: center; gap: .35rem; color: var(--edit-muted); background: transparent; border: 1px dashed var(--edit-border); font-size: .65rem; }
+.addMusic { display: inline-flex; min-width: 10rem; min-height: 2.75rem; align-items: center; justify-content: center; gap: .35rem; color: var(--edit-muted); background: transparent; border: 1px dashed var(--edit-border); font-size: .65rem; }
 .addMusic:hover { color: var(--edit-ink); border-color: var(--edit-accent); }
-.playlistControls { position: absolute; top: 0; right: 0; bottom: 0; z-index: 7; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: .3rem .55rem; width: 15rem; padding: .4rem .6rem; color: var(--edit-muted); background: var(--edit-surface); border-left: 1px solid var(--edit-border); }
-.playlistControls > button { grid-row: span 2; display: grid; place-items: center; width: 2.4rem; height: 2.4rem; color: var(--edit-bg); background: var(--edit-accent); border: 0; }
+.playlistControls { position: sticky; right: 0; z-index: 7; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: .3rem .55rem; width: 15rem; flex: 0 0 15rem; padding: .4rem .6rem; color: var(--edit-muted); background: var(--edit-surface); border-left: 1px solid var(--edit-border); }
+.playlistControls > button { grid-row: span 2; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; color: var(--edit-bg); background: var(--edit-accent); border: 0; }
 .playlistControls > button:disabled { opacity: .35; cursor: not-allowed; }
 .playlistControls > span { overflow: hidden; font-family: "IBM Plex Mono", monospace; font-size: .6rem; text-overflow: ellipsis; white-space: nowrap; }
 .playlistControls label { display: flex; align-items: center; gap: .35rem; font-size: .62rem; white-space: nowrap; }
@@ -291,7 +293,7 @@
   .timelineViewport { padding-inline: .75rem; }
   .trackRow { grid-template-columns: 3.8rem minmax(max-content, 1fr); }
   .trackLabel { padding-inline: .4rem; }
-  .musicTrackRow { grid-template-columns: 3.8rem minmax(max-content, 1fr); padding-right: 12rem; }
+  .musicTrackRow { grid-template-columns: 3.8rem minmax(max-content, 1fr); }
   .playlistControls { width: 12rem; }
   .previewContent { left: 4%; right: 4%; bottom: 5%; padding: .8rem; }
   .previewContent p { font-size: .9rem; }

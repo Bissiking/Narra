@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireProjectAccess } from "@/lib/project-access";
 import { createSceneBlockSchema } from "@/lib/validations";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
+
+const saveBlocksSchema = z.object({
+  blocks: z.array(createSceneBlockSchema.extend({ id: z.string().max(100).optional(), showPortrait: z.boolean().nullish() })).max(10000),
+});
 
 const blockInclude = {
   character: {
@@ -106,17 +110,15 @@ export async function PUT(
     const access = await requireProjectAccess(request, scene.projectId, true);
     if (access instanceof NextResponse) return access;
 
-    const { blocks } = await request.json();
+    const { blocks } = saveBlocksSchema.parse(await request.json());
+    const existing = await db.sceneBlock.findMany({ where: { sceneId: params.sceneId }, select: { id: true } });
+    const existingIds = new Set(existing.map((block) => block.id));
+    const retainedIds = blocks.map((block) => block.id).filter((id): id is string => Boolean(id && existingIds.has(id)));
 
-    // Delete existing blocks and recreate
-    await db.sceneBlock.deleteMany({
-      where: { sceneId: params.sceneId },
-    });
-
-    if (blocks && blocks.length > 0) {
-      await db.sceneBlock.createMany({
-        data: blocks.map((block: any) => ({
-          sceneId: params.sceneId,
+    await db.$transaction(async (tx) => {
+      await tx.sceneBlock.deleteMany({ where: { sceneId: params.sceneId, id: { notIn: retainedIds } } });
+      for (const block of blocks) {
+        const data = {
           type: block.type,
           content: block.content,
           order: block.order,
@@ -129,17 +131,16 @@ export async function PUT(
           showPortrait: block.showPortrait !== false,
           portraitImageUrl: block.portraitImageUrl || null,
           audioAction: block.audioAction || null,
-          volume: typeof block.volume === "number" ? Math.max(0, Math.min(100, block.volume)) : null,
-          fadeDuration: typeof block.fadeDuration === "number" ? Math.max(0, Math.min(30, block.fadeDuration)) : null,
-          loop: typeof block.loop === "boolean" ? block.loop : null,
-        })),
-      });
-    }
-
-    // Update word count
-    const allBlocks = await db.sceneBlock.findMany({
-      where: { sceneId: params.sceneId },
+          volume: block.volume ?? null,
+          fadeDuration: block.fadeDuration ?? null,
+          loop: block.loop ?? null,
+        };
+        if (block.id && existingIds.has(block.id)) await tx.sceneBlock.update({ where: { id: block.id }, data });
+        else await tx.sceneBlock.create({ data: { ...data, sceneId: params.sceneId } });
+      }
     });
+
+    const allBlocks = await db.sceneBlock.findMany({ where: { sceneId: params.sceneId }, include: blockInclude, orderBy: { order: "asc" } });
 
     const wordCount = allBlocks.reduce(
       (acc, block) =>
@@ -154,8 +155,11 @@ export async function PUT(
       data: { wordCount },
     });
 
-    return NextResponse.json({ ok: true, wordCount });
+    return NextResponse.json({ ok: true, wordCount, blocks: allBlocks });
   } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message }, { status: 400 });
+    }
     console.error("Error saving blocks:", error);
     return NextResponse.json(
       { error: "Erreur lors de la sauvegarde des blocs" },
