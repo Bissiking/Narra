@@ -92,6 +92,8 @@ export default function EditPage() {
   const [selectedScene, setSelectedScene] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<SceneBlock[]>([]);
   const [loading, setLoading] = useState(true);
+  const [blocksLoading, setBlocksLoading] = useState(false);
+  const [blockLoadError, setBlockLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showCreateScene, setShowCreateScene] = useState(false);
@@ -144,16 +146,28 @@ export default function EditPage() {
   // Load blocks when scene selected
   useEffect(() => {
     setSelectedBlockId(null);
-    if (!selectedScene) { setBlocks([]); return; }
+    setBlockLoadError(null);
+    if (!selectedScene) { setBlocks([]); setBlocksLoading(false); return; }
+    setBlocks([]);
+    setBlocksLoading(true);
     async function loadBlocks() {
-      const res = await fetch(`/api/scenes/${selectedScene}/blocks`);
-      if (res.ok) {
+      try {
+        const res = await fetch(`/api/scenes/${selectedScene}/blocks`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const loadedBlocks = await res.json() as SceneBlock[];
         setBlocks(loadedBlocks);
         setSelectedBlockId(loadedBlocks[0]?.id || null);
+      } catch (error) {
+        console.error("Block loading error:", error);
+        setBlockLoadError("Impossible de charger cette timeline. Vérifiez la base de données puis réessayez.");
+      } finally {
+        setBlocksLoading(false);
       }
     }
     loadBlocks();
+  }, [selectedScene]);
+
+  useEffect(() => {
     const scene = scenes.find((s) => s.id === selectedScene);
     if (scene) {
       setTitleValue(scene.title);
@@ -273,13 +287,13 @@ export default function EditPage() {
 
   // Save blocks
   const saveBlocks = useCallback(async () => {
-    if (!selectedScene || blocks.length === 0) return;
+    if (!selectedScene || blocks.length === 0 || blocksLoading || blockLoadError) return;
     setSaving(true);
     try {
       await fetch(`/api/scenes/${selectedScene}/blocks`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ blocks }) });
       setLastSaved(new Date());
     } catch (err) { console.error("Save error:", err); } finally { setSaving(false); }
-  }, [selectedScene, blocks]);
+  }, [selectedScene, blocks, blocksLoading, blockLoadError]);
 
   useEffect(() => { const i = setInterval(saveBlocks, 30000); return () => clearInterval(i); }, [saveBlocks]);
 
@@ -374,7 +388,7 @@ export default function EditPage() {
           {onlineUsers.size > 0 && <span className={editorStyles.presence}><i />{onlineUsers.size} en ligne</span>}
           {lastSaved && !saving && <span className={editorStyles.savedState}>Sauvé à {lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>}
           <button type="button" className={editorStyles.secondaryButton} onClick={() => setShowMetadata((value) => !value)} disabled={!selectedScene}>Réglages</button>
-          <button type="button" className={editorStyles.saveButton} onClick={saveBlocks} disabled={!selectedScene || saving}><SaveIcon />{saving ? "Sauvegarde" : "Sauver"}</button>
+          <button type="button" className={editorStyles.saveButton} onClick={saveBlocks} disabled={!selectedScene || saving || blocksLoading || !!blockLoadError}><SaveIcon />{saving ? "Sauvegarde" : "Sauver"}</button>
         </div>
       </header>
 
@@ -405,7 +419,7 @@ export default function EditPage() {
       </aside>
 
       <main className={editorStyles.monitorArea}>
-        {selectedSceneData ? <PreviewMonitor scene={selectedSceneData} blocks={blocks} selectedBlockId={selectedBlockId} onSelect={setSelectedBlockId} characters={characters} settings={previewSettings} /> : <div className={editorStyles.noSelection}><strong>Choisissez une scène</strong><span>Le moniteur affichera ici votre montage.</span></div>}
+        {blockLoadError ? <div className={editorStyles.loadError} role="alert"><strong>Timeline indisponible</strong><span>{blockLoadError}</span></div> : selectedSceneData ? <PreviewMonitor scene={selectedSceneData} blocks={blocks} selectedBlockId={selectedBlockId} onSelect={setSelectedBlockId} characters={characters} settings={previewSettings} /> : <div className={editorStyles.noSelection}><strong>Choisissez une scène</strong><span>Le moniteur affichera ici votre montage.</span></div>}
       </main>
 
       <aside className={editorStyles.inspector} aria-label="Inspecteur">
@@ -433,17 +447,17 @@ export default function EditPage() {
         <div className={editorStyles.timelineToolbar}>
           <div><strong>Timeline</strong><span>{selectedBlockIndex >= 0 ? `TC ${formatTimecode(selectedBlockIndex)}` : "Prêt au montage"}</span></div>
           <div className={editorStyles.quickAdd}>
-            <button type="button" onClick={() => addBlock("heading", selectedBlockId)} disabled={!selectedScene}><PlusIcon />Plan</button>
-            <button type="button" onClick={() => addBlock("action", selectedBlockId)} disabled={!selectedScene}>Action</button>
-            <button type="button" onClick={() => addBlock("dialogue", selectedBlockId)} disabled={!selectedScene}>Dialogue</button>
-            <select defaultValue="" onChange={(event) => { if (event.target.value) addBlock(event.target.value, selectedBlockId); event.target.value = ""; }} disabled={!selectedScene} aria-label="Ajouter un autre type de bloc">
+            <button type="button" onClick={() => addBlock("heading", selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}><PlusIcon />Plan</button>
+            <button type="button" onClick={() => addBlock("action", selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}>Action</button>
+            <button type="button" onClick={() => addBlock("dialogue", selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}>Dialogue</button>
+            <select defaultValue="" onChange={(event) => { if (event.target.value) addBlock(event.target.value, selectedBlockId); event.target.value = ""; }} disabled={!selectedScene || blocksLoading || !!blockLoadError} aria-label="Ajouter un autre type de bloc">
               <option value="" disabled>Autre…</option>{editorProfile.blocks.filter((type) => !["heading", "action", "dialogue"].includes(type.value)).map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
             </select>
             <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} compact />
           </div>
         </div>
         <div className={editorStyles.timelineViewport}>
-          {!selectedScene ? <div className={editorStyles.timelineEmpty}>Sélectionnez une scène pour commencer.</div> : blocks.length === 0 ? <div className={editorStyles.timelineEmpty}><button type="button" onClick={() => addBlock(editorProfile.blocks[0].value)}>Créer le premier plan</button></div> :
+          {!selectedScene ? <div className={editorStyles.timelineEmpty}>Sélectionnez une scène pour commencer.</div> : blocksLoading ? <div className={editorStyles.timelineEmpty}>Chargement de la timeline…</div> : blockLoadError ? <div className={editorStyles.timelineError} role="alert">{blockLoadError}</div> : blocks.length === 0 ? <div className={editorStyles.timelineEmpty}><button type="button" onClick={() => addBlock(editorProfile.blocks[0].value)}>Créer le premier plan</button></div> :
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={blocks.map((block) => block.id)} strategy={horizontalListSortingStrategy}>
               <div className={editorStyles.track}>
@@ -464,8 +478,11 @@ export default function EditPage() {
 const BLOCK_LABELS: Record<string, string> = { heading: "Plan", action: "Action", narration: "Narration", dialogue: "Dialogue", transition: "Transition", note: "Note", background: "Décor", music: "Musique", sfx: "Effet" };
 
 function formatTimecode(index: number) {
-  const seconds = index * 3;
-  return `00:00:${String(seconds).padStart(2, "0")}:00`;
+  const totalSeconds = Math.max(0, index) * 3;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}:00`;
 }
 
 function characterName(character: Character | undefined) {
