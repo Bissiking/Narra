@@ -367,9 +367,11 @@ export default function EditPage() {
         setBlocks(result.blocks);
         setSelectedBlockId(result.blocks.find((block) => block.order === selectedOrder)?.id || result.blocks[0]?.id || null);
         setDirty(false);
+        setLastSaved(new Date());
+        return true;
       }
-      setLastSaved(new Date());
-      return true;
+      setSaveError("Une modification plus récente attend encore d’être sauvegardée.");
+      return false;
     } catch (err) {
       console.error("Save error:", err);
       setSaveError("Échec de la sauvegarde. Vos modifications restent dans l’éditeur.");
@@ -396,7 +398,7 @@ export default function EditPage() {
       if (!anchor || anchor.target === "_blank" || anchor.origin !== window.location.origin || anchor.href === window.location.href) return;
       event.preventDefault();
       void saveBlocks().then((saved) => {
-        if (!saved && !window.confirm("La sauvegarde a échoué. Quitter quand même l’éditeur ?")) return;
+        if (!saved) return;
         allowLeaveRef.current = true;
         window.location.assign(anchor.href);
       });
@@ -408,7 +410,8 @@ export default function EditPage() {
   const selectScene = useCallback(async (sceneId: string) => {
     if (sceneId === selectedScene) return;
     if (dirty && !(await saveBlocks())) {
-      if (!window.confirm("La scène n’a pas pu être sauvegardée. Changer de scène et conserver les modifications uniquement dans cet onglet ?")) return;
+      setSaveError("Une modification attend encore d’être sauvegardée. Relancez le changement de scène.");
+      return;
     }
     setSelectedScene(sceneId);
   }, [dirty, saveBlocks, selectedScene]);
