@@ -695,10 +695,11 @@ function PlaylistControls({ blocks, loop, onToggleLoop }: { blocks: SceneBlock[]
     if (!playing || !track?.mediaUrl) return;
     const audio = new Audio(track.mediaUrl);
     audio.volume = Math.max(0, Math.min(1, (track.volume ?? 100) / 100));
+    audio.loop = loop && playable.length === 1;
     audioRef.current = audio;
     const onEnded = () => {
       if (currentIndex < playable.length - 1) setCurrentIndex((index) => index + 1);
-      else if (loop) setCurrentIndex(0);
+      else if (loop && playable.length > 1) setCurrentIndex(0);
       else setPlaying(false);
     };
     audio.addEventListener("ended", onEnded);

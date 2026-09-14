@@ -566,7 +566,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
             musicPoolRef.current.delete(next);
             if (trackIndex < playlist.length - 1) startTrack(trackIndex + 1, false);
             else if (playlistLoops) startTrack(0, false);
-            else { musicRef.current = null; activeMusicIdRef.current = null; }
+            else musicRef.current = null;
           };
           musicPoolRef.current.add(next);
           musicRef.current = next;
