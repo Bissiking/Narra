@@ -13,6 +13,7 @@ interface SceneScriptImporterProps {
   existingBlockCount: number;
   onImport: (blocks: ParsedSceneScriptBlock[], mode: "append" | "replace") => void;
   compact?: boolean;
+  disabled?: boolean;
 }
 
 const BLOCK_LABELS: Record<string, string> = {
@@ -31,6 +32,7 @@ export default function SceneScriptImporter({
   existingBlockCount,
   onImport,
   compact = false,
+  disabled = false,
 }: SceneScriptImporterProps) {
   const [open, setOpen] = useState(false);
   const [source, setSource] = useState("");
@@ -73,6 +75,7 @@ export default function SceneScriptImporter({
       <button
         type="button"
         onClick={() => setOpen(true)}
+        disabled={disabled}
         className={`btn-ghost ${compact ? "px-2 py-1 text-xs" : "text-sm"}`}
       >
         Importer

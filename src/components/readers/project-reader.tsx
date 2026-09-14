@@ -400,22 +400,22 @@ function EmptyReader({ project, variables, exitHref }: { project: Project; varia
 function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { project: Project; scenes: Scene[]; variables: CSSProperties; exitHref?: string; editor: EditorControls }) {
   const beats = useMemo(
     () => {
-      let activeMusic: Block | null = null;
       let pendingSfx: Block[] = [];
-      const visible: { block: Block; scene: Scene; sceneIndex: number; activeMusic: Block | null; sfx: Block[]; backdrop: string | null }[] = [];
+      const visible: { block: Block; scene: Scene; sceneIndex: number; musicPlaylist: Block[]; sfx: Block[]; backdrop: string | null }[] = [];
       scenes.forEach((scene, sceneIndex) => {
         let activeBackdrop = scene.location?.imageUrl || project.pageBackgroundUrl;
+        const musicPlaylist = scene.blocks.filter((block) => block.type === "music" && block.audioAction !== "stop" && block.mediaUrl);
         scene.blocks.forEach((block) => {
-          if (block.type === "music") activeMusic = block;
+          if (block.type === "music") return;
           else if (block.type === "sfx") pendingSfx.push(block);
           else if (block.type === "background") {
             activeBackdrop = block.mediaUrl || scene.location?.imageUrl || project.pageBackgroundUrl;
             if (block.mediaUrl) {
-              visible.push({ block, scene, sceneIndex, activeMusic, sfx: pendingSfx, backdrop: activeBackdrop });
+              visible.push({ block, scene, sceneIndex, musicPlaylist, sfx: pendingSfx, backdrop: activeBackdrop });
               pendingSfx = [];
             }
           } else {
-            visible.push({ block, scene, sceneIndex, activeMusic, sfx: pendingSfx, backdrop: activeBackdrop });
+            visible.push({ block, scene, sceneIndex, musicPlaylist, sfx: pendingSfx, backdrop: activeBackdrop });
             pendingSfx = [];
           }
         });
@@ -543,25 +543,38 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
       fadeTimersRef.current.set(audio, timer);
     };
 
-    const music = current.activeMusic;
-    if (activeMusicIdRef.current !== (music?.id || null)) {
-      activeMusicIdRef.current = music?.id || null;
+    const playlist = current.musicPlaylist;
+    const playlistKey = `${current.scene.id}:${playlist.map((track) => `${track.id}:${track.mediaUrl}:${track.volume}:${track.loop}`).join("|")}`;
+    if (activeMusicIdRef.current !== playlistKey) {
+      activeMusicIdRef.current = playlistKey;
       const previous = musicRef.current;
-      const fadeSeconds = music?.fadeDuration ?? 1;
+      if (previous) previous.onended = null;
 
-      if (!music || music.audioAction === "stop" || !music.mediaUrl) {
-        if (previous) fade(previous, 0, fadeSeconds, () => { previous.pause(); musicPoolRef.current.delete(previous); });
+      if (playlist.length === 0) {
+        if (previous) fade(previous, 0, 1, () => { previous.pause(); musicPoolRef.current.delete(previous); });
         musicRef.current = null;
       } else {
-        const next = new Audio(music.mediaUrl);
-        const targetVolume = Math.max(0, Math.min(1, (music.volume ?? 100) / 100));
-        next.loop = music.loop ?? true;
-        next.volume = fadeSeconds > 0 ? 0 : targetVolume;
-        musicPoolRef.current.add(next);
-        musicRef.current = next;
-        setAudioError(null);
-        void next.play().then(() => fade(next, targetVolume, fadeSeconds)).catch(() => setAudioError("Impossible de lire la musique sélectionnée."));
-        if (previous) fade(previous, 0, fadeSeconds, () => { previous.pause(); musicPoolRef.current.delete(previous); });
+        const playlistLoops = playlist.every((track) => track.loop !== false);
+        const startTrack = (trackIndex: number, fadeIn: boolean) => {
+          const music = playlist[trackIndex];
+          if (!music?.mediaUrl) return;
+          const next = new Audio(music.mediaUrl);
+          const targetVolume = Math.max(0, Math.min(1, (music.volume ?? 100) / 100));
+          const fadeSeconds = fadeIn ? music.fadeDuration ?? 1 : 0;
+          next.volume = fadeSeconds > 0 ? 0 : targetVolume;
+          next.onended = () => {
+            musicPoolRef.current.delete(next);
+            if (trackIndex < playlist.length - 1) startTrack(trackIndex + 1, false);
+            else if (playlistLoops) startTrack(0, false);
+            else { musicRef.current = null; activeMusicIdRef.current = null; }
+          };
+          musicPoolRef.current.add(next);
+          musicRef.current = next;
+          setAudioError(null);
+          void next.play().then(() => fade(next, targetVolume, fadeSeconds)).catch(() => setAudioError("Impossible de lire la playlist musicale."));
+        };
+        startTrack(0, true);
+        if (previous) fade(previous, 0, playlist[0].fadeDuration ?? 1, () => { previous.pause(); musicPoolRef.current.delete(previous); });
       }
     }
 

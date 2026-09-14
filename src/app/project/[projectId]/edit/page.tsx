@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   DndContext,
   closestCenter,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -15,6 +16,7 @@ import {
   SortableContext,
   horizontalListSortingStrategy,
   arrayMove,
+  sortableKeyboardCoordinates,
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -60,6 +62,60 @@ interface PreviewSettings {
   pageAccentColor: string;
 }
 
+interface CompositePlan {
+  id: string;
+  lead: SceneBlock;
+  layers: SceneBlock[];
+  blocks: SceneBlock[];
+}
+
+const PLAN_EFFECT_TYPES = new Set(["background", "sfx"]);
+
+function buildCompositePlans(blocks: SceneBlock[]) {
+  const plans: CompositePlan[] = [];
+  let pendingLayers: SceneBlock[] = [];
+  blocks.filter((block) => block.type !== "music").forEach((block) => {
+    if (PLAN_EFFECT_TYPES.has(block.type)) {
+      pendingLayers.push(block);
+      return;
+    }
+    plans.push({ id: `plan-${block.id}`, lead: block, layers: pendingLayers, blocks: [...pendingLayers, block] });
+    pendingLayers = [];
+  });
+  if (pendingLayers.length > 0) {
+    const last = plans.at(-1);
+    if (last) {
+      last.layers.push(...pendingLayers);
+      last.blocks.push(...pendingLayers);
+    } else {
+      const lead = pendingLayers[0];
+      plans.push({ id: `plan-${lead.id}`, lead, layers: pendingLayers.slice(1), blocks: pendingLayers });
+    }
+  }
+  return plans;
+}
+
+function createDraftBlock(type: string, characters: Character[]): SceneBlock {
+  return {
+    id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    type,
+    content: "",
+    order: 0,
+    characterId: type === "dialogue" ? characters[0]?.id || null : null,
+    emotion: null,
+    position: null,
+    speakerNote: null,
+    mediaUrl: null,
+    displayMode: null,
+    showPortrait: type === "dialogue" ? true : null,
+    portraitImageUrl: null,
+    audioAction: type === "music" ? "play" : null,
+    volume: type === "music" || type === "sfx" ? 100 : null,
+    fadeDuration: type === "music" ? 1 : null,
+    loop: type === "music" ? true : null,
+  };
+}
+
 interface NarrativeNodeOption {
   id: string; title: string; depth: number; path: string[]; rootId: string; rootTitle: string; rank: number;
 }
@@ -94,7 +150,9 @@ export default function EditPage() {
   const [loading, setLoading] = useState(true);
   const [blocksLoading, setBlocksLoading] = useState(false);
   const [blockLoadError, setBlockLoadError] = useState<string | null>(null);
+  const [blockReloadKey, setBlockReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showCreateScene, setShowCreateScene] = useState(false);
   const [newSceneTitle, setNewSceneTitle] = useState("");
@@ -145,6 +203,8 @@ export default function EditPage() {
 
   // Load blocks when scene selected
   useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
     setSelectedBlockId(null);
     setBlockLoadError(null);
     if (!selectedScene) { setBlocks([]); setBlocksLoading(false); return; }
@@ -152,20 +212,23 @@ export default function EditPage() {
     setBlocksLoading(true);
     async function loadBlocks() {
       try {
-        const res = await fetch(`/api/scenes/${selectedScene}/blocks`);
+        const res = await fetch(`/api/scenes/${selectedScene}/blocks`, { signal: controller.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const loadedBlocks = await res.json() as SceneBlock[];
+        if (!active) return;
         setBlocks(loadedBlocks);
         setSelectedBlockId(loadedBlocks[0]?.id || null);
       } catch (error) {
+        if (!active || (error instanceof DOMException && error.name === "AbortError")) return;
         console.error("Block loading error:", error);
-        setBlockLoadError("Impossible de charger cette timeline. Vérifiez la base de données puis réessayez.");
+        setBlockLoadError("Impossible de charger cette timeline pour le moment.");
       } finally {
-        setBlocksLoading(false);
+        if (active) setBlocksLoading(false);
       }
     }
     loadBlocks();
-  }, [selectedScene]);
+    return () => { active = false; controller.abort(); };
+  }, [selectedScene, blockReloadKey]);
 
   useEffect(() => {
     const scene = scenes.find((s) => s.id === selectedScene);
@@ -207,38 +270,32 @@ export default function EditPage() {
 
   // Block ops
   const addBlock = useCallback((type: string, afterId: string | null = null) => {
-    const id = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const block = createDraftBlock(type, characters);
     setBlocks((current) => {
       const afterIndex = afterId ? current.findIndex((block) => block.id === afterId) : -1;
       const insertAt = afterIndex >= 0 ? afterIndex + 1 : current.length;
-      const block: SceneBlock = {
-        id,
-        type,
-        content: "",
-        order: insertAt,
-        characterId: type === "dialogue" ? characters[0]?.id || null : null,
-        emotion: null,
-        position: null,
-        speakerNote: null,
-        mediaUrl: null,
-        displayMode: null,
-        showPortrait: type === "dialogue" ? true : null,
-        portraitImageUrl: null,
-        audioAction: type === "music" ? "play" : null,
-        volume: type === "music" || type === "sfx" ? 100 : null,
-        fadeDuration: type === "music" ? 1 : null,
-        loop: type === "music" ? true : null,
-      };
       const next = [...current];
       next.splice(insertAt, 0, block);
       return next.map((item, index) => ({ ...item, order: index }));
     });
-    setSelectedBlockId(id);
+    setSelectedBlockId(block.id);
     window.requestAnimationFrame(() => {
-      const element = document.getElementById(`scene-block-${id}`);
+      const element = document.getElementById(`scene-block-${block.id}`);
       element?.scrollIntoView({ behavior: "smooth", block: "center" });
       element?.querySelector("textarea")?.focus({ preventScroll: true });
     });
+  }, [characters]);
+
+  const addLayerToPlan = useCallback((type: "background" | "sfx", planId: string) => {
+    const layer = createDraftBlock(type, characters);
+    setBlocks((current) => {
+      const plan = buildCompositePlans(current).find((item) => item.id === planId);
+      const leadIndex = plan ? current.findIndex((block) => block.id === plan.lead.id) : current.length;
+      const next = [...current];
+      next.splice(Math.max(0, leadIndex), 0, layer);
+      return next.map((item, index) => ({ ...item, order: index }));
+    });
+    setSelectedBlockId(layer.id);
   }, [characters]);
 
   function importBlocks(imported: ParsedSceneScriptBlock[], mode: "append" | "replace") {
@@ -277,22 +334,51 @@ export default function EditPage() {
     element.querySelector("textarea")?.focus({ preventScroll: true });
   }, []);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
-  function handleDragEnd(event: DragEndEvent) {
+  function handlePlanDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    setBlocks((items) => arrayMove(items, items.findIndex((b) => b.id === active.id), items.findIndex((b) => b.id === over.id)).map((b, i) => ({ ...b, order: i })));
+    setBlocks((items) => {
+      const plans = buildCompositePlans(items);
+      const from = plans.findIndex((plan) => plan.id === active.id);
+      const to = plans.findIndex((plan) => plan.id === over.id);
+      if (from < 0 || to < 0) return items;
+      const reorderedContent = arrayMove(plans, from, to).flatMap((plan) => plan.blocks);
+      const music = items.filter((block) => block.type === "music");
+      return [...reorderedContent, ...music].map((block, order) => ({ ...block, order }));
+    });
+  }
+
+  function handleMusicDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setBlocks((items) => {
+      const content = items.filter((block) => block.type !== "music");
+      const music = items.filter((block) => block.type === "music");
+      const from = music.findIndex((block) => block.id === active.id);
+      const to = music.findIndex((block) => block.id === over.id);
+      if (from < 0 || to < 0) return items;
+      return [...content, ...arrayMove(music, from, to)].map((block, order) => ({ ...block, order }));
+    });
   }
 
   // Save blocks
   const saveBlocks = useCallback(async () => {
     if (!selectedScene || blocks.length === 0 || blocksLoading || blockLoadError) return;
     setSaving(true);
+    setSaveError(null);
     try {
-      await fetch(`/api/scenes/${selectedScene}/blocks`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ blocks }) });
+      const response = await fetch(`/api/scenes/${selectedScene}/blocks`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ blocks }) });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       setLastSaved(new Date());
-    } catch (err) { console.error("Save error:", err); } finally { setSaving(false); }
+    } catch (err) {
+      console.error("Save error:", err);
+      setSaveError("Échec de la sauvegarde. Vos modifications restent dans l’éditeur.");
+    } finally { setSaving(false); }
   }, [selectedScene, blocks, blocksLoading, blockLoadError]);
 
   useEffect(() => { const i = setInterval(saveBlocks, 30000); return () => clearInterval(i); }, [saveBlocks]);
@@ -361,7 +447,11 @@ export default function EditPage() {
 
   const selectedSceneData = scenes.find((s) => s.id === selectedScene);
   const selectedBlockIndex = selectedBlockId ? blocks.findIndex((block) => block.id === selectedBlockId) : -1;
-  const planBlocks = blocks.filter((block) => block.type === "heading");
+  const compositePlans = buildCompositePlans(blocks);
+  const musicBlocks = blocks.filter((block) => block.type === "music");
+  const selectedPlanIndex = compositePlans.findIndex((plan) => plan.blocks.some((block) => block.id === selectedBlockId));
+  const selectedPlan = selectedPlanIndex >= 0 ? compositePlans[selectedPlanIndex] : null;
+  const playlistLoops = musicBlocks.length > 0 && musicBlocks.every((block) => block.loop !== false);
   const wordCount = blocks.reduce((acc, b) => acc + (["music", "sfx", "background"].includes(b.type) ? 0 : b.content.split(/\s+/).filter(Boolean).length), 0);
   const totalWords = scenes.reduce((acc, s) => acc + s.wordCount, 0);
   const editorProfile = getEditorProfile(projectType);
@@ -387,6 +477,7 @@ export default function EditPage() {
         <div className={editorStyles.topActions}>
           {onlineUsers.size > 0 && <span className={editorStyles.presence}><i />{onlineUsers.size} en ligne</span>}
           {lastSaved && !saving && <span className={editorStyles.savedState}>Sauvé à {lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>}
+          {saveError && <span className={editorStyles.saveError} role="alert">Non sauvegardé</span>}
           <button type="button" className={editorStyles.secondaryButton} onClick={() => setShowMetadata((value) => !value)} disabled={!selectedScene}>Réglages</button>
           <button type="button" className={editorStyles.saveButton} onClick={saveBlocks} disabled={!selectedScene || saving || blocksLoading || !!blockLoadError}><SaveIcon />{saving ? "Sauvegarde" : "Sauver"}</button>
         </div>
@@ -419,12 +510,12 @@ export default function EditPage() {
       </aside>
 
       <main className={editorStyles.monitorArea}>
-        {blockLoadError ? <div className={editorStyles.loadError} role="alert"><strong>Timeline indisponible</strong><span>{blockLoadError}</span></div> : selectedSceneData ? <PreviewMonitor scene={selectedSceneData} blocks={blocks} selectedBlockId={selectedBlockId} onSelect={setSelectedBlockId} characters={characters} settings={previewSettings} /> : <div className={editorStyles.noSelection}><strong>Choisissez une scène</strong><span>Le moniteur affichera ici votre montage.</span></div>}
+        {blocksLoading ? <div className={editorStyles.noSelection}><strong>Chargement de la preview…</strong></div> : blockLoadError ? <div className={editorStyles.noSelection}><strong>Preview indisponible</strong><span>Rechargez la timeline pour reprendre le montage.</span></div> : selectedSceneData ? <PreviewMonitor scene={selectedSceneData} blocks={blocks} selectedBlockId={selectedBlockId} onSelect={setSelectedBlockId} characters={characters} settings={previewSettings} /> : <div className={editorStyles.noSelection}><strong>Choisissez une scène</strong><span>Le moniteur affichera ici votre montage.</span></div>}
       </main>
 
       <aside className={editorStyles.inspector} aria-label="Inspecteur">
         <div className={editorStyles.panelHeader}>
-          <div><strong>Inspecteur</strong><span>{selectedBlock ? `Plan ${String(selectedBlockIndex + 1).padStart(2, "0")}` : "Aucun plan actif"}</span></div>
+          <div><strong>Inspecteur</strong><span>{selectedBlock ? selectedBlock.type === "music" ? "Piste musique" : `Plan ${String(selectedPlanIndex + 1).padStart(2, "0")} · ${BLOCK_LABELS[selectedBlock.type] || selectedBlock.type}` : "Aucun plan actif"}</span></div>
         </div>
         {showMetadata && selectedScene ? <div className={editorStyles.metadataPanel}>
           <label>Statut<select value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)}><option value="draft">Brouillon</option><option value="writing">En cours</option><option value="review">Révision</option><option value="final">Final</option></select></label>
@@ -433,7 +524,7 @@ export default function EditPage() {
         </div> : selectedBlock ? <div className={editorStyles.inspectorBody}>
           <SceneBlockItem block={selectedBlock} characters={characters} onUpdate={updateBlock} onRemove={removeBlock} onSelect={setSelectedBlockId} selected projectId={projectId} projectType={projectType} inspector />
           <div className={editorStyles.inspectorActions}>
-            <button type="button" onClick={() => addBlock("heading", selectedBlock.id)}><CutIcon />Nouveau plan après</button>
+            {selectedBlock.type !== "music" && <button type="button" onClick={() => addBlock("heading", selectedPlan?.blocks.at(-1)?.id || selectedBlock.id)}><CutIcon />Nouveau plan après</button>}
             <button type="button" className={editorStyles.dangerButton} onClick={() => removeBlock(selectedBlock.id)}><DeleteIcon />Supprimer le bloc</button>
           </div>
         </div> : <div className={editorStyles.inspectorEmpty}><span>Sélectionnez un segment dans la timeline pour modifier son contenu.</span></div>}
@@ -445,26 +536,45 @@ export default function EditPage() {
 
       <section className={editorStyles.timeline} aria-label="Timeline de la scène">
         <div className={editorStyles.timelineToolbar}>
-          <div><strong>Timeline</strong><span>{selectedBlockIndex >= 0 ? `TC ${formatTimecode(selectedBlockIndex)}` : "Prêt au montage"}</span></div>
+          <div><strong>Timeline composite</strong><span>{selectedPlanIndex >= 0 ? `TC ${formatTimecode(selectedPlanIndex)}` : "Prêt au montage"}</span></div>
           <div className={editorStyles.quickAdd}>
-            <button type="button" onClick={() => addBlock("heading", selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}><PlusIcon />Plan</button>
-            <button type="button" onClick={() => addBlock("action", selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}>Action</button>
-            <button type="button" onClick={() => addBlock("dialogue", selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}>Dialogue</button>
+            <button type="button" onClick={() => addBlock("heading", selectedPlan?.blocks.at(-1)?.id || selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}><PlusIcon />Plan</button>
+            <button type="button" onClick={() => addBlock("action", selectedPlan?.blocks.at(-1)?.id || selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}>Action</button>
+            <button type="button" onClick={() => addBlock("dialogue", selectedPlan?.blocks.at(-1)?.id || selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}>Dialogue</button>
             <select defaultValue="" onChange={(event) => { if (event.target.value) addBlock(event.target.value, selectedBlockId); event.target.value = ""; }} disabled={!selectedScene || blocksLoading || !!blockLoadError} aria-label="Ajouter un autre type de bloc">
               <option value="" disabled>Autre…</option>{editorProfile.blocks.filter((type) => !["heading", "action", "dialogue"].includes(type.value)).map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
             </select>
-            <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} compact />
+            <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} compact disabled={blocksLoading || !!blockLoadError} />
           </div>
         </div>
         <div className={editorStyles.timelineViewport}>
-          {!selectedScene ? <div className={editorStyles.timelineEmpty}>Sélectionnez une scène pour commencer.</div> : blocksLoading ? <div className={editorStyles.timelineEmpty}>Chargement de la timeline…</div> : blockLoadError ? <div className={editorStyles.timelineError} role="alert">{blockLoadError}</div> : blocks.length === 0 ? <div className={editorStyles.timelineEmpty}><button type="button" onClick={() => addBlock(editorProfile.blocks[0].value)}>Créer le premier plan</button></div> :
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={blocks.map((block) => block.id)} strategy={horizontalListSortingStrategy}>
-              <div className={editorStyles.track}>
-                {blocks.map((block) => <TimelineClip key={block.id} block={block} selected={selectedBlockId === block.id} onSelect={setSelectedBlockId} />)}
+          {!selectedScene ? <div className={editorStyles.timelineEmpty}>Sélectionnez une scène pour commencer.</div> : blocksLoading ? <div className={editorStyles.timelineEmpty}>Chargement de la timeline…</div> : blockLoadError ? <div className={editorStyles.timelineError} role="alert"><span>{blockLoadError}</span><button type="button" onClick={() => setBlockReloadKey((key) => key + 1)}>Réessayer</button></div> : blocks.length === 0 ? <div className={editorStyles.timelineEmpty}><button type="button" onClick={() => addBlock(editorProfile.blocks[0].value)}>Créer le premier plan</button></div> :
+          <div className={editorStyles.trackStack}>
+            <div className={editorStyles.trackRow}>
+              <div className={editorStyles.trackLabel}><strong>Plans</strong><span>{compositePlans.length}</span></div>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handlePlanDragEnd}>
+                <SortableContext items={compositePlans.map((plan) => plan.id)} strategy={horizontalListSortingStrategy}>
+                  <div className={editorStyles.track}>
+                    {compositePlans.map((plan, index) => <PlanClip key={plan.id} plan={plan} index={index} selectedBlockId={selectedBlockId} onSelect={setSelectedBlockId} onAddLayer={addLayerToPlan} />)}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+            <div className={`${editorStyles.trackRow} ${editorStyles.musicTrackRow}`}>
+              <div className={editorStyles.trackLabel}><strong>Musique</strong><span>Playlist</span></div>
+              <div className={editorStyles.musicTrackContent}>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleMusicDragEnd}>
+                  <SortableContext items={musicBlocks.map((block) => block.id)} strategy={horizontalListSortingStrategy}>
+                    <div className={editorStyles.musicTrack}>
+                      {musicBlocks.map((block, index) => <MusicClip key={block.id} block={block} index={index} selected={selectedBlockId === block.id} onSelect={setSelectedBlockId} />)}
+                      <button type="button" className={editorStyles.addMusic} onClick={() => addBlock("music")}><PlusIcon />Ajouter une musique</button>
+                    </div>
+                  </SortableContext>
+                </DndContext>
+                <PlaylistControls blocks={musicBlocks} loop={playlistLoops} onToggleLoop={(loop) => setBlocks((current) => current.map((block) => block.type === "music" ? { ...block, loop } : block))} />
               </div>
-            </SortableContext>
-          </DndContext>}
+            </div>
+          </div>}
         </div>
         {selectedScene && <div className={editorStyles.timelineFooter}>
           <span>{projectFormat.nav.edit} · {editorProfile.label}</span>
@@ -491,23 +601,37 @@ function characterName(character: Character | undefined) {
 
 function PreviewMonitor({ scene, blocks, selectedBlockId, onSelect, characters, settings }: { scene: Scene; blocks: SceneBlock[]; selectedBlockId: string | null; onSelect: (id: string) => void; characters: Character[]; settings: PreviewSettings }) {
   const [playing, setPlaying] = useState(false);
-  const selectedIndex = Math.max(0, blocks.findIndex((block) => block.id === selectedBlockId));
-  const block = blocks[selectedIndex];
+  const plans = buildCompositePlans(blocks);
+  const selectedIndex = Math.max(0, plans.findIndex((plan) => plan.blocks.some((block) => block.id === selectedBlockId)));
+  const plan = plans[selectedIndex];
+  const selectedBlock = plan?.blocks.find((block) => block.id === selectedBlockId);
+  const block = selectedBlock && !PLAN_EFFECT_TYPES.has(selectedBlock.type) ? selectedBlock : plan?.lead;
   const character = characters.find((item) => item.id === block?.characterId);
   const expression = character?.images.find((image) => block?.emotion && image.emotion.toLocaleLowerCase("fr") === block.emotion.toLocaleLowerCase("fr"));
   const portrait = block?.showPortrait === false ? null : block?.portraitImageUrl || expression?.url || character?.portraitUrl;
-  const backdrop = [...blocks.slice(0, selectedIndex + 1)].reverse().find((item) => item.type === "background" && item.mediaUrl)?.mediaUrl || scene.location?.imageUrl || settings.pageBackgroundUrl;
+  const backdrop = plans.slice(0, selectedIndex + 1).flatMap((item) => item.layers).reverse().find((item) => item.type === "background" && item.mediaUrl)?.mediaUrl || scene.location?.imageUrl || settings.pageBackgroundUrl;
   const monitorVariables = { "--preview-bg": settings.pageBackgroundColor, "--preview-ink": settings.pageTextColor, "--preview-accent": settings.pageAccentColor } as CSSProperties;
 
   useEffect(() => {
-    if (!playing || blocks.length < 2) return;
+    if (!playing || plans.length < 2) return;
     const timer = window.setInterval(() => {
-      const current = blocks.findIndex((item) => item.id === selectedBlockId);
-      if (current >= blocks.length - 1) { setPlaying(false); return; }
-      onSelect(blocks[current + 1].id);
+      const current = plans.findIndex((item) => item.blocks.some((candidate) => candidate.id === selectedBlockId));
+      if (current >= plans.length - 1) { setPlaying(false); return; }
+      onSelect(plans[current + 1].lead.id);
     }, 2200);
     return () => window.clearInterval(timer);
-  }, [blocks, onSelect, playing, selectedBlockId]);
+  }, [onSelect, plans, playing, selectedBlockId]);
+
+  useEffect(() => {
+    if (!playing || !plan) return;
+    const audio = plan.layers.filter((layer) => layer.type === "sfx" && layer.mediaUrl).map((layer) => {
+      const effect = new Audio(layer.mediaUrl!);
+      effect.volume = Math.max(0, Math.min(1, (layer.volume ?? 100) / 100));
+      void effect.play().catch(() => undefined);
+      return effect;
+    });
+    return () => audio.forEach((effect) => effect.pause());
+  }, [playing, plan?.id]);
 
   useEffect(() => { if (!block) setPlaying(false); }, [block]);
 
@@ -522,22 +646,77 @@ function PreviewMonitor({ scene, blocks, selectedBlockId, onSelect, characters, 
       </div>}
     </div>
     <div className={editorStyles.transport}>
-      <button type="button" onClick={() => block && selectedIndex > 0 && onSelect(blocks[selectedIndex - 1].id)} disabled={!block || selectedIndex === 0} aria-label="Bloc précédent"><PreviousIcon /></button>
+      <button type="button" onClick={() => block && selectedIndex > 0 && onSelect(plans[selectedIndex - 1].lead.id)} disabled={!block || selectedIndex === 0} aria-label="Plan précédent"><PreviousIcon /></button>
       <button type="button" className={editorStyles.playButton} onClick={() => setPlaying((value) => !value)} disabled={!block} aria-label={playing ? "Mettre en pause" : "Lire la scène"}>{playing ? <PauseIcon /> : <PlayIcon />}</button>
-      <button type="button" onClick={() => block && selectedIndex < blocks.length - 1 && onSelect(blocks[selectedIndex + 1].id)} disabled={!block || selectedIndex === blocks.length - 1} aria-label="Bloc suivant"><NextIcon /></button>
-      <span>{block ? `${selectedIndex + 1} / ${blocks.length}` : "0 / 0"}</span>
+      <button type="button" onClick={() => block && selectedIndex < plans.length - 1 && onSelect(plans[selectedIndex + 1].lead.id)} disabled={!block || selectedIndex === plans.length - 1} aria-label="Plan suivant"><NextIcon /></button>
+      <span>{block ? `${selectedIndex + 1} / ${plans.length}` : "0 / 0"}</span>
     </div>
   </div>;
 }
 
-function TimelineClip({ block, selected, onSelect }: { block: SceneBlock; selected: boolean; onSelect: (id: string) => void }) {
+function PlanClip({ plan, index, selectedBlockId, onSelect, onAddLayer }: { plan: CompositePlan; index: number; selectedBlockId: string | null; onSelect: (id: string) => void; onAddLayer: (type: "background" | "sfx", planId: string) => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: plan.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  const selected = plan.blocks.some((block) => block.id === selectedBlockId);
+  return <article ref={setNodeRef} style={style} className={`${editorStyles.planClip} ${selected ? editorStyles.clipSelected : ""} ${isDragging ? editorStyles.clipDragging : ""}`}>
+    <button type="button" className={editorStyles.planLead} onClick={() => onSelect(plan.lead.id)} {...attributes} {...listeners}>
+      <span>{String(index + 1).padStart(2, "0")} · {BLOCK_LABELS[plan.lead.type] || plan.lead.type}</span>
+      <strong>{plan.lead.content.trim().split("\n")[0] || "Plan sans contenu"}</strong>
+    </button>
+    <div className={editorStyles.layerStrip} aria-label={`Couches du plan ${index + 1}`}>
+      {plan.layers.map((layer) => <button key={layer.id} type="button" data-layer={layer.type} aria-pressed={selectedBlockId === layer.id} onClick={() => onSelect(layer.id)}>{layer.type === "background" ? <BackdropIcon /> : <WaveIcon />}{BLOCK_LABELS[layer.type]}</button>)}
+      <select defaultValue="" onChange={(event) => { if (event.target.value) onAddLayer(event.target.value as "background" | "sfx", plan.id); event.target.value = ""; }} aria-label={`Ajouter une couche au plan ${index + 1}`}>
+        <option value="" disabled>+ Effet</option>
+        <option value="background">Arrière-plan</option>
+        <option value="sfx">SFX</option>
+      </select>
+    </div>
+  </article>;
+}
+
+function MusicClip({ block, index, selected, onSelect }: { block: SceneBlock; index: number; selected: boolean; onSelect: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
-  return <button ref={setNodeRef} style={style} type="button" data-type={block.type} className={`${editorStyles.clip} ${selected ? editorStyles.clipSelected : ""} ${isDragging ? editorStyles.clipDragging : ""}`} onClick={() => onSelect(block.id)} {...attributes} {...listeners}>
-    <span>{String(block.order + 1).padStart(2, "0")} · {BLOCK_LABELS[block.type] || block.type}</span>
-    <strong>{block.content.trim().split("\n")[0] || "Sans contenu"}</strong>
-    <i aria-hidden="true" />
+  const label = block.content.trim().split("\n")[0] || block.mediaUrl?.split("/").at(-1) || `Musique ${index + 1}`;
+  return <button ref={setNodeRef} style={style} type="button" className={`${editorStyles.musicClip} ${selected ? editorStyles.musicClipSelected : ""} ${isDragging ? editorStyles.clipDragging : ""}`} onClick={() => onSelect(block.id)} {...attributes} {...listeners}>
+    <WaveIcon /><span>{String(index + 1).padStart(2, "0")}</span><strong>{label}</strong><small>{block.volume ?? 100}%</small>
   </button>;
+}
+
+function PlaylistControls({ blocks, loop, onToggleLoop }: { blocks: SceneBlock[]; loop: boolean; onToggleLoop: (loop: boolean) => void }) {
+  const playable = blocks.filter((block) => block.audioAction !== "stop" && block.mediaUrl);
+  const [playing, setPlaying] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const track = playable[currentIndex];
+
+  useEffect(() => {
+    if (!playing || !track?.mediaUrl) return;
+    const audio = new Audio(track.mediaUrl);
+    audio.volume = Math.max(0, Math.min(1, (track.volume ?? 100) / 100));
+    audioRef.current = audio;
+    const onEnded = () => {
+      if (currentIndex < playable.length - 1) setCurrentIndex((index) => index + 1);
+      else if (loop) setCurrentIndex(0);
+      else setPlaying(false);
+    };
+    audio.addEventListener("ended", onEnded);
+    setError(null);
+    void audio.play().catch(() => { setError("Lecture impossible"); setPlaying(false); });
+    return () => { audio.removeEventListener("ended", onEnded); audio.pause(); if (audioRef.current === audio) audioRef.current = null; };
+  }, [playing, track?.id, track?.mediaUrl, track?.volume, currentIndex, playable.length, loop]);
+
+  useEffect(() => {
+    if (currentIndex >= playable.length) setCurrentIndex(0);
+    if (playable.length === 0) setPlaying(false);
+  }, [currentIndex, playable.length]);
+
+  return <div className={editorStyles.playlistControls}>
+    <button type="button" onClick={() => setPlaying((value) => !value)} disabled={playable.length === 0} aria-label={playing ? "Mettre la playlist en pause" : "Lire la playlist"}>{playing ? <PauseIcon /> : <PlayIcon />}</button>
+    <span>{error || (playing && track ? `Lecture ${currentIndex + 1}/${playable.length}` : `${playable.length} prête${playable.length > 1 ? "s" : ""}`)}</span>
+    <label><input type="checkbox" checked={loop} onChange={(event) => onToggleLoop(event.target.checked)} disabled={blocks.length === 0} />Boucler la playlist</label>
+  </div>;
 }
 
 function Icon({ children }: { children: React.ReactNode }) { return <svg viewBox="0 0 24 24" aria-hidden="true">{children}</svg>; }
@@ -550,3 +729,5 @@ function PlayIcon() { return <Icon><path d="M8 5l11 7-11 7z" /></Icon>; }
 function PauseIcon() { return <Icon><path d="M8 5v14M16 5v14" /></Icon>; }
 function PreviousIcon() { return <Icon><path d="M18 6l-8 6 8 6zM6 6v12" /></Icon>; }
 function NextIcon() { return <Icon><path d="M6 6l8 6-8 6zM18 6v12" /></Icon>; }
+function BackdropIcon() { return <Icon><path d="M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5M15.5 8.5h.01" /></Icon>; }
+function WaveIcon() { return <Icon><path d="M4 12h2l1.5-5 3 10 3-10 1.5 5h5" /></Icon>; }
