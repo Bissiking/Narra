@@ -184,6 +184,15 @@
 .vnHudActions { justify-self: end; display: flex; gap: .5rem; }
 .vnHudActions .modeControls { color: var(--reader-ink); text-shadow: 0 2px 12px #000; }
 .vnError { position: absolute; z-index: 24; top: 4.75rem; right: clamp(1rem, 3vw, 3rem); max-width: 20rem; padding: .65rem .8rem; color: #fca5a5; background: rgba(9,9,11,.92); border: 1px solid #ef4444; font-size: .75rem; }
+.vnPlaylist { position: absolute; z-index: 22; top: 4.5rem; right: clamp(1rem, 3vw, 3rem); width: min(18rem, 80vw); color: var(--reader-ink); background: rgba(9,9,11,.94); border: 1px solid rgba(255,255,255,.12); font-family: Inter, system-ui, sans-serif; }
+.vnPlaylistHeader { display: flex; align-items: center; justify-content: space-between; padding: .65rem .8rem; border-bottom: 1px solid rgba(255,255,255,.1); }
+.vnPlaylistHeader strong { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; }
+.vnPlaylistHeader .vnIconButton { width: 1.5rem; height: 1.5rem; min-height: 0; background: transparent; border: 0; font-size: 1rem; }
+.vnPlaylistTracks { max-height: 16rem; overflow-y: auto; }
+.vnPlaylistTrack { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; font-size: .72rem; color: color-mix(in srgb, var(--reader-ink), transparent 35%); }
+.vnPlaylistTrackActive { color: var(--reader-accent); background: rgba(255,255,255,.05); }
+.vnPlaylistTrackIndex { width: 1.2rem; text-align: center; font-variant-numeric: tabular-nums; font-size: .65rem; }
+.vnPlaylistTrackName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .locationTag { position: absolute; z-index: 8; top: 6rem; left: clamp(1rem, 3vw, 3rem); color: color-mix(in srgb, var(--reader-ink), transparent 25%); font-size: .72rem; letter-spacing: .1em; text-shadow: 0 2px 10px #000; text-transform: uppercase; }
 .vnDialogueFrame { position: absolute; z-index: 10; left: 50%; bottom: clamp(1rem, 4vh, 3rem); width: min(72rem, calc(100% - 2rem)); transform: translateX(-50%); }
 .vnDialogueFrameTransition { width: min(46rem, calc(100% - 2rem)); }

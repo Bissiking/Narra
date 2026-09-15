@@ -20,7 +20,7 @@ export async function GET(
         children: { select: { id: true, name: true, type: true } },
         _count: { select: { scenes: true } },
       },
-      orderBy: { name: "asc" },
+      orderBy: { order: "asc" },
     });
 
     return NextResponse.json(locations);

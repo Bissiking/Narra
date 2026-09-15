@@ -3,6 +3,25 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+  useSortable,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import MediaPicker from "@/components/media-picker";
 import PromptWorkbench from "@/components/entities/prompt-workbench";
 import styles from "@/components/entities/entity-workspace.module.css";
@@ -129,6 +148,35 @@ export default function LocationsPage() {
     [form, location],
   );
   const roots = items.filter((item) => !item.parentId);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id));
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const activeItem = items.find((i) => i.id === active.id);
+    const overItem = items.find((i) => i.id === over.id);
+    if (!activeItem || !overItem) return;
+    if (activeItem.parentId || overItem.parentId) return;
+    const oldIndex = roots.findIndex((r) => r.id === active.id);
+    const newIndex = roots.findIndex((r) => r.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reordered = arrayMove(roots, oldIndex, newIndex);
+    const newOrder = reordered.map((r, i) => ({ id: r.id, order: i }));
+    fetch(`/api/projects/${projectId}/locations/reorder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locations: newOrder }),
+    }).then(() => loadList());
+  }
 
   return (
     <div className={styles.workspace}>
@@ -163,26 +211,43 @@ export default function LocationsPage() {
           </select>
         </div>
         <div className={styles.list}>
-          {roots.map((root) => (
-            <div key={root.id}>
-              <LocationButton
-                item={root}
-                active={selectedId === root.id}
-                select={setSelectedId}
-              />
-              {items
-                .filter((item) => item.parentId === root.id)
-                .map((child) => (
-                  <div key={child.id} className="ml-4">
-                    <LocationButton
-                      item={child}
-                      active={selectedId === child.id}
-                      select={setSelectedId}
-                    />
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <SortableContext items={roots.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+              {roots.map((root) => (
+                <div key={root.id}>
+                  <SortableLocationButton
+                    item={root}
+                    active={selectedId === root.id}
+                    select={setSelectedId}
+                  />
+                  {items
+                    .filter((item) => item.parentId === root.id)
+                    .map((child) => (
+                      <div key={child.id} className="ml-4">
+                        <LocationButton
+                          item={child}
+                          active={selectedId === child.id}
+                          select={setSelectedId}
+                        />
+                      </div>
+                    ))}
+                </div>
+              ))}
+            </SortableContext>
+            <DragOverlay>
+              {activeId ? (() => {
+                const dragged = roots.find((r) => r.id === activeId);
+                return dragged ? (
+                  <div className={`${styles.item} ${styles.active}`} style={{ opacity: 0.9 }}>
+                    <span className={styles.avatar}>{dragged.name[0]}</span>
+                    <span className={styles.itemText}>
+                      <strong>{dragged.name}</strong>
+                    </span>
                   </div>
-                ))}
-            </div>
-          ))}
+                ) : null;
+              })() : null}
+            </DragOverlay>
+          </DndContext>
         </div>
       </aside>
       <main className={styles.content}>
@@ -418,6 +483,36 @@ function LocationButton({
         </span>
       </span>
     </button>
+  );
+}
+
+function SortableLocationButton({
+  item,
+  active,
+  select,
+}: {
+  item: Location;
+  active: boolean;
+  select: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <button
+        className={`${styles.item} ${active ? styles.active : ""}`}
+        onClick={() => select(item.id)}
+        type="button"
+      >
+        <span className={styles.avatar}>{item.name[0]}</span>
+        <span className={styles.itemText}>
+          <strong>{item.name}</strong>
+          <span>
+            {item._count.scenes} scène{item._count.scenes !== 1 ? "s" : ""}
+          </span>
+        </span>
+      </button>
+    </div>
   );
 }
 function Field({

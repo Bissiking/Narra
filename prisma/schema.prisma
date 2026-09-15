@@ -309,6 +309,7 @@ model Location {
   ambiance        String?
   notes           String?
   promptNotes     String? @map("prompt_notes")
+  order           Int     @default(0)
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")

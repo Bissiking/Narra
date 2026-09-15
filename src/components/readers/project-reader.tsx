@@ -143,6 +143,9 @@ export default function ProjectReader({ project, scenes, characters = [], canEdi
     return owner?.id || readerScenes[0]?.id || null;
   }, [activeBlockId, readerScenes]);
 
+  const activeSceneIdRef = useRef(activeSceneId);
+  activeSceneIdRef.current = activeSceneId;
+
   const sendWs = useCallback((sceneId: string, message: object) => {
     if (wsSceneRef.current === sceneId && wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify(message));
   }, []);
@@ -160,6 +163,7 @@ export default function ProjectReader({ project, scenes, characters = [], canEdi
       socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data) as { type: string; block?: Block; blockId?: string; blocks?: { id: string; order: number }[] };
+        const currentSceneId = activeSceneIdRef.current;
         if (message.type === "block:delete" && message.blockId) {
           const timer = timersRef.current.get(message.blockId);
           if (timer) window.clearTimeout(timer);
@@ -171,14 +175,14 @@ export default function ProjectReader({ project, scenes, characters = [], canEdi
           let next = current;
           if (message.type === "block:update" && message.block) {
             if (pendingRef.current.has(message.block.id)) return current;
-            next = current.map((scene) => scene.id === activeSceneId ? { ...scene, blocks: scene.blocks.map((block) => block.id === message.block!.id ? message.block! : block) } : scene);
+            next = current.map((scene) => scene.id === currentSceneId ? { ...scene, blocks: scene.blocks.map((block) => block.id === message.block!.id ? message.block! : block) } : scene);
           } else if (message.type === "block:create" && message.block) {
-            next = current.map((scene) => scene.id === activeSceneId ? { ...scene, blocks: [...scene.blocks, message.block!].sort((a, b) => a.order - b.order).map((block, order) => ({ ...block, order })) } : scene);
+            next = current.map((scene) => scene.id === currentSceneId ? { ...scene, blocks: [...scene.blocks, message.block!].sort((a, b) => a.order - b.order).map((block, order) => ({ ...block, order })) } : scene);
           } else if (message.type === "block:delete" && message.blockId) {
-            next = current.map((scene) => scene.id === activeSceneId ? { ...scene, blocks: scene.blocks.filter((block) => block.id !== message.blockId).map((block, order) => ({ ...block, order })) } : scene);
+            next = current.map((scene) => scene.id === currentSceneId ? { ...scene, blocks: scene.blocks.filter((block) => block.id !== message.blockId).map((block, order) => ({ ...block, order })) } : scene);
           } else if (message.type === "block:reorder" && message.blocks) {
             const orders = new Map(message.blocks.map((block) => [block.id, block.order]));
-            next = current.map((scene) => scene.id === activeSceneId ? { ...scene, blocks: scene.blocks.map((block) => ({ ...block, order: orders.get(block.id) ?? block.order })).sort((a, b) => a.order - b.order) } : scene);
+            next = current.map((scene) => scene.id === currentSceneId ? { ...scene, blocks: scene.blocks.map((block) => ({ ...block, order: orders.get(block.id) ?? block.order })).sort((a, b) => a.order - b.order) } : scene);
           }
           sceneStateRef.current = next;
           return next;
@@ -319,11 +323,11 @@ export default function ProjectReader({ project, scenes, characters = [], canEdi
   }, [sendWs]);
 
   const setReaderMode = useCallback((next: ReaderMode) => { setMode(next); if (next === "read") setEditingBlockId(null); }, []);
-  const variables = {
+  const variables = useMemo(() => ({
     "--reader-bg": project.pageBackgroundColor,
     "--reader-ink": project.pageTextColor,
     "--reader-accent": project.pageAccentColor,
-  } as CSSProperties;
+  } as CSSProperties), [project.pageBackgroundColor, project.pageTextColor, project.pageAccentColor]);
 
   if (readerScenes.length === 0) {
     return <EmptyReader project={project} variables={variables} exitHref={exitHref} />;
@@ -429,13 +433,15 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
   const [fullscreenError, setFullscreenError] = useState<string | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [showPlaylist, setShowPlaylist] = useState(false);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const stageRef = useRef<HTMLDivElement>(null);
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const musicPoolRef = useRef<Set<HTMLAudioElement>>(new Set());
   const activeMusicIdRef = useRef<string | null>(null);
   const sfxRef = useRef<Set<HTMLAudioElement>>(new Set());
   const fadeTimersRef = useRef<Map<HTMLAudioElement, number>>(new Map());
-  const current = beats[index];
+  const current = useMemo(() => beats[index], [beats, index]);
   const hasAudio = scenes.some((scene) => scene.blocks.some(isAudioCommand));
 
   useEffect(() => {
@@ -472,8 +478,8 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
     void fetch(`/api/projects/${project.id}/progress`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sceneId: current.scene.id, blockId: current.block.id, percentage: ((index + 1) / beats.length) * 100 }) });
   }, [beats.length, current, index, project.id]);
 
-  const goNext = () => { if (editor.mode === "read") setIndex((value) => Math.min(value + 1, beats.length)); };
-  const goPrevious = () => setIndex((value) => Math.max(value - 1, 0));
+  const goNext = useCallback(() => { if (editor.mode === "read") setIndex((value) => Math.min(value + 1, beats.length)); }, [editor.mode, beats.length]);
+  const goPrevious = useCallback(() => setIndex((value) => Math.max(value - 1, 0)), []);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -547,6 +553,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
       if (playlist.length === 0) {
         if (previous) fade(previous, 0, 1, () => { previous.pause(); musicPoolRef.current.delete(previous); });
         musicRef.current = null;
+        setCurrentTrackIndex(0);
       } else {
         const playlistLoops = playlist.every((track) => track.loop !== false);
         const startTrack = (trackIndex: number, fadeIn: boolean) => {
@@ -556,6 +563,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
           const targetVolume = Math.max(0, Math.min(1, (music.volume ?? 100) / 100));
           const fadeSeconds = fadeIn ? music.fadeDuration ?? 1 : 0;
           next.volume = fadeSeconds > 0 ? 0 : targetVolume;
+          setCurrentTrackIndex(trackIndex);
           next.onended = () => {
             musicPoolRef.current.delete(next);
             if (trackIndex < playlist.length - 1) startTrack(trackIndex + 1, false);
@@ -679,6 +687,11 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
             <strong>{scene.title}</strong>
           </div>
           <div className={styles.vnHudActions}>
+            {current.musicPlaylist.length > 0 && (
+              <button type="button" onClick={() => setShowPlaylist((v) => !v)} className={styles.vnIconButton} aria-label="Playlist musicale" aria-pressed={showPlaylist}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" /></svg>
+              </button>
+            )}
             <ModeControls editor={editor} />
             <button type="button" onClick={() => setIndex(0)} className={styles.vnIconButton} aria-label="Recommencer"><RestartIcon /></button>
             <button type="button" onClick={toggleFullscreen} className={styles.vnIconButton} aria-label={isFullscreen ? "Quitter le plein écran" : "Passer en plein écran"} aria-pressed={isFullscreen}><ExpandIcon /></button>
@@ -688,6 +701,26 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
 
       {fullscreenError && <p role="alert" className={styles.vnError}>{fullscreenError}</p>}
       {audioError && <p role="alert" className={styles.vnError}>{audioError}</p>}
+
+      {showPlaylist && current.musicPlaylist.length > 0 && (
+        <div className={styles.vnPlaylist}>
+          <div className={styles.vnPlaylistHeader}>
+            <strong>Playlist</strong>
+            <button type="button" onClick={() => setShowPlaylist(false)} className={styles.vnIconButton} aria-label="Fermer la playlist">×</button>
+          </div>
+          <div className={styles.vnPlaylistTracks}>
+            {current.musicPlaylist.map((track, i) => {
+              const label = track.content.trim().split("\n")[0] || track.mediaUrl?.split("/").at(-1) || `Piste ${i + 1}`;
+              return (
+                <div key={track.id} className={`${styles.vnPlaylistTrack} ${i === currentTrackIndex ? styles.vnPlaylistTrackActive : ""}`}>
+                  <span className={styles.vnPlaylistTrackIndex}>{i === currentTrackIndex ? "▶" : `${i + 1}`}</span>
+                  <span className={styles.vnPlaylistTrackName}>{label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {scene.location && <div className={styles.locationTag}>{scene.location.name}</div>}
 
@@ -752,7 +785,11 @@ function DocumentReader({ project, scenes, variables, exitHref, editor }: { proj
   const typeClass = styles[`format_${project.type}`] || styles.format_story;
   const lastSceneRef = useRef<string | null>(null);
   const restoredRef = useRef(false);
-  const observedBlockIds = scenes.flatMap((scene) => scene.blocks.filter((block) => !isReaderCommand(block)).map((block) => block.id)).join(":");
+  const editorRef = useRef(editor);
+  editorRef.current = editor;
+  const scenesRef = useRef(scenes);
+  scenesRef.current = scenes;
+  const observedBlockIds = useMemo(() => scenes.flatMap((scene) => scene.blocks.filter((block) => !isReaderCommand(block)).map((block) => block.id)).join(":"), [scenes]);
 
   useEffect(() => {
     const requestedBlock = new URLSearchParams(window.location.search).get("block");
@@ -781,15 +818,18 @@ function DocumentReader({ project, scenes, variables, exitHref, editor }: { proj
       const target = visible.target as HTMLElement;
       const blockId = target.dataset.blockId;
       const sceneId = target.closest<HTMLElement>("[data-reader-scene]")?.dataset.readerScene;
-      const sceneIndex = scenes.findIndex((scene) => scene.id === sceneId);
+      const currentScenes = scenesRef.current;
+      const sceneIndex = currentScenes.findIndex((scene) => scene.id === sceneId);
       if (!sceneId || !blockId || sceneIndex < 0) return;
-      editor.setActiveBlockId(blockId);
+      const ed = editorRef.current;
+      if (ed.mode === "edit" && ed.editingBlockId) return;
+      ed.setActiveBlockId(blockId);
       const url = new URL(window.location.href);
       if (url.searchParams.get("block") !== blockId) { url.searchParams.set("block", blockId); window.history.replaceState(null, "", url); }
       sessionStorage.setItem(`narra:reader-position:${sceneId}`, JSON.stringify({ blockId, offset: Math.round(target.getBoundingClientRect().top - window.innerHeight / 2) }));
       if (lastSceneRef.current !== sceneId) {
         lastSceneRef.current = sceneId;
-        void fetch(`/api/projects/${project.id}/progress`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sceneId, blockId, percentage: ((sceneIndex + 1) / scenes.length) * 100 }) });
+        void fetch(`/api/projects/${project.id}/progress`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sceneId, blockId, percentage: ((sceneIndex + 1) / currentScenes.length) * 100 }) });
       }
     }, { threshold: [.25, .5, .75] });
     blocks.forEach((block) => observer.observe(block));
@@ -895,10 +935,10 @@ function BlockContent({ block, type, className, speaker, onEdit, editable }: { b
 }
 
 function EditorFields({ block, sceneId, editor, visualNovel = false }: { block: Block; sceneId: string; editor: EditorControls; visualNovel?: boolean }) {
-  const emotions = Array.from(new Map([
-    ["neutral", "Neutre"], ["happy", "Joyeux"], ["sad", "Triste"], ["angry", "En colère"], ["surprised", "Surpris"], ["worried", "Inquiet"],
-    ...(block.character?.images || []).map((image) => [image.emotion, image.label || image.emotion] as [string, string]),
-  ]).entries()).filter(([value]) => value);
+  const characterImages = block.character?.images || [];
+  const emotions = characterImages.length > 0
+    ? Array.from(new Map(characterImages.map((image) => [image.emotion, image.label || image.emotion] as [string, string])).entries()).filter(([value]) => value)
+    : [["neutral", "Neutre"], ["happy", "Joyeux"], ["sad", "Triste"], ["angry", "En colère"], ["surprised", "Surpris"], ["worried", "Inquiet"]];
   return <div className={`${styles.editorFields} ${visualNovel ? styles.vnEditorFields : ""}`} onClick={(event) => event.stopPropagation()}>
     {block.type === "dialogue" && <div className={styles.dialogueFields}>
       <select aria-label="Personnage" value={block.characterId || ""} onChange={(event) => {

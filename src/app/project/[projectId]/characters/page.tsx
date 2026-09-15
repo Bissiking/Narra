@@ -63,6 +63,7 @@ const name = (c: Ref) =>
   c.alias || `${c.firstName || ""} ${c.lastName || ""}`.trim() || "Sans nom";
 const TABS = [
   ["profile", "Fiche"],
+  ["expressions", "Expressions"],
   ["wiki", "Wiki"],
   ["links", "Relations"],
   ["prompts", "Prompts GPT"],
@@ -98,6 +99,7 @@ export default function CharactersPage() {
   const [imageLabel, setImageLabel] = useState(""),
     [imageEmotion, setImageEmotion] = useState(""),
     [imageUrl, setImageUrl] = useState("");
+  const [projectSlug, setProjectSlug] = useState<string | null>(null);
   const loadList = useCallback(async () => {
     const r = await fetch(`/api/projects/${projectId}/characters`);
     if (r.ok) {
@@ -122,6 +124,11 @@ export default function CharactersPage() {
   useEffect(() => {
     void loadList();
   }, [loadList]);
+  useEffect(() => {
+    fetch(`/api/projects/${projectId}`).then(async (r) => {
+      if (r.ok) { const p = await r.json(); setProjectSlug(p.slug || null); }
+    }).catch(() => {});
+  }, [projectId]);
   useEffect(() => {
     if (selectedId) {
       void load(selectedId);
@@ -482,6 +489,10 @@ export default function CharactersPage() {
                       </Field>
                     </div>
                   </section>
+                </>
+              )}
+              {tab === "expressions" && (
+                <>
                   <section className={styles.section}>
                     <h3>Expressions et variantes</h3>
                     <div className={styles.gallery}>
@@ -539,6 +550,26 @@ export default function CharactersPage() {
               )}
               {tab === "wiki" && (
                 <>
+                  {projectSlug && (
+                    <div className="mb-4 flex items-center gap-3">
+                      <a
+                        href={`/stories/${projectSlug}/wiki/characters/${character.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-narra-accent text-sm hover:underline"
+                      >
+                        Voir sur le wiki publique ↗
+                      </a>
+                      <a
+                        href={`/stories/${projectSlug}/wiki`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-narra-muted text-sm hover:underline"
+                      >
+                        Wiki complet
+                      </a>
+                    </div>
+                  )}
                   <section className={styles.section}>
                     <h3>Profondeur du personnage</h3>
                     <div className={styles.fields}>
