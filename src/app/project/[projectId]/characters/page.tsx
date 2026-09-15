@@ -553,15 +553,15 @@ export default function CharactersPage() {
                   {projectSlug && (
                     <div className="mb-4 flex items-center gap-3">
                       <a
-                        href={`/stories/${projectSlug}/wiki/characters/${character.id}`}
+                        href={`/stories/${projectSlug}/wiki-preview/characters/${character.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-narra-accent text-sm hover:underline"
                       >
-                        Voir sur le wiki publique ↗
+                        Aperçu wiki ↗
                       </a>
                       <a
-                        href={`/stories/${projectSlug}/wiki`}
+                        href={`/stories/${projectSlug}/wiki-preview`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-narra-muted text-sm hover:underline"
