@@ -443,6 +443,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
   const fadeTimersRef = useRef<Map<HTMLAudioElement, number>>(new Map());
   const playedSfxRef = useRef<Set<string>>(new Set());
   const currentBeatIdRef = useRef<string | null>(null);
+  const syncSourceRef = useRef<"effect-a" | null>(null);
   const current = useMemo(() => beats[index], [beats, index]);
   const hasAudio = scenes.some((scene) => scene.blocks.some(isAudioCommand));
 
@@ -460,6 +461,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
 
   useEffect(() => {
     if (!current) return;
+    syncSourceRef.current = "effect-a";
     editor.setActiveBlockId(current.block.id);
     const url = new URL(window.location.href);
     if (url.searchParams.get("block") !== current.block.id) {
@@ -470,6 +472,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
   }, [current?.block.id, current?.scene.id]);
 
   useEffect(() => {
+    if (syncSourceRef.current === "effect-a") { syncSourceRef.current = null; return; }
     if (!editor.activeBlockId || editor.activeBlockId === current?.block.id) return;
     const requestedIndex = beats.findIndex((beat) => beat.block.id === editor.activeBlockId);
     if (requestedIndex >= 0) setIndex(requestedIndex);
