@@ -1,0 +1,58 @@
+name: Narra patch 0.11.17
+
+on:
+  push:
+    paths:
+      - '.github/workflows/narra-patch-01117.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "Narra Patch Bot"
+          git config user.email "actions@users.noreply.github.com"
+
+      - name: Patch 0.11.17 - optional VN overline
+        shell: python
+        run: |
+          from pathlib import Path
+          import json
+
+          scene_item = Path('src/components/scene-block-item.tsx')
+          text = scene_item.read_text()
+          old = '''          {block.type === "heading" && projectType === "vn" && (\n            <div className="mb-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3">\n              <div className="flex flex-wrap items-center justify-between gap-3">\n                <div>\n                  <span className="label block">Navigation de l’écran-titre</span>\n                  <span className="text-xs text-narra-muted">Masquez le bouton pour un générique ou un écran purement visuel.</span>\n                </div>\n                <label className="flex min-h-8 items-center gap-2 text-sm text-narra-text">\n                  <input\n                    type="checkbox"\n                    checked={block.displayMode !== "solo"}\n                    onChange={(event) => onUpdate(block.id, { displayMode: event.target.checked ? null : "solo" })}\n                    className="accent-amber-500"\n                  />\n                  Afficher « Entrer dans la scène »\n                </label>\n              </div>\n            </div>\n          )}'''
+          new = '''          {block.type === "heading" && projectType === "vn" && (\n            <div className="mb-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3">\n              <div className="grid gap-3">\n                <div>\n                  <span className="label block">Options de l’écran-titre</span>\n                  <span className="text-xs text-narra-muted">Le sur-titre et le bouton de navigation peuvent être masqués indépendamment.</span>\n                </div>\n                <label className="flex min-h-8 items-center gap-2 text-sm text-narra-text">\n                  <input\n                    type="checkbox"\n                    checked={block.showPortrait !== false}\n                    onChange={(event) => onUpdate(block.id, { showPortrait: event.target.checked })}\n                    className="accent-amber-500"\n                  />\n                  Afficher le sur-titre / épisode\n                </label>\n                <label className="flex min-h-8 items-center gap-2 text-sm text-narra-text">\n                  <input\n                    type="checkbox"\n                    checked={block.displayMode !== "solo"}\n                    onChange={(event) => onUpdate(block.id, { displayMode: event.target.checked ? null : "solo" })}\n                    className="accent-amber-500"\n                  />\n                  Afficher « Entrer dans la scène »\n                </label>\n              </div>\n            </div>\n          )}'''
+          if old not in text:
+              raise SystemExit('VN heading options block not found')
+          scene_item.write_text(text.replace(old, new, 1))
+
+          reader = Path('src/components/readers/project-reader.tsx')
+          text = reader.read_text()
+          old = '''          <span>{scene.node?.title || `Scène ${sceneIndex + 1}`}</span>\n          {editor.mode === "edit" && editor.editingBlockId === block.id ? <textarea autoFocus value={block.content} onChange={(event) => editor.updateBlock(scene.id, block.id, { content: event.target.value })} className={styles.vnTitleEditor} /> : <h1 onClick={() => editor.mode === "edit" && editor.setEditingBlockId(block.id)}>{block.content}</h1>}'''
+          new = '''          {block.showPortrait !== false && <span>{scene.node?.title || `Scène ${sceneIndex + 1}`}</span>}\n          {editor.mode === "edit" && editor.editingBlockId === block.id ? <textarea autoFocus value={block.content} onChange={(event) => editor.updateBlock(scene.id, block.id, { content: event.target.value })} className={styles.vnTitleEditor} /> : <h1 onClick={() => editor.mode === "edit" && editor.setEditingBlockId(block.id)}>{block.content}</h1>}'''
+          if old not in text:
+              raise SystemExit('VN heading overline render not found')
+          reader.write_text(text.replace(old, new, 1))
+
+          package = Path('package.json')
+          data = json.loads(package.read_text())
+          data['version'] = '0.11.17'
+          package.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+
+          workflow = Path('.github/workflows/narra-patch-01117.yml')
+          workflow.unlink()
+
+      - name: Commit 0.11.17
+        run: |
+          git add -A
+          git commit -m "feat(vn): make title overline optional"
+          git push
