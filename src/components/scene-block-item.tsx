@@ -244,7 +244,7 @@ function SceneBlockItem({
           )}
 
           {isAudioBlock && (
-            <div className="mb-3 grid gap-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <div className={`mb-3 grid gap-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3${inspector ? "" : " sm:grid-cols-[minmax(0,1fr)_auto]"}`}>
               <div className="min-w-0">
                 {block.type === "music" && (
                   <div className="mb-3">
@@ -274,7 +274,7 @@ function SceneBlockItem({
                 )}
               </div>
 
-              <div className="grid min-w-40 content-start gap-3">
+              <div className={`grid content-start gap-3${inspector ? "" : " min-w-40"}`}>
                 {(block.type === "sfx" || audioAction === "play") && (
                   <label className="text-xs text-narra-muted">
                     <span className="mb-1 flex justify-between gap-4"><span>Volume</span><strong className="font-mono text-narra-text">{block.volume ?? 100}%</strong></span>
