@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   const expectedState = request.cookies.get(OAUTH_STATE_COOKIE)?.value;
   const verifier = request.cookies.get(PKCE_VERIFIER_COOKIE)?.value;
   const selectedKyrosServer = request.cookies.get(KYROS_SERVER_COOKIE)?.value;
-  const returnTo = request.cookies.get(RETURN_TO_COOKIE)?.value || "/library";
+  const returnTo = request.cookies.get(RETURN_TO_COOKIE)?.value || "/";
 
   try {
     const config = getKyrosConfig();

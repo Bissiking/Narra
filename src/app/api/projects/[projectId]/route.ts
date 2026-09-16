@@ -58,6 +58,7 @@ export async function PATCH(
         description: data.description,
         type: data.type,
         status: data.status,
+        ...(data.status === "completed" ? { pagePublished: true } : {}),
       },
     });
 

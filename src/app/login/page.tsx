@@ -17,12 +17,12 @@ type LoginPageProps = {
 
 export default function LoginPage({ searchParams }: LoginPageProps) {
   const session = verifySessionToken(cookies().get(SESSION_COOKIE)?.value);
-  if (session) redirect("/library");
+  if (session) redirect("/");
 
-  const requestedReturnTo = searchParams?.returnTo || "/library";
+  const requestedReturnTo = searchParams?.returnTo || "/";
   const returnTo = requestedReturnTo.startsWith("/") && !requestedReturnTo.startsWith("//")
     ? requestedReturnTo
-    : "/library";
+    : "/";
   const loginHref = `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
 
   return (

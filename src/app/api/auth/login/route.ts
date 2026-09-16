@@ -20,10 +20,10 @@ export async function GET(request: NextRequest) {
     const discovery = await discoverKyros();
     const state = createOAuthState();
     const { verifier, challenge } = createPkcePair();
-    const requestedReturnTo = request.nextUrl.searchParams.get("returnTo") || "/library";
+    const requestedReturnTo = request.nextUrl.searchParams.get("returnTo") || "/";
     const returnTo = requestedReturnTo.startsWith("/") && !requestedReturnTo.startsWith("//")
       ? requestedReturnTo
-      : "/library";
+      : "/";
 
     const parResponse = await fetch(discovery.pushed_authorization_request_endpoint, {
       method: "POST",

@@ -20,13 +20,20 @@ export default async function ProjectLayout({
   const project = await db.project.findFirst({
     where: {
       id: params.projectId,
-      ownerId: session.userId,
       deletedAt: null,
     },
-    select: { id: true, type: true },
+    select: { id: true, type: true, ownerId: true },
   });
 
   if (!project) notFound();
+
+  if (project.ownerId !== session.userId) {
+    const collaborator = await db.projectCollaborator.findUnique({
+      where: { projectId_userId: { projectId: params.projectId, userId: session.userId } },
+      select: { role: true },
+    });
+    if (!collaborator) notFound();
+  }
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
