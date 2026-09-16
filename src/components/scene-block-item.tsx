@@ -244,6 +244,26 @@ function SceneBlockItem({
             )}
           </div>
 
+          {block.type === "heading" && projectType === "vn" && (
+            <div className="mb-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <span className="label block">Navigation de l’écran-titre</span>
+                  <span className="text-xs text-narra-muted">Masquez le bouton pour un générique ou un écran purement visuel.</span>
+                </div>
+                <label className="flex min-h-8 items-center gap-2 text-sm text-narra-text">
+                  <input
+                    type="checkbox"
+                    checked={block.displayMode !== "solo"}
+                    onChange={(event) => onUpdate(block.id, { displayMode: event.target.checked ? null : "solo" })}
+                    className="accent-amber-500"
+                  />
+                  Afficher « Entrer dans la scène »
+                </label>
+              </div>
+            </div>
+          )}
+
           {block.type === "dialogue" && (
             <div className="mb-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3">
               <div className="flex flex-wrap items-center justify-between gap-3">

@@ -746,7 +746,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
         <section key={block.id} id={`block-${block.id}`} data-block-id={block.id} className={`${styles.vnTitleBeat} ${editor.mode === "edit" ? styles.editableBlock : ""} ${editor.activeBlockId === block.id ? styles.selectedBlock : ""}`} aria-live="polite">
           <span>{scene.node?.title || `Scène ${sceneIndex + 1}`}</span>
           {editor.mode === "edit" && editor.editingBlockId === block.id ? <textarea autoFocus value={block.content} onChange={(event) => editor.updateBlock(scene.id, block.id, { content: event.target.value })} className={styles.vnTitleEditor} /> : <h1 onClick={() => editor.mode === "edit" && editor.setEditingBlockId(block.id)}>{block.content}</h1>}
-          {editor.mode === "read" && <button type="button" onClick={goNext}>Entrer dans la scène <span aria-hidden="true">›</span></button>}
+          {editor.mode === "read" && block.displayMode !== "solo" && <button type="button" onClick={goNext}>Entrer dans la scène <span aria-hidden="true">›</span></button>}
           {editor.mode === "edit" && <BlockToolbar block={block} sceneId={scene.id} index={scene.blocks.findIndex((item) => item.id === block.id)} blockCount={scene.blocks.length} editor={editor} />}
         </section>
       ) : isBackdropSolo ? (
