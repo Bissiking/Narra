@@ -128,7 +128,7 @@
 .emptyModeControls { position: absolute; top: 1.5rem; right: 1.5rem; }
 .endMark { display: flex; flex-direction: column; align-items: center; gap: 1.75rem; margin-top: 9rem; color: color-mix(in srgb, var(--reader-ink), transparent 45%); }
 .endMark span { font-family: "Source Serif 4", Georgia, serif; font-style: italic; }
-.endMark a { padding-bottom: .25rem; border-bottom: 1px solid var(--reader-accent); color: var(--reader-ink); font-size: .8rem; }
+.endMark a { padding-bottom: .25rem; border-bottom: 1px solid color-mix(in srgb, var(--reader-ink), transparent 45%); font-size: .8rem; }
 
 .format_novel { background: var(--reader-bg); color: var(--reader-ink); }
 .format_novel .documentContent { width: min(55rem, 100%); }
@@ -224,7 +224,7 @@
 .vnTitleBeat { position: absolute; z-index: 10; inset: 0; display: grid; place-content: center; justify-items: center; padding: 5rem 1.5rem 9rem; color: var(--reader-ink); text-align: center; pointer-events: none; animation: titleBeatEnter 500ms cubic-bezier(.2,.8,.2,1) both; }
 .vnTitleBeat::before { content: ""; width: 5rem; height: 1px; margin-bottom: 1.5rem; background: var(--reader-accent); }
 .vnTitleBeat > span { color: var(--reader-accent); font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.vnTitleBeat h1 { max-width: 22ch; margin-top: .65rem; font-size: clamp(1.5rem, 4.5vw, 3.5rem); line-height: 1.02; letter-spacing: -.035em; text-wrap: balance; overflow-wrap: anywhere; text-shadow: 0 3px 24px rgba(0,0,0,.65); }
+.vnTitleBeat h1 { max-width: 22ch; margin-top: .65rem; font-size: clamp(1.5rem, 4.5vw, 3.5rem); line-height: 1.02; letter-spacing: -.035em; text-wrap: balance; overflow-wrap: anywhere; white-space: pre-wrap; text-shadow: 0 3px 24px rgba(0,0,0,.65); }
 .vnTitleBeat button { margin-top: 2.25rem; padding: .6rem .15rem; color: var(--reader-ink); font-size: .78rem; font-weight: 700; background: transparent; border: 0; border-bottom: 1px solid var(--reader-accent); pointer-events: auto; }
 
 .vnEnding,
