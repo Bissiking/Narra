@@ -128,7 +128,7 @@
 .emptyModeControls { position: absolute; top: 1.5rem; right: 1.5rem; }
 .endMark { display: flex; flex-direction: column; align-items: center; gap: 1.75rem; margin-top: 9rem; color: color-mix(in srgb, var(--reader-ink), transparent 45%); }
 .endMark span { font-family: "Source Serif 4", Georgia, serif; font-style: italic; }
-.endMark a { padding-bottom: .25rem; border-bottom: 1px solid color-mix(in srgb, var(--reader-ink), transparent 45%); font-size: .8rem; }
+.endMark a { padding-bottom: .25rem; border-bottom: 1px solid var(--reader-accent); color: var(--reader-ink); font-size: .8rem; }
 
 .format_novel { background: var(--reader-bg); color: var(--reader-ink); }
 .format_novel .documentContent { width: min(55rem, 100%); }
