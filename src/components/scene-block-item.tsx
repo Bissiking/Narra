@@ -246,11 +246,20 @@ function SceneBlockItem({
 
           {block.type === "heading" && projectType === "vn" && (
             <div className="mb-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="grid gap-3">
                 <div>
-                  <span className="label block">Navigation de l’écran-titre</span>
-                  <span className="text-xs text-narra-muted">Masquez le bouton pour un générique ou un écran purement visuel.</span>
+                  <span className="label block">Options de l’écran-titre</span>
+                  <span className="text-xs text-narra-muted">Le sur-titre et le bouton de navigation peuvent être masqués indépendamment.</span>
                 </div>
+                <label className="flex min-h-8 items-center gap-2 text-sm text-narra-text">
+                  <input
+                    type="checkbox"
+                    checked={block.showPortrait !== false}
+                    onChange={(event) => onUpdate(block.id, { showPortrait: event.target.checked })}
+                    className="accent-amber-500"
+                  />
+                  Afficher le sur-titre / épisode
+                </label>
                 <label className="flex min-h-8 items-center gap-2 text-sm text-narra-text">
                   <input
                     type="checkbox"
