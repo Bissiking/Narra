@@ -518,7 +518,14 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
       musicPoolRef.current.clear();
       musicRef.current = null;
       activeMusicIdRef.current = null;
+      currentBeatIdRef.current = null;
+      playedSfxRef.current.clear();
       return;
+    }
+
+    if (currentBeatIdRef.current !== current.block.id) {
+      playedSfxRef.current.clear();
+      currentBeatIdRef.current = current.block.id;
     }
 
     const fade = (audio: HTMLAudioElement, target: number, seconds: number, done?: () => void) => {
@@ -600,6 +607,8 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
     fadeTimersRef.current.forEach((timer) => window.clearInterval(timer));
     musicPoolRef.current.forEach((audio) => audio.pause());
     sfxRef.current.forEach((audio) => audio.pause());
+    playedSfxRef.current.clear();
+    currentBeatIdRef.current = null;
   }, []);
 
   if (beats.length === 0) {
