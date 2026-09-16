@@ -27,17 +27,20 @@ export default async function ProjectLayout({
 
   if (!project) notFound();
 
+  let userRole: "owner" | "editor" | "viewer" = "owner";
+
   if (project.ownerId !== session.userId) {
     const collaborator = await db.projectCollaborator.findUnique({
       where: { projectId_userId: { projectId: params.projectId, userId: session.userId } },
       select: { role: true },
     });
     if (!collaborator) notFound();
+    userRole = collaborator.role as "editor" | "viewer";
   }
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
-      <ProjectNav projectId={params.projectId} projectType={project.type} />
+      <ProjectNav projectId={params.projectId} projectType={project.type} role={userRole} />
       <main className="min-w-0 flex-1 overflow-hidden">{children}</main>
     </div>
   );

@@ -135,6 +135,7 @@ export default function EditPage() {
   const [selectedNodeId, setSelectedNodeId] = useState("");
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<Map<string, string>>(new Map());
+  const [canEdit, setCanEdit] = useState(true);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<NodeJS.Timeout | null>(null);
   const editVersionRef = useRef(0);
@@ -148,11 +149,12 @@ export default function EditPage() {
   // Load data
   useEffect(() => {
     async function loadData() {
-      const [scenesRes, structureRes, charsRes, projectRes] = await Promise.all([
+      const [scenesRes, structureRes, charsRes, projectRes, presRes] = await Promise.all([
         fetch(`/api/projects/${projectId}/scenes`),
         fetch(`/api/projects/${projectId}/narrative-nodes`),
         fetch(`/api/projects/${projectId}/characters`),
         fetch(`/api/projects/${projectId}`),
+        fetch(`/api/projects/${projectId}/presentation`),
       ]);
       if (scenesRes.ok) {
         const loadedScenes = await scenesRes.json() as Scene[];
@@ -171,6 +173,10 @@ export default function EditPage() {
           pageTextColor: project.pageTextColor || "#fafafa",
           pageAccentColor: project.pageAccentColor || "#f59e0b",
         });
+      }
+      if (presRes.ok) {
+        const pres = await presRes.json();
+        setCanEdit(pres.canEdit !== false);
       }
       setLoading(false);
     }
@@ -513,15 +519,15 @@ export default function EditPage() {
           {dirty && !saving && !saveError && <span className={editorStyles.dirtyState}>Modifié</span>}
           {lastSaved && !saving && !dirty && <span className={editorStyles.savedState}>Sauvé à {lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>}
           {saveError && <span className={editorStyles.saveError} role="alert">Non sauvegardé</span>}
-          <button type="button" className={editorStyles.secondaryButton} onClick={() => setShowMetadata((value) => !value)} disabled={!selectedScene}>Réglages</button>
-          <button type="button" className={editorStyles.saveButton} onClick={saveBlocks} disabled={!selectedScene || saving || blocksLoading || !!blockLoadError}><SaveIcon />{saving ? "Sauvegarde" : "Sauver"}</button>
+          {canEdit && <button type="button" className={editorStyles.secondaryButton} onClick={() => setShowMetadata((value) => !value)} disabled={!selectedScene}>Réglages</button>}
+          {canEdit && <button type="button" className={editorStyles.saveButton} onClick={saveBlocks} disabled={!selectedScene || saving || blocksLoading || !!blockLoadError}><SaveIcon />{saving ? "Sauvegarde" : "Sauver"}</button>}
         </div>
       </header>
 
       <aside className={editorStyles.library} aria-label="Scènes du projet">
         <div className={editorStyles.panelHeader}>
           <div><strong>Scènes</strong><span>{scenes.length} · {totalWords.toLocaleString("fr-FR")} mots</span></div>
-          <button type="button" onClick={() => setShowCreateScene((value) => !value)} aria-expanded={showCreateScene} aria-label="Créer une scène"><PlusIcon /></button>
+          {canEdit && <button type="button" onClick={() => setShowCreateScene((value) => !value)} aria-expanded={showCreateScene} aria-label="Créer une scène"><PlusIcon /></button>}
         </div>
         {showCreateScene && <form onSubmit={handleCreateScene} className={editorStyles.createSceneForm}>
           <input value={newSceneTitle} onChange={(event) => setNewSceneTitle(event.target.value)} placeholder={projectFormat.content.titlePlaceholder} aria-label={`Titre ${projectFormat.content.ofDefinite}`} autoFocus required />
@@ -557,7 +563,7 @@ export default function EditPage() {
           <label>Séquence<select value={selectedNodeId} onChange={(event) => setSelectedNodeId(event.target.value)}><option value="">Aucune</option>{nodeOptions.map((node) => <option key={node.id} value={node.id}>{`${"— ".repeat(node.depth)}${node.title}`}</option>)}</select></label>
           <button type="button" onClick={saveMetadata}>Appliquer</button>
         </div> : selectedBlock ? <div className={editorStyles.inspectorBody}>
-          <SceneBlockItem block={selectedBlock} characters={characters} onUpdate={updateBlock} onRemove={removeBlock} onSelect={setSelectedBlockId} selected projectId={projectId} projectType={projectType} inspector playlistMode={selectedBlock.type === "music"} />
+          <SceneBlockItem block={selectedBlock} characters={characters} onUpdate={updateBlock} onRemove={removeBlock} onSelect={setSelectedBlockId} selected projectId={projectId} projectType={projectType} inspector playlistMode={selectedBlock.type === "music"} canEdit={canEdit} />
           <div className={editorStyles.inspectorActions}>
             {selectedBlock.type !== "music" && <button type="button" onClick={() => addBlock("heading", selectedPlan?.blocks.at(-1)?.id || selectedBlock.id)}><CutIcon />Nouveau plan après</button>}
             <button type="button" className={editorStyles.dangerButton} onClick={() => removeBlock(selectedBlock.id)}><DeleteIcon />Supprimer le bloc</button>
@@ -572,7 +578,7 @@ export default function EditPage() {
       <section className={editorStyles.timeline} aria-label="Timeline de la scène">
         <div className={editorStyles.timelineToolbar}>
           <div><strong>Timeline composite</strong><span>{selectedPlanIndex >= 0 ? `TC ${formatTimecode(selectedPlanIndex)}` : "Prêt au montage"}</span></div>
-          <div className={editorStyles.quickAdd}>
+          {canEdit && <div className={editorStyles.quickAdd}>
             <button type="button" onClick={() => addBlock("heading", selectedPlan?.blocks.at(-1)?.id || selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}><PlusIcon />Plan</button>
             <button type="button" onClick={() => addBlock("action", selectedPlan?.blocks.at(-1)?.id || selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}>Action</button>
             <button type="button" onClick={() => addBlock("dialogue", selectedPlan?.blocks.at(-1)?.id || selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}>Dialogue</button>
@@ -580,7 +586,7 @@ export default function EditPage() {
               <option value="" disabled>Autre…</option>{editorProfile.blocks.filter((type) => !["heading", "action", "dialogue"].includes(type.value)).map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
             </select>
             <SceneScriptImporter characters={characters} existingBlockCount={blocks.length} onImport={importBlocks} compact disabled={blocksLoading || !!blockLoadError} />
-          </div>
+          </div>}
         </div>
         <div className={editorStyles.timelineViewport}>
           {!selectedScene ? <div className={editorStyles.timelineEmpty}>Sélectionnez une scène pour commencer.</div> : blocksLoading ? <div className={editorStyles.timelineEmpty}>Chargement de la timeline…</div> : blockLoadError ? <div className={editorStyles.timelineError} role="alert"><span>{blockLoadError}</span><button type="button" onClick={() => setBlockReloadKey((key) => key + 1)}>Réessayer</button></div> : blocks.length === 0 ? <div className={editorStyles.timelineEmpty}><button type="button" onClick={() => addBlock(editorProfile.blocks[0].value)}>Créer le premier plan</button></div> :
@@ -613,7 +619,7 @@ export default function EditPage() {
         </div>
         {selectedScene && <div className={editorStyles.timelineFooter}>
           <span>{projectFormat.nav.edit} · {editorProfile.label}</span>
-          <button type="button" onClick={deleteScene}><DeleteIcon />Supprimer la scène</button>
+          {canEdit && <button type="button" onClick={deleteScene}><DeleteIcon />Supprimer la scène</button>}
         </div>}
       </section>
     </div>

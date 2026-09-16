@@ -48,6 +48,7 @@ interface SceneBlockItemProps {
   projectType?: string;
   inspector?: boolean;
   playlistMode?: boolean;
+  canEdit?: boolean;
 }
 
 function SceneBlockItem({
@@ -62,6 +63,7 @@ function SceneBlockItem({
   projectType = "story",
   inspector = false,
   playlistMode = false,
+  canEdit = true,
 }: SceneBlockItemProps) {
   const {
     attributes,
@@ -121,13 +123,13 @@ function SceneBlockItem({
           >
             ⋮⋮
           </button>
-          <button
+          {canEdit && <button
             onClick={() => onRemove(block.id)}
             className="min-h-8 min-w-8 text-xs text-narra-danger opacity-60 transition-opacity hover:opacity-100"
             aria-label={`Supprimer le bloc ${block.order + 1}`}
           >
             ✕
-          </button>
+          </button>}
         </div>}
 
         <div className="min-w-0 flex-1">
@@ -141,6 +143,7 @@ function SceneBlockItem({
               className="border border-narra-border bg-narra-bg px-2 py-1 text-xs text-narra-muted focus:border-narra-accent focus:outline-none"
               aria-label="Type du bloc"
               title="Changer le type du bloc"
+              disabled={!canEdit}
             >
               {blockTypes.map((type) => (
                 <option key={type.value} value={type.value}>
@@ -150,7 +153,7 @@ function SceneBlockItem({
             </select>
 
             <div className="flex-1" />
-            {onInsertAfter && (
+            {canEdit && onInsertAfter && (
               <select
                 defaultValue=""
                 onChange={(event) => {
@@ -357,6 +360,7 @@ function SceneBlockItem({
                 onInsertAfter(block.type, block.id);
               }
             }}
+            readOnly={!canEdit}
             className={`w-full bg-transparent border-none focus:outline-none resize-none ${
               block.type === "heading"
                 ? "text-xl font-bold"

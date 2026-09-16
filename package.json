@@ -1,6 +1,6 @@
 {
   "name": "narra",
-  "version": "0.11.11",
+  "version": "0.11.12",
   "private": true,
   "scripts": {
     "dev": "tsx server.ts",

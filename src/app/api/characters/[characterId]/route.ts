@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { db } from "@/lib/db";
+import { requireProjectAccess } from "@/lib/project-access";
 import { updateCharacterSchema } from "@/lib/validations";
 
 const characterIdSchema = z.string().uuid();
@@ -95,15 +96,25 @@ export async function PATCH(
   }
 
   try {
+    const character = await db.character.findFirst({
+      where: { id: params.characterId, deletedAt: null },
+      select: { id: true, projectId: true },
+    });
+    if (!character) {
+      return NextResponse.json({ error: "Personnage introuvable" }, { status: 404 });
+    }
+    const access = await requireProjectAccess(request, character.projectId, true);
+    if (access instanceof NextResponse) return access;
+
     const body = await request.json();
     const data = updateCharacterSchema.parse(body);
 
-    const character = await db.character.update({
+    const updated = await db.character.update({
       where: { id: params.characterId },
       data,
     });
 
-    return NextResponse.json(character);
+    return NextResponse.json(updated);
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
@@ -128,6 +139,16 @@ export async function DELETE(
   }
 
   try {
+    const character = await db.character.findFirst({
+      where: { id: params.characterId, deletedAt: null },
+      select: { id: true, projectId: true },
+    });
+    if (!character) {
+      return NextResponse.json({ error: "Personnage introuvable" }, { status: 404 });
+    }
+    const access = await requireProjectAccess(request, character.projectId, true);
+    if (access instanceof NextResponse) return access;
+
     await db.character.update({
       where: { id: params.characterId },
       data: { deletedAt: new Date() },

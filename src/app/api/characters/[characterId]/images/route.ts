@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { db } from "@/lib/db";
+import { requireProjectAccess } from "@/lib/project-access";
 import { createCharacterImageSchema } from "@/lib/validations";
 
 const uuidSchema = z.string().uuid();
@@ -13,14 +14,17 @@ export async function POST(
     return NextResponse.json({ error: "Identifiant invalide" }, { status: 400 });
   }
   try {
-    const data = createCharacterImageSchema.parse(await request.json());
     const character = await db.character.findFirst({
       where: { id: params.characterId, deletedAt: null },
-      select: { id: true },
+      select: { id: true, projectId: true },
     });
     if (!character) {
       return NextResponse.json({ error: "Personnage introuvable" }, { status: 404 });
     }
+    const access = await requireProjectAccess(request, character.projectId, true);
+    if (access instanceof NextResponse) return access;
+
+    const data = createCharacterImageSchema.parse(await request.json());
     const order = await db.characterImage.count({
       where: { characterId: params.characterId },
     });
@@ -48,6 +52,16 @@ export async function DELETE(
   ) {
     return NextResponse.json({ error: "Identifiant invalide" }, { status: 400 });
   }
+  const character = await db.character.findFirst({
+    where: { id: params.characterId, deletedAt: null },
+    select: { id: true, projectId: true },
+  });
+  if (!character) {
+    return NextResponse.json({ error: "Personnage introuvable" }, { status: 404 });
+  }
+  const access = await requireProjectAccess(request, character.projectId, true);
+  if (access instanceof NextResponse) return access;
+
   const deleted = await db.characterImage.deleteMany({
     where: { id: imageId!, characterId: params.characterId },
   });
