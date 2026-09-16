@@ -1,0 +1,83 @@
+name: Narra patch 0.11.15-0.11.16
+
+on:
+  push:
+    paths:
+      - '.github/workflows/narra-patch-01115-01116.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "Narra Patch Bot"
+          git config user.email "actions@users.noreply.github.com"
+
+      - name: Patch 0.11.15 - optional title continue button
+        shell: python
+        run: |
+          from pathlib import Path
+          import json
+
+          scene_item = Path('src/components/scene-block-item.tsx')
+          text = scene_item.read_text()
+          needle = '''          {block.type === "dialogue" && (\n            <div className="mb-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3">'''
+          insert = '''          {block.type === "heading" && projectType === "vn" && (\n            <div className="mb-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3">\n              <div className="flex flex-wrap items-center justify-between gap-3">\n                <div>\n                  <span className="label block">Navigation de l’écran-titre</span>\n                  <span className="text-xs text-narra-muted">Masquez le bouton pour un générique ou un écran purement visuel.</span>\n                </div>\n                <label className="flex min-h-8 items-center gap-2 text-sm text-narra-text">\n                  <input\n                    type="checkbox"\n                    checked={block.displayMode !== "solo"}\n                    onChange={(event) => onUpdate(block.id, { displayMode: event.target.checked ? null : "solo" })}\n                    className="accent-amber-500"\n                  />\n                  Afficher « Entrer dans la scène »\n                </label>\n              </div>\n            </div>\n          )}\n\n          {block.type === "dialogue" && (\n            <div className="mb-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3">'''
+          if needle not in text:
+              raise SystemExit('scene-block-item insertion point not found')
+          scene_item.write_text(text.replace(needle, insert, 1))
+
+          reader = Path('src/components/readers/project-reader.tsx')
+          text = reader.read_text()
+          old = '''          {editor.mode === "read" && <button type="button" onClick={goNext}>Entrer dans la scène <span aria-hidden="true">›</span></button>}'''
+          new = '''          {editor.mode === "read" && block.displayMode !== "solo" && <button type="button" onClick={goNext}>Entrer dans la scène <span aria-hidden="true">›</span></button>}'''
+          if old not in text:
+              raise SystemExit('project-reader title button not found')
+          reader.write_text(text.replace(old, new, 1))
+
+          package = Path('package.json')
+          data = json.loads(package.read_text())
+          data['version'] = '0.11.15'
+          package.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+
+      - name: Commit 0.11.15
+        run: |
+          git add src/components/scene-block-item.tsx src/components/readers/project-reader.tsx package.json
+          git commit -m "feat(vn): make title continue button optional"
+          git push
+
+      - name: Patch 0.11.16 - remove project letter background
+        shell: python
+        run: |
+          from pathlib import Path
+          import json, re
+
+          css = Path('src/components/readers/project-reader.module.css')
+          text = css.read_text()
+          pattern = r'^\.vnStage::before \{[^\n]*\}\n'
+          updated, count = re.subn(pattern, '', text, count=1, flags=re.MULTILINE)
+          if count != 1:
+              raise SystemExit('vnStage::before rule not found')
+          css.write_text(updated)
+
+          package = Path('package.json')
+          data = json.loads(package.read_text())
+          data['version'] = '0.11.16'
+          package.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+
+          workflow = Path('.github/workflows/narra-patch-01115-01116.yml')
+          workflow.unlink()
+
+      - name: Commit 0.11.16
+        run: |
+          git add -A
+          git commit -m "fix(vn): remove project letter from reader background"
+          git push
