@@ -78,7 +78,7 @@ function SceneBlockItem({
   };
   const speakingCharacter = characters.find((character) => character.id === block.characterId);
   const expressionImage = speakingCharacter?.images?.find(
-    (image) => image.emotion === block.emotion
+    (image) => block.emotion && image.emotion.toLocaleLowerCase("fr") === block.emotion.toLocaleLowerCase("fr")
   );
   const showPortrait = block.showPortrait !== false;
   const selectedPortraitUrl = block.portraitImageUrl || expressionImage?.url || speakingCharacter?.portraitUrl || "";
@@ -206,12 +206,12 @@ function SceneBlockItem({
                   className="select text-xs py-1 px-2"
                 >
                   <option value="">Émotion...</option>
-                  <option value="neutral">Neutre</option>
-                  <option value="happy">Joyeux</option>
-                  <option value="sad">Triste</option>
-                  <option value="angry">En colère</option>
-                  <option value="surprised">Surpris</option>
-                  <option value="worried">Inquiet</option>
+                  <option value="Neutre">Neutre</option>
+                  <option value="Joyeux">Joyeux</option>
+                  <option value="Triste">Triste</option>
+                  <option value="En colère">En colère</option>
+                  <option value="Surpris">Surpris</option>
+                  <option value="Inquiet">Inquiet</option>
                 </select>
               </>
             )}

@@ -954,7 +954,7 @@ function EditorFields({ block, sceneId, editor, visualNovel = false }: { block: 
   const characterImages = block.character?.images || [];
   const emotions = characterImages.length > 0
     ? Array.from(new Map(characterImages.map((image) => [image.emotion, image.label || image.emotion] as [string, string])).entries()).filter(([value]) => value)
-    : [["neutral", "Neutre"], ["happy", "Joyeux"], ["sad", "Triste"], ["angry", "En colère"], ["surprised", "Surpris"], ["worried", "Inquiet"]];
+    : [["Neutre", "Neutre"], ["Joyeux", "Joyeux"], ["Triste", "Triste"], ["En colère", "En colère"], ["Surpris", "Surpris"], ["Inquiet", "Inquiet"]];
   return <div className={`${styles.editorFields} ${visualNovel ? styles.vnEditorFields : ""}`} onClick={(event) => event.stopPropagation()}>
     {block.type === "dialogue" && <div className={styles.dialogueFields}>
       <select aria-label="Personnage" value={block.characterId || ""} onChange={(event) => {
