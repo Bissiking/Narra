@@ -151,6 +151,9 @@
 .previewContent > strong small { color: color-mix(in srgb, var(--preview-ink), transparent 45%); font-size: .65rem; font-weight: 400; text-transform: none; }
 .previewContent p { max-width: 65ch; margin-top: .4rem; font-family: "Source Serif 4", Georgia, serif; font-size: clamp(.9rem, 1.6vw, 1.2rem); line-height: 1.55; white-space: pre-wrap; }
 .preview_heading { inset: 0; display: grid; place-content: center; text-align: center; background: transparent; border: 0; }
+.preview_heading > div { display: flex; flex-direction: column; align-items: center; gap: .75rem; }
+.preview_heading > div > span { color: var(--preview-accent); font-family: "IBM Plex Mono", monospace; font-size: .65rem; font-weight: 600; letter-spacing: .15em; text-transform: uppercase; }
+.preview_heading > div > h1 { max-width: 20ch; margin: 0; color: var(--preview-ink); font-family: Inter, system-ui, sans-serif; font-size: clamp(1.5rem, 4vw, 3rem); font-weight: 700; line-height: 1.05; letter-spacing: -.03em; }
 .preview_heading p { max-width: 20ch; color: var(--preview-ink); font-family: Inter, system-ui, sans-serif; font-size: clamp(1.5rem, 4vw, 3rem); font-weight: 700; line-height: 1.05; letter-spacing: -.03em; }
 .preview_action p { color: color-mix(in srgb, var(--preview-ink), transparent 20%); font-style: italic; }
 .preview_transition { left: 18%; right: 18%; min-height: auto; text-align: center; }

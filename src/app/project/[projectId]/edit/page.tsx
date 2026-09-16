@@ -674,7 +674,9 @@ function PreviewMonitor({ scene, blocks, selectedBlockId, onSelect, characters, 
     <div className={editorStyles.monitorHeader}><span>Preview · {scene.title}</span><span>{formatTimecode(selectedIndex)}</span></div>
     <div className={editorStyles.previewStage} style={{ backgroundImage: backdrop ? `url("${backdrop.replace(/["\\]/g, "")}")` : undefined }}>
       <div className={editorStyles.previewShade} />
-      {!block ? <div className={editorStyles.previewEmpty}>Ajoutez un premier bloc à la timeline.</div> : block.type === "background" && !block.content ? <div className={editorStyles.previewType}>Nouveau décor</div> : <div className={`${editorStyles.previewContent} ${editorStyles[`preview_${block.type}`] || ""}`}>
+      {!block ? <div className={editorStyles.previewEmpty}>Ajoutez un premier bloc à la timeline.</div> : block.type === "background" && !block.content ? <div className={editorStyles.previewType}>Nouveau décor</div> : block.type === "heading" ? <div className={`${editorStyles.previewContent} ${editorStyles.preview_heading}`}>
+        <div><span>{scene.node?.title || `Scène ${selectedIndex + 1}`}</span><h1>{block.content || "Titre sans contenu"}</h1></div>
+      </div> : <div className={`${editorStyles.previewContent} ${editorStyles[`preview_${block.type}`] || ""}`}>
         {portrait && block.type === "dialogue" && <img src={portrait} alt={`Portrait de ${characterName(character, block?.speakerNote)}`} />}
         {block.type === "dialogue" && <strong style={{ color: character?.nameColor || settings.pageAccentColor }}>{characterName(character, block?.speakerNote)}{block.emotion && <small>{block.emotion}</small>}</strong>}
         <p>{block.content || `${BLOCK_LABELS[block.type] || "Bloc"} sans contenu`}</p>
