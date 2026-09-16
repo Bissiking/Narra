@@ -79,6 +79,13 @@ function SceneBlockItem({
     transition,
   };
   const speakingCharacter = characters.find((character) => character.id === block.characterId);
+  const characterExpressions = Array.from(
+    new Map(
+      (speakingCharacter?.images || [])
+        .filter((image) => image.emotion?.trim())
+        .map((image) => [image.emotion.toLocaleLowerCase("fr"), image] as const),
+    ).values(),
+  );
   const expressionImage = speakingCharacter?.images?.find(
     (image) => block.emotion && image.emotion.toLocaleLowerCase("fr") === block.emotion.toLocaleLowerCase("fr")
   );
@@ -184,9 +191,20 @@ function SceneBlockItem({
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === "__unknown__") {
-                      onUpdate(block.id, { characterId: null, speakerNote: "Inconnu", portraitImageUrl: null });
+                      onUpdate(block.id, { characterId: null, emotion: null, speakerNote: "Inconnu", portraitImageUrl: null });
                     } else {
-                      onUpdate(block.id, { characterId: val || null, portraitImageUrl: null });
+                      const nextCharacter = characters.find((character) => character.id === val);
+                      const keepsCurrentEmotion = Boolean(
+                        block.emotion && nextCharacter?.images?.some(
+                          (image) => image.emotion.toLocaleLowerCase("fr") === block.emotion?.toLocaleLowerCase("fr"),
+                        ),
+                      );
+                      onUpdate(block.id, {
+                        characterId: val || null,
+                        emotion: keepsCurrentEmotion ? block.emotion : null,
+                        speakerNote: null,
+                        portraitImageUrl: null,
+                      });
                     }
                   }}
                   className="select text-xs py-1 px-2"
@@ -207,14 +225,20 @@ function SceneBlockItem({
                     onUpdate(block.id, { emotion: e.target.value || null, portraitImageUrl: null })
                   }
                   className="select text-xs py-1 px-2"
+                  disabled={!speakingCharacter || characterExpressions.length === 0}
                 >
-                  <option value="">Émotion...</option>
-                  <option value="Neutre">Neutre</option>
-                  <option value="Joyeux">Joyeux</option>
-                  <option value="Triste">Triste</option>
-                  <option value="En colère">En colère</option>
-                  <option value="Surpris">Surpris</option>
-                  <option value="Inquiet">Inquiet</option>
+                  <option value="">
+                    {!speakingCharacter
+                      ? "Choisir un personnage..."
+                      : characterExpressions.length === 0
+                      ? "Aucune expression"
+                      : "Expression..."}
+                  </option>
+                  {characterExpressions.map((image) => (
+                    <option key={image.id} value={image.emotion}>
+                      {image.label || image.emotion}
+                    </option>
+                  ))}
                 </select>
               </>
             )}
@@ -240,7 +264,7 @@ function SceneBlockItem({
 
               {showPortrait && speakingCharacter && (
                 <p className="mt-2 text-xs text-narra-muted">
-                  Le portrait suit automatiquement l’émotion sélectionnée, puis utilise le portrait principal par défaut.
+                  Les expressions disponibles proviennent de la fiche du personnage. Sans expression sélectionnée, le portrait principal est utilisé.
                 </p>
               )}
             </div>
