@@ -46,7 +46,10 @@ export async function PATCH(request: NextRequest, { params }: Context) {
     if (scene instanceof NextResponse) return scene;
     const data = updateSceneBlockSchema.omit({ order: true }).parse(await request.json());
 
-    if (data.characterId) {
+    if (data.characterId === "__unknown__") {
+      data.characterId = null;
+      if (!data.speakerNote) data.speakerNote = "Inconnu";
+    } else if (data.characterId) {
       const character = await db.character.findFirst({
         where: { id: data.characterId, projectId: scene.projectId, deletedAt: null },
         select: { id: true },

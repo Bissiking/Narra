@@ -630,8 +630,8 @@ function formatTimecode(index: number) {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}:00`;
 }
 
-function characterName(character: Character | undefined) {
-  return character?.alias || [character?.firstName, character?.lastName].filter(Boolean).join(" ") || "Personnage";
+function characterName(character: Character | undefined, speakerNote?: string | null) {
+  return character?.alias || [character?.firstName, character?.lastName].filter(Boolean).join(" ") || speakerNote || "Personnage";
 }
 
 function PreviewMonitor({ scene, blocks, selectedBlockId, onSelect, characters, settings }: { scene: Scene; blocks: SceneBlock[]; selectedBlockId: string | null; onSelect: (id: string) => void; characters: Character[]; settings: PreviewSettings }) {
@@ -675,8 +675,8 @@ function PreviewMonitor({ scene, blocks, selectedBlockId, onSelect, characters, 
     <div className={editorStyles.previewStage} style={{ backgroundImage: backdrop ? `url("${backdrop.replace(/["\\]/g, "")}")` : undefined }}>
       <div className={editorStyles.previewShade} />
       {!block ? <div className={editorStyles.previewEmpty}>Ajoutez un premier bloc à la timeline.</div> : block.type === "background" && !block.content ? <div className={editorStyles.previewType}>Nouveau décor</div> : <div className={`${editorStyles.previewContent} ${editorStyles[`preview_${block.type}`] || ""}`}>
-        {portrait && block.type === "dialogue" && <img src={portrait} alt={`Portrait de ${characterName(character)}`} />}
-        {block.type === "dialogue" && <strong style={{ color: character?.nameColor || settings.pageAccentColor }}>{characterName(character)}{block.emotion && <small>{block.emotion}</small>}</strong>}
+        {portrait && block.type === "dialogue" && <img src={portrait} alt={`Portrait de ${characterName(character, block?.speakerNote)}`} />}
+        {block.type === "dialogue" && <strong style={{ color: character?.nameColor || settings.pageAccentColor }}>{characterName(character, block?.speakerNote)}{block.emotion && <small>{block.emotion}</small>}</strong>}
         <p>{block.content || `${BLOCK_LABELS[block.type] || "Bloc"} sans contenu`}</p>
       </div>}
     </div>

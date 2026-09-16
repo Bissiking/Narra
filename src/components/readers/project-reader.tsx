@@ -90,8 +90,8 @@ const TYPE_LABELS: Record<string, string> = {
   universe: "Univers narratif",
 };
 
-function characterName(character: Character | null) {
-  if (!character) return null;
+function characterName(character: Character | null, speakerNote?: string | null) {
+  if (!character) return speakerNote || null;
   return character.alias || `${character.firstName || ""} ${character.lastName || ""}`.trim() || null;
 }
 
@@ -641,7 +641,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
   }
 
   const { block, scene, sceneIndex } = current;
-  const speaker = characterName(block.character);
+  const speaker = characterName(block.character, block.speakerNote);
   const emotionPortrait = block.character?.images.find(
     (image) => block.emotion && image.emotion.toLocaleLowerCase("fr") === block.emotion.toLocaleLowerCase("fr"),
   )?.url;
@@ -878,7 +878,7 @@ function SceneArticle({ scene, index, type, editor }: { scene: Scene; index: num
         <header><span>{scene.node?.title || `Séquence ${index + 1}`}</span><h2>{scene.title}</h2></header>
         <div className={styles.comicGrid}>
           {scene.blocks.filter((block) => !isReaderCommand(block)).map((block, blockIndex) => {
-            const speaker = characterName(block.character);
+            const speaker = characterName(block.character, block.speakerNote);
             const image = block.character?.portraitUrl || scene.location?.imageUrl;
             return (
               <section key={block.id} id={`block-${block.id}`} data-block-id={block.id} onClick={() => editor.mode === "edit" && editor.setActiveBlockId(block.id)} className={`${styles.comicPanel} ${editor.mode === "edit" ? styles.editableBlock : ""} ${editor.activeBlockId === block.id ? styles.selectedBlock : ""}`} style={{ backgroundImage: image ? `url("${image.replace(/["\\]/g, "")}")` : undefined }}>
@@ -911,7 +911,7 @@ function SceneArticle({ scene, index, type, editor }: { scene: Scene; index: num
 }
 
 const RenderedBlock = memo(function RenderedBlock({ block, sceneId, blockIndex, blockCount, type, editor }: { block: Block; sceneId: string; blockIndex: number; blockCount: number; type: string; editor: EditorControls }) {
-  const speaker = characterName(block.character);
+  const speaker = characterName(block.character, block.speakerNote);
   const className = `${styles.block} ${styles[`block_${block.type}`] || ""}`;
   const editing = editor.mode === "edit" && editor.editingBlockId === block.id;
 
@@ -955,10 +955,16 @@ function EditorFields({ block, sceneId, editor, visualNovel = false }: { block: 
   return <div className={`${styles.editorFields} ${visualNovel ? styles.vnEditorFields : ""}`} onClick={(event) => event.stopPropagation()}>
     {block.type === "dialogue" && <div className={styles.dialogueFields}>
       <select aria-label="Personnage" value={block.characterId || ""} onChange={(event) => {
-        const character = editor.characters.find((item) => item.id === event.target.value) || null;
-        editor.updateBlock(sceneId, block.id, { characterId: character?.id || null, character, portraitImageUrl: null });
+        const val = event.target.value;
+        if (val === "__unknown__") {
+          editor.updateBlock(sceneId, block.id, { characterId: null, character: null, speakerNote: "Inconnu", portraitImageUrl: null });
+        } else {
+          const character = editor.characters.find((item) => item.id === val) || null;
+          editor.updateBlock(sceneId, block.id, { characterId: character?.id || null, character, portraitImageUrl: null });
+        }
       }}>
         <option value="">Personnage…</option>
+        <option value="__unknown__">Inconnu</option>
         {editor.characters.map((character) => <option key={character.id} value={character.id}>{characterName(character) || "Personnage sans nom"}</option>)}
       </select>
       <select aria-label="Émotion" value={block.emotion || ""} onChange={(event) => editor.updateBlock(sceneId, block.id, { emotion: event.target.value || null, portraitImageUrl: null })}>

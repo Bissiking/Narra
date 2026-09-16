@@ -71,7 +71,10 @@ export async function POST(
     if (access instanceof NextResponse) return access;
 
     const data = createSceneBlockSchema.parse(await request.json());
-    if (data.characterId) {
+    if (data.characterId === "__unknown__") {
+      data.characterId = null;
+      if (!data.speakerNote) data.speakerNote = "Inconnu";
+    } else if (data.characterId) {
       const character = await db.character.findFirst({
         where: { id: data.characterId, projectId: scene.projectId, deletedAt: null },
         select: { id: true },
@@ -111,6 +114,12 @@ export async function PUT(
     if (access instanceof NextResponse) return access;
 
     const { blocks } = saveBlocksSchema.parse(await request.json());
+    for (const block of blocks) {
+      if (block.characterId === "__unknown__") {
+        block.characterId = null;
+        if (!block.speakerNote) block.speakerNote = "Inconnu";
+      }
+    }
     const existing = await db.sceneBlock.findMany({ where: { sceneId: params.sceneId }, select: { id: true } });
     const existingIds = new Set(existing.map((block) => block.id));
     const retainedIds = blocks.map((block) => block.id).filter((id): id is string => Boolean(id && existingIds.has(id)));

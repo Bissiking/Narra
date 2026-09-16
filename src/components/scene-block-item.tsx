@@ -25,6 +25,7 @@ interface SceneBlock {
   characterId: string | null;
   emotion: string | null;
   position: string | null;
+  speakerNote?: string | null;
   mediaUrl?: string | null;
   displayMode?: "solo" | "caption" | "layer" | null;
   showPortrait?: boolean | null;
@@ -177,13 +178,19 @@ function SceneBlockItem({
                 )}
                 <select
                   value={block.characterId || ""}
-                  onChange={(e) =>
-                    onUpdate(block.id, { characterId: e.target.value || null, portraitImageUrl: null })
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "__unknown__") {
+                      onUpdate(block.id, { characterId: null, speakerNote: "Inconnu", portraitImageUrl: null });
+                    } else {
+                      onUpdate(block.id, { characterId: val || null, portraitImageUrl: null });
+                    }
+                  }}
                   className="select text-xs py-1 px-2"
                   style={{ color: speakingCharacter?.nameColor }}
                 >
                   <option value="">Personnage...</option>
+                  <option value="__unknown__">Inconnu</option>
                   {characters.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.alias || [c.firstName, c.lastName].filter(Boolean).join(" ") || "Personnage sans nom"}

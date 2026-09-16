@@ -91,7 +91,7 @@ export const createSceneBlockSchema = z.object({
   type: BlockType,
   content: z.string().max(50000),
   order: z.number().int().min(0).default(0),
-  characterId: z.string().uuid().nullish(),
+  characterId: z.union([z.string().uuid(), z.literal("__unknown__")]).nullish(),
   emotion: z.string().max(100).nullish(),
   position: z.enum(["left", "center", "right"]).nullish(),
   speakerNote: z.string().max(500).nullish(),
