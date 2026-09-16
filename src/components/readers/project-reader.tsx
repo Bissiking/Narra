@@ -441,6 +441,8 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
   const activeMusicIdRef = useRef<string | null>(null);
   const sfxRef = useRef<Set<HTMLAudioElement>>(new Set());
   const fadeTimersRef = useRef<Map<HTMLAudioElement, number>>(new Map());
+  const playedSfxRef = useRef<Set<string>>(new Set());
+  const currentBeatIdRef = useRef<string | null>(null);
   const current = useMemo(() => beats[index], [beats, index]);
   const hasAudio = scenes.some((scene) => scene.blocks.some(isAudioCommand));
 
@@ -582,6 +584,8 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
 
     current.sfx.forEach((command) => {
       if (!command.mediaUrl) return;
+      if (playedSfxRef.current.has(command.id)) return;
+      playedSfxRef.current.add(command.id);
       const audio = new Audio(command.mediaUrl);
       audio.volume = Math.max(0, Math.min(1, (command.volume ?? 100) / 100));
       sfxRef.current.add(audio);
