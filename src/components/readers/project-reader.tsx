@@ -775,6 +775,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
               <div className={styles.vnSpeaker} style={{ color: block.character?.nameColor || project.pageAccentColor }}>
                 <strong>{speaker}</strong>
                 {block.emotion && <span>{block.emotion}</span>}
+                {block.speakerNote && block.speakerNote !== "Inconnu" && <span>({block.speakerNote})</span>}
               </div>
             )}
             {block.type === "action" && <span className={styles.vnBlockType}>Action</span>}
@@ -942,6 +943,7 @@ function BlockContent({ block, type, className, speaker, onEdit, editable }: { b
       <div {...props}>
         {speaker && <strong style={{ color: block.character?.nameColor }}>{speaker}{type === "screenplay" && ":"}</strong>}
         {block.emotion && <span className={styles.emotion}>({block.emotion})</span>}
+        {block.speakerNote && block.speakerNote !== "Inconnu" && <span className={styles.emotion}>({block.speakerNote})</span>}
         <p>{block.content}</p>
       </div>
     );
@@ -978,6 +980,13 @@ function EditorFields({ block, sceneId, editor, visualNovel = false }: { block: 
         <option value="left">Gauche</option><option value="center">Centre</option><option value="right">Droite</option>
       </select>
       <label className={styles.portraitToggle}><input type="checkbox" checked={block.showPortrait !== false} onChange={(event) => editor.updateBlock(sceneId, block.id, { showPortrait: event.target.checked })} /> Portrait</label>
+      <input
+        aria-label="Indication de dialogue"
+        type="text"
+        value={block.speakerNote && block.speakerNote !== "Inconnu" ? block.speakerNote : ""}
+        onChange={(event) => editor.updateBlock(sceneId, block.id, { speakerNote: event.target.value || null })}
+        placeholder="Indication…"
+      />
     </div>}
     <textarea
       autoFocus value={block.content} rows={Math.max(2, block.content.split("\n").length)}

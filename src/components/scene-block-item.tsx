@@ -275,6 +275,16 @@ function SceneBlockItem({
 
           {block.type === "dialogue" && (
             <div className="mb-3 border-y border-narra-border bg-narra-bg/50 px-3 py-3">
+              <label className="mb-3 block">
+                <span className="label block">Indication de dialogue</span>
+                <input
+                  type="text"
+                  value={block.speakerNote && block.speakerNote !== "Inconnu" ? block.speakerNote : ""}
+                  onChange={(event) => onUpdate(block.id, { speakerNote: event.target.value || null })}
+                  placeholder="Ex. à voix basse, dans un souffle, hésitant…"
+                  className="input mt-1 text-sm"
+                />
+              </label>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <span className="label block">Portrait du dialogue</span>
