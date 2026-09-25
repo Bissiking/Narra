@@ -686,7 +686,7 @@ function PreviewMonitor({ scene, blocks, selectedBlockId, onSelect, characters, 
   return <div className={editorStyles.monitor} style={monitorVariables}>
     <div className={editorStyles.monitorHeader}><span>Preview · {scene.title}</span><span>{formatTimecode(selectedIndex)}</span></div>
     <div className={editorStyles.previewStage}>
-      {backdrop && <div className={editorStyles.previewBackdrop} data-animation={backdropAnimation} style={{ backgroundImage: `url("${backdrop.replace(/["\\]/g, "")}")` }} aria-hidden="true" />}
+      {backdrop && <div key={backdrop} className={editorStyles.previewBackdrop} data-animation={backdropAnimation} style={{ backgroundImage: `url("${backdrop.replace(/["\\]/g, "")}")` }} aria-hidden="true" />}
       <div className={editorStyles.previewShade} />
       {!block ? <div className={editorStyles.previewEmpty}>Ajoutez un premier bloc à la timeline.</div> : block.type === "background" && !block.content ? <div className={editorStyles.previewType}>Nouveau décor</div> : block.type === "heading" ? <div className={`${editorStyles.previewContent} ${editorStyles.preview_heading}`}>
         <div>
