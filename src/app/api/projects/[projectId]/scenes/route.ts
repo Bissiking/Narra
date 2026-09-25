@@ -91,6 +91,8 @@ export async function POST(
         status: data.status,
         order: (maxOrder._max.order ?? -1) + 1,
         notes: data.notes,
+        readerTitle: data.readerTitle || null,
+        showReaderTitle: data.showReaderTitle ?? false,
         locationId: data.locationId,
         characters: data.characterIds
           ? {
