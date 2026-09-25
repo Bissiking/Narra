@@ -142,8 +142,16 @@
 
 .monitor { width: min(60rem, 100%); }
 .monitorHeader { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; color: var(--edit-muted); font-family: "IBM Plex Mono", monospace; font-size: .68rem; font-variant-numeric: tabular-nums; }
-.previewStage { position: relative; aspect-ratio: 16 / 9; isolation: isolate; display: grid; place-items: center; color: var(--preview-ink); background-color: var(--preview-bg); background-position: center; background-size: cover; border: 1px solid var(--edit-border); overflow: hidden; }
+.previewStage { position: relative; aspect-ratio: 16 / 9; isolation: isolate; display: grid; place-items: center; color: var(--preview-ink); background-color: var(--preview-bg); border: 1px solid var(--edit-border); overflow: hidden; }
 .previewStage::before { content: ""; position: absolute; inset: .75rem; z-index: 5; border: 1px solid color-mix(in srgb, var(--preview-ink), transparent 86%); pointer-events: none; }
+.previewBackdrop { position: absolute; inset: -3%; z-index: -2; background-position: center; background-size: cover; will-change: transform, opacity; }
+.previewBackdrop[data-animation="zoom-in"] { animation: previewZoomIn 14s ease-in-out infinite alternate; }
+.previewBackdrop[data-animation="zoom-out"] { animation: previewZoomOut 14s ease-in-out infinite alternate; }
+.previewBackdrop[data-animation="pan-left-right"] { animation: previewPanLeftRight 16s ease-in-out infinite alternate; }
+.previewBackdrop[data-animation="pan-right-left"] { animation: previewPanRightLeft 16s ease-in-out infinite alternate; }
+.previewBackdrop[data-animation="drift-up"] { animation: previewDriftUp 14s ease-in-out infinite alternate; }
+.previewBackdrop[data-animation="fade-in"] { animation: previewFadeIn 1.2s ease-out both; }
+.previewBackdrop[data-animation="float"] { animation: previewFloat 8s ease-in-out infinite alternate; }
 .previewShade { position: absolute; inset: 0; z-index: -1; background: color-mix(in srgb, var(--preview-bg), transparent 24%); }
 .previewContent { position: absolute; left: 6%; right: 6%; bottom: 7%; min-height: 28%; padding: clamp(1rem, 2.5vw, 2rem); background: color-mix(in srgb, var(--preview-bg), transparent 8%); border-top: 1px solid var(--preview-accent); }
 .previewContent > img { position: absolute; left: 1.5rem; bottom: calc(100% + .75rem); width: clamp(4.5rem, 9vw, 8rem); height: clamp(5.5rem, 14vw, 10rem); object-fit: contain; object-position: left bottom; filter: drop-shadow(0 .75rem 1rem rgba(0,0,0,.45)); }
@@ -256,6 +264,14 @@
 .timelineFooter { display: flex; align-items: center; justify-content: space-between; min-height: 2.2rem; padding: .25rem 1rem; color: var(--edit-muted); background: var(--edit-bg); border-top: 1px solid var(--edit-border); font-size: .65rem; }
 .timelineFooter button { min-height: 1.75rem; padding: .2rem .4rem; border: 0; }
 
+@keyframes previewZoomIn { from { transform: scale(1.02); } to { transform: scale(1.12); } }
+@keyframes previewZoomOut { from { transform: scale(1.12); } to { transform: scale(1.02); } }
+@keyframes previewPanLeftRight { from { transform: scale(1.08) translateX(-2.5%); } to { transform: scale(1.08) translateX(2.5%); } }
+@keyframes previewPanRightLeft { from { transform: scale(1.08) translateX(2.5%); } to { transform: scale(1.08) translateX(-2.5%); } }
+@keyframes previewDriftUp { from { transform: scale(1.08) translateY(2.5%); } to { transform: scale(1.08) translateY(-2.5%); } }
+@keyframes previewFadeIn { from { opacity: 0; transform: scale(1.03); } to { opacity: 1; transform: scale(1.03); } }
+@keyframes previewFloat { from { transform: scale(1.06) translate(-.8%, .7%); } to { transform: scale(1.06) translate(.8%, -.7%); } }
+
 @media (max-width: 1100px) {
   .workspace { grid-template-columns: 12rem minmax(22rem, 1fr) 19rem; }
   .savedState,
@@ -306,4 +322,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .clip { transition: none; }
+  .previewBackdrop { animation: none !important; }
 }
