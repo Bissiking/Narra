@@ -65,6 +65,8 @@ export const createSceneSchema = z.object({
   status: SceneStatus.default("draft"),
   order: z.number().int().min(0).default(0),
   notes: z.string().max(10000).optional(),
+  readerTitle: z.string().max(200).nullish(),
+  showReaderTitle: z.boolean().optional(),
   locationId: z.string().uuid().optional(),
   characterIds: z.array(z.string().uuid()).optional(),
 });
