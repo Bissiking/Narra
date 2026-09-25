@@ -33,6 +33,8 @@ interface Scene {
   status: string;
   order: number;
   wordCount: number;
+  readerTitle: string | null;
+  showReaderTitle: boolean;
   node: { id: string; title: string } | null;
   location: { id: string; name: string; imageUrl?: string | null } | null;
   characters: { character: { id: string; firstName: string | null; lastName: string | null; alias: string | null; portraitUrl: string | null } }[];
@@ -134,6 +136,8 @@ export default function EditPage() {
   const [titleValue, setTitleValue] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState("");
+  const [readerTitle, setReaderTitle] = useState("");
+  const [showReaderTitle, setShowReaderTitle] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<Map<string, string>>(new Map());
   const [canEdit, setCanEdit] = useState(true);
@@ -220,6 +224,8 @@ export default function EditPage() {
       setTitleValue(scene.title);
       setSelectedStatus(scene.status);
       setSelectedNodeId(scene.node?.id || "");
+      setReaderTitle(scene.readerTitle || "");
+      setShowReaderTitle(scene.showReaderTitle);
     }
   }, [selectedScene, scenes]);
 
@@ -434,10 +440,10 @@ export default function EditPage() {
   // Save scene metadata
   async function saveMetadata() {
     if (!selectedScene) return;
-    const res = await fetch(`/api/projects/${projectId}/scenes/${selectedScene}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: selectedStatus, nodeId: selectedNodeId || null }) });
+    const res = await fetch(`/api/projects/${projectId}/scenes/${selectedScene}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: selectedStatus, nodeId: selectedNodeId || null, readerTitle: readerTitle.trim() || null, showReaderTitle }) });
     if (res.ok) {
       const updated = await res.json();
-      setScenes((s) => s.map((sc) => (sc.id === selectedScene ? { ...sc, status: updated.status, node: updated.node } : sc)));
+      setScenes((s) => s.map((sc) => (sc.id === selectedScene ? { ...sc, status: updated.status, node: updated.node, readerTitle: updated.readerTitle, showReaderTitle: updated.showReaderTitle } : sc)));
     }
     setShowMetadata(false);
   }
@@ -562,6 +568,8 @@ export default function EditPage() {
         {showMetadata && selectedScene ? <div className={editorStyles.metadataPanel}>
           <label>Statut<select value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)}><option value="draft">Brouillon</option><option value="writing">En cours</option><option value="review">Révision</option><option value="final">Final</option></select></label>
           <label>Séquence<select value={selectedNodeId} onChange={(event) => setSelectedNodeId(event.target.value)}><option value="">Aucune</option>{nodeOptions.map((node) => <option key={node.id} value={node.id}>{`${"— ".repeat(node.depth)}${node.title}`}</option>)}</select></label>
+          <label>Titre affiché en lecture<input value={readerTitle} onChange={(event) => setReaderTitle(event.target.value)} placeholder="Prélude, Intro, Épilogue, 5 jours plus tôt…" /></label>
+          <label><input type="checkbox" checked={showReaderTitle} onChange={(event) => setShowReaderTitle(event.target.checked)} /> Afficher ce titre au lecteur</label>
           <button type="button" onClick={saveMetadata}>Appliquer</button>
         </div> : selectedBlock ? <div className={editorStyles.inspectorBody}>
           <SceneBlockItem block={selectedBlock} characters={characters} onUpdate={updateBlock} onRemove={removeBlock} onSelect={setSelectedBlockId} selected projectId={projectId} projectType={projectType} inspector playlistMode={selectedBlock.type === "music"} canEdit={canEdit} />
