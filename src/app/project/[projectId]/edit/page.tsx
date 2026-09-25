@@ -52,7 +52,7 @@ interface Character {
 interface SceneBlock {
   id: string; type: string; content: string; order: number;
   characterId: string | null; emotion: string | null; position: string | null; speakerNote: string | null;
-  mediaUrl?: string | null; displayMode?: "solo" | "caption" | "layer" | null; showPortrait?: boolean | null; portraitImageUrl?: string | null; audioAction?: string | null; volume?: number | null; fadeDuration?: number | null; loop?: boolean | null;
+  mediaUrl?: string | null; displayMode?: "solo" | "caption" | "layer" | null; showPortrait?: boolean | null; portraitImageUrl?: string | null; audioAction?: string | null; volume?: number | null; fadeDuration?: number | null; loop?: boolean | null; animationPreset?: "none" | "zoom-in" | "zoom-out" | "pan-left-right" | "pan-right-left" | "drift-up" | "fade-in" | "float" | null;
 }
 
 interface PreviewSettings {
@@ -81,6 +81,7 @@ function createDraftBlock(type: string, characters: Character[]): SceneBlock {
     volume: type === "music" || type === "sfx" ? 100 : null,
     fadeDuration: type === "music" ? 1 : null,
     loop: type === "music" ? true : null,
+    animationPreset: type === "background" ? "none" : null,
   };
 }
 
@@ -650,7 +651,13 @@ function PreviewMonitor({ scene, blocks, selectedBlockId, onSelect, characters, 
   const character = characters.find((item) => item.id === block?.characterId);
   const expression = character?.images.find((image) => block?.emotion && image.emotion.toLocaleLowerCase("fr") === block.emotion.toLocaleLowerCase("fr"));
   const portrait = block?.showPortrait === false ? null : block?.portraitImageUrl || expression?.url || character?.portraitUrl;
-  const backdrop = plans.slice(0, selectedIndex + 1).flatMap((item) => item.layers).reverse().find((item) => item.type === "background" && item.mediaUrl)?.mediaUrl || scene.location?.imageUrl || settings.pageBackgroundUrl;
+  const activeBackground = plans
+    .slice(0, selectedIndex + 1)
+    .flatMap((item) => [item.lead, ...item.layers])
+    .reverse()
+    .find((item) => item.type === "background" && item.mediaUrl);
+  const backdrop = activeBackground?.mediaUrl || scene.location?.imageUrl || settings.pageBackgroundUrl;
+  const backdropAnimation = activeBackground?.animationPreset || "none";
   const monitorVariables = { "--preview-bg": settings.pageBackgroundColor, "--preview-ink": settings.pageTextColor, "--preview-accent": settings.pageAccentColor } as CSSProperties;
 
   useEffect(() => {
@@ -678,7 +685,8 @@ function PreviewMonitor({ scene, blocks, selectedBlockId, onSelect, characters, 
 
   return <div className={editorStyles.monitor} style={monitorVariables}>
     <div className={editorStyles.monitorHeader}><span>Preview · {scene.title}</span><span>{formatTimecode(selectedIndex)}</span></div>
-    <div className={editorStyles.previewStage} style={{ backgroundImage: backdrop ? `url("${backdrop.replace(/["\\]/g, "")}")` : undefined }}>
+    <div className={editorStyles.previewStage}>
+      {backdrop && <div className={editorStyles.previewBackdrop} data-animation={backdropAnimation} style={{ backgroundImage: `url("${backdrop.replace(/["\\]/g, "")}")` }} aria-hidden="true" />}
       <div className={editorStyles.previewShade} />
       {!block ? <div className={editorStyles.previewEmpty}>Ajoutez un premier bloc à la timeline.</div> : block.type === "background" && !block.content ? <div className={editorStyles.previewType}>Nouveau décor</div> : block.type === "heading" ? <div className={`${editorStyles.previewContent} ${editorStyles.preview_heading}`}>
         <div>
