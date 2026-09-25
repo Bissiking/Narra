@@ -143,6 +143,7 @@ export async function PUT(
           volume: block.volume ?? null,
           fadeDuration: block.fadeDuration ?? null,
           loop: block.loop ?? null,
+          animationPreset: block.animationPreset || null,
         };
         if (block.id && existingIds.has(block.id)) await tx.sceneBlock.update({ where: { id: block.id }, data });
         else await tx.sceneBlock.create({ data: { ...data, sceneId: params.sceneId } });
