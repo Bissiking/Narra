@@ -32,6 +32,8 @@ type ReaderCharacter = {
 type ReaderScene = {
   id: string;
   title: string;
+  readerTitle: string | null;
+  showReaderTitle: boolean;
   node: { title: string } | null;
   location: { name: string; imageUrl: string | null } | null;
   blocks: {
