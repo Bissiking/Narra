@@ -66,6 +66,7 @@ interface SceneBlock {
   volume?: number | null;
   fadeDuration?: number | null;
   loop?: boolean | null;
+  animationPreset?: "none" | "zoom-in" | "zoom-out" | "pan-left-right" | "pan-right-left" | "drift-up" | "fade-in" | "float" | null;
 }
 
 interface NarrativeNodeOption {
