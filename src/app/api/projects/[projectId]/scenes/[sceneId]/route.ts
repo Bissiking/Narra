@@ -7,6 +7,8 @@ const updateSceneSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   status: z.string().max(50).optional(),
   notes: z.string().max(5000).optional(),
+  readerTitle: z.string().max(200).optional().nullable(),
+  showReaderTitle: z.boolean().optional(),
   nodeId: z.string().uuid().optional().nullable(),
   locationId: z.string().uuid().optional().nullable(),
 });
