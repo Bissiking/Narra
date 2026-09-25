@@ -103,6 +103,7 @@ export interface SceneBlockWithCharacter {
   volume: number | null;
   fadeDuration: number | null;
   loop: boolean | null;
+  animationPreset: string | null;
   character: {
     id: string;
     firstName: string | null;
