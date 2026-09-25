@@ -169,7 +169,15 @@
 .comicCaption strong { display: block; margin-bottom: .35rem; font-size: .75rem; text-transform: uppercase; }
 .comicCaption p { font-family: "Source Serif 4", Georgia, serif; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
 
-.vnStage { position: fixed; inset: 0; width: 100%; min-height: 100svh; isolation: isolate; overflow: hidden; background-color: color-mix(in srgb, var(--reader-bg), #fff 5%); background-size: cover; background-position: center; }
+.vnStage { position: fixed; inset: 0; width: 100%; min-height: 100svh; isolation: isolate; overflow: hidden; background-color: color-mix(in srgb, var(--reader-bg), #fff 5%); }
+.vnBackdropImage { position: absolute; inset: -3%; z-index: -1; background-position: center; background-size: cover; will-change: transform, opacity; }
+.vnBackdropImage[data-animation="zoom-in"] { animation: vnZoomIn 14s ease-in-out infinite alternate; }
+.vnBackdropImage[data-animation="zoom-out"] { animation: vnZoomOut 14s ease-in-out infinite alternate; }
+.vnBackdropImage[data-animation="pan-left-right"] { animation: vnPanLeftRight 16s ease-in-out infinite alternate; }
+.vnBackdropImage[data-animation="pan-right-left"] { animation: vnPanRightLeft 16s ease-in-out infinite alternate; }
+.vnBackdropImage[data-animation="drift-up"] { animation: vnDriftUp 14s ease-in-out infinite alternate; }
+.vnBackdropImage[data-animation="fade-in"] { animation: vnFadeIn 1.2s ease-out both; }
+.vnBackdropImage[data-animation="float"] { animation: vnFloat 8s ease-in-out infinite alternate; }
 .vnShade { position: absolute; inset: 0; z-index: 0; background: linear-gradient(0deg, rgba(0,0,0,.82) 0%, rgba(0,0,0,.22) 58%, rgba(0,0,0,.48) 100%), radial-gradient(circle at center, transparent 30%, rgba(0,0,0,.28) 100%); }
 .vnShadeBackdrop { background: linear-gradient(0deg, color-mix(in srgb, #09090b, transparent 45%) 0%, transparent 48%, color-mix(in srgb, #09090b, transparent 38%) 100%), radial-gradient(circle at center, transparent 50%, color-mix(in srgb, #09090b, transparent 16%) 100%); }
 .vnProgress { position: absolute; z-index: 20; top: 0; left: 0; right: 0; height: 2px; background: rgba(255,255,255,.14); }
@@ -242,6 +250,14 @@
 .emptyReader { position: relative; }
 .emptyReader > .backLink { position: absolute; top: 2rem; left: 2rem; }
 
+@keyframes vnZoomIn { from { transform: scale(1.02); } to { transform: scale(1.12); } }
+@keyframes vnZoomOut { from { transform: scale(1.12); } to { transform: scale(1.02); } }
+@keyframes vnPanLeftRight { from { transform: scale(1.08) translateX(-2.5%); } to { transform: scale(1.08) translateX(2.5%); } }
+@keyframes vnPanRightLeft { from { transform: scale(1.08) translateX(2.5%); } to { transform: scale(1.08) translateX(-2.5%); } }
+@keyframes vnDriftUp { from { transform: scale(1.08) translateY(2.5%); } to { transform: scale(1.08) translateY(-2.5%); } }
+@keyframes vnFadeIn { from { opacity: 0; transform: scale(1.03); } to { opacity: 1; transform: scale(1.03); } }
+@keyframes vnFloat { from { transform: scale(1.06) translate(-.8%, .7%); } to { transform: scale(1.06) translate(.8%, -.7%); } }
+
 @keyframes portraitEnter { from { opacity: 0; filter: blur(6px) drop-shadow(0 20px 26px rgba(0,0,0,.48)); } to { opacity: 1; filter: blur(0) drop-shadow(0 20px 26px rgba(0,0,0,.48)); } }
 @keyframes dialogueEnter { from { opacity: .35; clip-path: inset(0 100% 0 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
 @keyframes titleBeatEnter { from { opacity: .2; filter: blur(10px); transform: scale(.98); } to { opacity: 1; filter: blur(0); transform: scale(1); } }
@@ -279,6 +295,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vnPortrait, .vnDialogue, .vnTitleBeat { animation: none; }
+  .vnPortrait, .vnDialogue, .vnTitleBeat, .vnBackdropImage { animation: none !important; }
   .vnProgress span, .backLink, .vnIconButton { transition: none; }
 }
