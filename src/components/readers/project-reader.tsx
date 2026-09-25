@@ -41,6 +41,8 @@ type Block = {
 type Scene = {
   id: string;
   title: string;
+  readerTitle: string | null;
+  showReaderTitle: boolean;
   node: { title: string } | null;
   location: { name: string; imageUrl: string | null } | null;
   blocks: Block[];
@@ -438,6 +440,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
   const [fullscreenError, setFullscreenError] = useState<string | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(true);
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -520,7 +523,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
   }, []);
 
   useEffect(() => {
-    if (!audioUnlocked) return;
+    if (!audioUnlocked || !audioEnabled) return;
     if (!current) {
       musicPoolRef.current.forEach((audio) => audio.pause());
       musicPoolRef.current.clear();
@@ -609,7 +612,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
       audio.addEventListener("error", release, { once: true });
       void audio.play().catch(() => { release(); setAudioError("Impossible de lire un effet sonore."); });
     });
-  }, [audioUnlocked, current]);
+  }, [audioEnabled, audioUnlocked, current]);
 
   useEffect(() => () => {
     fadeTimersRef.current.forEach((timer) => window.clearInterval(timer));
@@ -682,8 +685,11 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
         <div className={styles.vnShade} aria-hidden="true" />
         <section className={styles.vnTitleBeat}>
           <span>{scene.node?.title || "Visual Novel"}</span>
-          <h1>{scene.title}</h1>
-          <button type="button" onClick={() => setAudioUnlocked(true)}>Commencer avec le son</button>
+          {scene.showReaderTitle && scene.readerTitle?.trim() && <h1>{scene.readerTitle}</h1>}
+          <div className={styles.vnAudioChoices}>
+            <button type="button" onClick={() => { setAudioEnabled(true); setAudioUnlocked(true); }}>Commencer avec le son</button>
+            <button type="button" onClick={() => { setAudioEnabled(false); setAudioUnlocked(true); }}>Commencer sans le son</button>
+          </div>
         </section>
       </div>
     );
@@ -705,7 +711,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
           <Link href={exitHref || `/project/${project.id}`} className={styles.vnIconButton} aria-label="Quitter la lecture"><ArrowLeftIcon /></Link>
           <div className={styles.vnChapter}>
             <span>{scene.node?.title || `Scène ${sceneIndex + 1}`}</span>
-            <strong>{scene.title}</strong>
+            {scene.showReaderTitle && scene.readerTitle?.trim() && <strong>{scene.readerTitle}</strong>}
           </div>
           <div className={styles.vnHudActions}>
             {current.musicPlaylist.length > 0 && (
