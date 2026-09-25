@@ -138,6 +138,8 @@ model Scene {
   order     Int     @default(0)
   wordCount Int     @default(0) @map("word_count")
   notes     String?
+  readerTitle String?  @map("reader_title")
+  showReaderTitle Boolean @default(false) @map("show_reader_title")
 
   locationId String?   @map("location_id") @db.Uuid
   location   Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
