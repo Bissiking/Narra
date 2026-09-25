@@ -678,7 +678,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
         data-project-letter={project.name.charAt(0)}
         style={variables}
       >
-        {backdrop && <div className={styles.vnBackdropImage} data-animation={backdropAnimation} style={{ backgroundImage: `url("${backdrop.replace(/["\\]/g, "")}")` }} aria-hidden="true" />}
+        {backdrop && <div key={backdrop} className={styles.vnBackdropImage} data-animation={backdropAnimation} style={{ backgroundImage: `url("${backdrop.replace(/["\\]/g, "")}")` }} aria-hidden="true" />}
         <div className={styles.vnShade} aria-hidden="true" />
         <section className={styles.vnTitleBeat}>
           <span>{scene.node?.title || "Visual Novel"}</span>
@@ -696,7 +696,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
       data-project-letter={project.name.charAt(0)}
       style={variables}
     >
-      {backdrop && <div className={styles.vnBackdropImage} data-animation={backdropAnimation} style={{ backgroundImage: `url("${backdrop.replace(/["\\]/g, "")}")` }} aria-hidden="true" />}
+      {backdrop && <div key={backdrop} className={styles.vnBackdropImage} data-animation={backdropAnimation} style={{ backgroundImage: `url("${backdrop.replace(/["\\]/g, "")}")` }} aria-hidden="true" />}
       <div className={`${styles.vnShade} ${isBackdropSolo ? styles.vnShadeBackdrop : ""}`} aria-hidden="true" />
       <div className={styles.vnProgress} aria-hidden="true"><span style={{ transform: `scaleX(${progress / 100})` }} /></div>
 
