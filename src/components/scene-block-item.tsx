@@ -34,6 +34,7 @@ interface SceneBlock {
   volume?: number | null;
   fadeDuration?: number | null;
   loop?: boolean | null;
+  animationPreset?: "none" | "zoom-in" | "zoom-out" | "pan-left-right" | "pan-right-left" | "drift-up" | "fade-in" | "float" | null;
 }
 
 interface SceneBlockItemProps {
@@ -408,6 +409,21 @@ function SceneBlockItem({
                 label="Choisir"
                 accept="image/*"
               />
+              <label className="label mt-3">Animation de l’image</label>
+              <select
+                className="select"
+                value={block.animationPreset || "none"}
+                onChange={(event) => onUpdate(block.id, { animationPreset: event.target.value as SceneBlock["animationPreset"] })}
+              >
+                <option value="none">Aucune</option>
+                <option value="zoom-in">Zoom lent avant</option>
+                <option value="zoom-out">Zoom lent arrière</option>
+                <option value="pan-left-right">Pan gauche → droite</option>
+                <option value="pan-right-left">Pan droite → gauche</option>
+                <option value="drift-up">Drift bas → haut</option>
+                <option value="fade-in">Fade in</option>
+                <option value="float">Léger flottement</option>
+              </select>
               <p className="mt-2 text-xs text-narra-muted">
                 L’image reste affichée jusqu’au prochain changement d’arrière-plan ou à la scène suivante.
               </p>
