@@ -681,7 +681,11 @@ function PreviewMonitor({ scene, blocks, selectedBlockId, onSelect, characters, 
     <div className={editorStyles.previewStage} style={{ backgroundImage: backdrop ? `url("${backdrop.replace(/["\\]/g, "")}")` : undefined }}>
       <div className={editorStyles.previewShade} />
       {!block ? <div className={editorStyles.previewEmpty}>Ajoutez un premier bloc à la timeline.</div> : block.type === "background" && !block.content ? <div className={editorStyles.previewType}>Nouveau décor</div> : block.type === "heading" ? <div className={`${editorStyles.previewContent} ${editorStyles.preview_heading}`}>
-        <div><span>{scene.node?.title || `Scène ${selectedIndex + 1}`}</span><h1>{block.content || "Titre sans contenu"}</h1></div>
+        <div>
+          {block.showPortrait !== false && <span>{scene.node?.title || `Scène ${selectedIndex + 1}`}</span>}
+          <h1>{block.content || "Titre sans contenu"}</h1>
+          {block.displayMode !== "solo" && <button type="button" className={editorStyles.previewHeadingAction} tabIndex={-1}>Entrer dans la scène <span aria-hidden="true">›</span></button>}
+        </div>
       </div> : <div className={`${editorStyles.previewContent} ${editorStyles[`preview_${block.type}`] || ""}`}>
         {portrait && block.type === "dialogue" && <img src={portrait} alt={`Portrait de ${characterName(character, block?.speakerNote)}`} />}
         {block.type === "dialogue" && <strong style={{ color: character?.nameColor || settings.pageAccentColor }}>{characterName(character, block?.speakerNote)}{block.emotion && <small>{block.emotion}</small>}</strong>}
