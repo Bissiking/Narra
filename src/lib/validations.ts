@@ -119,6 +119,7 @@ export const createSceneBlockSchema = z.object({
   volume: z.number().int().min(0).max(100).nullish(),
   fadeDuration: z.number().min(0).max(30).nullish(),
   loop: z.boolean().nullish(),
+  animationPreset: z.enum(["none", "zoom-in", "zoom-out", "pan-left-right", "pan-right-left", "drift-up", "fade-in", "float"]).nullish(),
 });
 
 export const updateSceneBlockSchema = createSceneBlockSchema.partial();
