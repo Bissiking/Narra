@@ -114,7 +114,7 @@ const formats: Record<string, ProjectFormat> = {
       description: "Construisez les routes, actes et séquences de votre récit interactif.",
       emptyHint: "Commencez par une route, un acte ou une séquence.",
       titlePlaceholder: "Ex. Route de Soren",
-      nodeTypes: ["route", "act", "chapter", "sequence", "section", "arc", "block", "custom"],
+      nodeTypes: ["season", "episode", "prologue", "interlude", "epilogue", "part", "route", "act", "chapter", "sequence", "section", "arc", "block", "custom"],
     },
     nav: { read: "Jouer", edit: "Mise en scène", structure: "Routes", lore: "Univers", timeline: "Chronologie", analysis: "Analyse des dialogues", presentation: "Page du VN" },
     presentation: { title: "Page du Visual Novel", fallbackPitch: "Ajoutez une accroche pour présenter votre Visual Novel.", action: "Commencer l’histoire" },
