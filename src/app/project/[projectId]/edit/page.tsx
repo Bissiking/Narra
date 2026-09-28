@@ -574,6 +574,13 @@ export default function EditPage() {
         </div> : selectedBlock ? <div className={editorStyles.inspectorBody}>
           <SceneBlockItem block={selectedBlock} characters={characters} onUpdate={updateBlock} onRemove={removeBlock} onSelect={setSelectedBlockId} selected projectId={projectId} projectType={projectType} inspector playlistMode={selectedBlock.type === "music"} canEdit={canEdit} />
           <div className={editorStyles.inspectorActions}>
+            {selectedPlan && <Link
+              href={`/project/${projectId}/read?block=${encodeURIComponent(selectedPlan.lead.id)}`}
+              target="_blank"
+              rel="noreferrer"
+              className={editorStyles.controlReadButton}
+              title="Ouvrir la lecture de contrôle dans un nouvel onglet"
+            ><PlayIcon />Lecture de contrôle depuis ce plan</Link>}
             {selectedBlock.type !== "music" && <button type="button" onClick={() => addBlock("heading", selectedPlan?.blocks.at(-1)?.id || selectedBlock.id)}><CutIcon />Nouveau plan après</button>}
             <button type="button" className={editorStyles.dangerButton} onClick={() => removeBlock(selectedBlock.id)}><DeleteIcon />Supprimer le bloc</button>
           </div>

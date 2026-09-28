@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.25 — 2026-09-28
+
+- L’éditeur peut ouvrir une lecture de contrôle directement depuis le plan sélectionné, sans reprendre l’œuvre depuis le début.
+
 ## 0.10.2 — 2026-09-13
 
 - Chaque dialogue du Visual Novel peut masquer le portrait ou afficher précisément le portrait principal ou une image du personnage.

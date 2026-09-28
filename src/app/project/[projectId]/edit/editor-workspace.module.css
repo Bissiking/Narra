@@ -6,6 +6,7 @@
   --edit-ink: #fafafa;
   --edit-muted: #a1a1aa;
   --edit-accent: #f59e0b;
+  --edit-accent-bright: #fbbf24;
   --edit-danger: #fca5a5;
   display: grid;
   grid-template-columns: 15rem minmax(26rem, 1fr) 23rem;
@@ -184,8 +185,12 @@
 .inspectorBody > div:first-child { width: 100%; }
 .inspectorActions { display: grid; grid-template-columns: 1fr; gap: .5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--edit-border); }
 .inspectorActions button,
+.inspectorActions a,
 .timelineFooter button { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-height: 2.5rem; color: var(--edit-muted); background: transparent; border: 1px solid var(--edit-border); font-size: .72rem; }
-.inspectorActions button:hover { color: var(--edit-ink); border-color: var(--edit-muted); }
+.inspectorActions button:hover,
+.inspectorActions a:hover { color: var(--edit-ink); border-color: var(--edit-muted); }
+.inspectorActions .controlReadButton { color: var(--edit-bg); background: var(--edit-accent); border-color: var(--edit-accent); font-weight: 600; text-align: center; }
+.inspectorActions .controlReadButton:hover { color: var(--edit-bg); background: var(--edit-accent-bright); border-color: var(--edit-accent-bright); }
 .inspectorActions .dangerButton,
 .timelineFooter button { color: var(--edit-danger); }
 .inspectorEmpty { flex: 1; display: grid; place-items: center; padding: 2rem; color: var(--edit-muted); font-size: .8rem; line-height: 1.6; text-align: center; }
