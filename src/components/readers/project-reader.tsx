@@ -3,6 +3,7 @@
 // FORM KEY: pinned-adaptive-reader-v1 — the project type selects the reading grammar.
 
 import Link from "next/link";
+import AnimatedBackdrop from "@/components/animated-backdrop";
 import { CSSProperties, type ChangeEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildCompositePlans } from "@/lib/scene-composition";
 import styles from "./project-reader.module.css";
@@ -34,6 +35,7 @@ type Block = {
   volume: number | null;
   fadeDuration: number | null;
   loop: boolean | null;
+  animationConfig?: unknown;
   animationPreset: string | null;
   character: Character | null;
 };
@@ -66,7 +68,7 @@ type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 type BlockUpdate = Partial<Omit<Block, "id" | "order">>;
 type ReaderMode = "read" | "edit";
 
-const EDITABLE_FIELDS = ["type", "content", "characterId", "emotion", "position", "speakerNote", "mediaUrl", "displayMode", "showPortrait", "portraitImageUrl", "audioAction", "volume", "fadeDuration", "loop", "animationPreset"] as const;
+const EDITABLE_FIELDS = ["type", "content", "characterId", "emotion", "position", "speakerNote", "mediaUrl", "displayMode", "showPortrait", "portraitImageUrl", "audioAction", "volume", "fadeDuration", "loop", "animationPreset", "animationConfig"] as const;
 const INSERT_TYPES = [
   ["heading", "Plan"], ["action", "Action"], ["narration", "Narration"],
   ["dialogue", "Dialogue"], ["transition", "Transition"], ["note", "Note"],
@@ -409,19 +411,23 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
   const beats = useMemo(
     () => {
       let pendingSfx: Block[] = [];
-      const visible: { block: Block; scene: Scene; sceneIndex: number; musicPlaylist: Block[]; sfx: Block[]; backdrop: string | null; backdropAnimation: string }[] = [];
+      const visible: { block: Block; scene: Scene; sceneIndex: number; musicPlaylist: Block[]; sfx: Block[]; backdrop: string | null; backdropAnimation: string; backdropConfig?: unknown; backdropId: string }[] = [];
       scenes.forEach((scene, sceneIndex) => {
         let activeBackdrop = scene.location?.imageUrl || project.pageBackgroundUrl;
         let activeBackdropAnimation = "none";
+        let backdropConfig: unknown = [];
+        let backdropId = scene.id;
         const musicPlaylist = scene.blocks.filter((block) => block.type === "music" && block.audioAction !== "stop" && block.mediaUrl);
         buildCompositePlans(scene.blocks).forEach((plan) => {
           const background = [plan.lead, ...plan.layers].filter((item) => item.type === "background" && item.mediaUrl).at(-1);
           if (background) {
             activeBackdrop = background.mediaUrl || activeBackdrop;
             activeBackdropAnimation = background.animationPreset || "none";
+            backdropConfig = background.animationConfig;
+            backdropId = background.id;
           }
           pendingSfx.push(...plan.layers.filter((layer) => layer.type === "sfx"));
-          visible.push({ block: plan.lead, scene, sceneIndex, musicPlaylist, sfx: pendingSfx, backdrop: activeBackdrop, backdropAnimation: activeBackdropAnimation });
+          visible.push({ block: plan.lead, scene, sceneIndex, musicPlaylist, sfx: pendingSfx, backdrop: activeBackdrop, backdropAnimation: activeBackdropAnimation, backdropConfig, backdropId });
           pendingSfx = [];
         });
       });
@@ -681,7 +687,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
         data-project-letter={project.name.charAt(0)}
         style={variables}
       >
-        {backdrop && <div key={backdrop} className={styles.vnBackdropImage} data-animation={backdropAnimation} style={{ backgroundImage: `url("${backdrop.replace(/["\\]/g, "")}")` }} aria-hidden="true" />}
+        {backdrop && <AnimatedBackdrop url={backdrop} config={current.backdropConfig} legacy={backdropAnimation} identity={current.backdropId} />}
         <div className={styles.vnShade} aria-hidden="true" />
         <section className={styles.vnTitleBeat}>
           <span>{scene.node?.title || "Visual Novel"}</span>
@@ -702,7 +708,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
       data-project-letter={project.name.charAt(0)}
       style={variables}
     >
-      {backdrop && <div key={backdrop} className={styles.vnBackdropImage} data-animation={backdropAnimation} style={{ backgroundImage: `url("${backdrop.replace(/["\\]/g, "")}")` }} aria-hidden="true" />}
+      {backdrop && <AnimatedBackdrop url={backdrop} config={current.backdropConfig} legacy={backdropAnimation} identity={current.backdropId} />}
       <div className={`${styles.vnShade} ${isBackdropSolo ? styles.vnShadeBackdrop : ""}`} aria-hidden="true" />
       <div className={styles.vnProgress} aria-hidden="true"><span style={{ transform: `scaleX(${progress / 100})` }} /></div>
 

@@ -4,6 +4,8 @@ description: A restrained editorial workspace for building narrative worlds.
 colors:
   canvas: "#09090b"
   surface: "#18181b"
+  workspace-surface: "#121214"
+  workspace-rule: "#2e2e33"
   border: "#27272a"
   ink: "#fafafa"
   muted-ink: "#a1a1aa"
@@ -65,6 +67,11 @@ components:
     typography: "{typography.label}"
     rounded: "{rounded.square}"
     padding: "0.5rem 1rem"
+  button-save:
+    backgroundColor: "{colors.amber}"
+    textColor: "{colors.canvas}"
+    rounded: "{rounded.square}"
+    padding: "0.45rem 0.75rem"
   button-ghost:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
@@ -117,6 +124,7 @@ The palette is almost monochrome, with warm amber providing the sole branded int
 - **Ink Black:** The dominant application canvas and the inverse text color on filled amber states.
 - **Charcoal Surface:** The secondary surface for cards and controls that need separation from the canvas.
 - **Graphite Rule:** Fine borders, dividers, and low-emphasis hover fills.
+- **Workspace Charcoal / Workspace Rule:** Studio panel tone and structural divisions; these separate the writing plane from its tools without creating floating cards.
 - **Paper White:** Primary text and high-contrast marks on dark surfaces.
 - **Quiet Zinc:** Secondary text, supporting labels, and de-emphasized metadata.
 
@@ -141,7 +149,7 @@ The palette is almost monochrome, with warm amber providing the sole branded int
 - **Title:** Semibold and compact; names pages, projects, and primary content regions.
 - **Body:** Regular-weight interface copy with comfortable reading rhythm.
 - **Label:** Small, medium-weight text; uppercase with wider tracking when it identifies a field or compact control.
-- **Prose:** Source Serif 4 for manuscript-facing narrative content, never general interface chrome.
+- **Prose:** Source Serif 4 for manuscript-facing narrative content, never general interface chrome. The Studio writing field uses a comfortable 1.1rem size with 1.7 line height; monitor prose preserves authored line breaks and a bounded reading measure.
 - **Data:** IBM Plex Mono for counts, measurements, dates, and similarly structured values.
 
 ### Named Rules
@@ -156,13 +164,21 @@ Spacing follows a compact 0.5rem rhythm for local relationships, 1rem for contro
 
 **The One-Task Entry Rule.** Authentication surfaces expose the identity, one Kyros action, and actionable error feedback—nothing competes with the path into the workspace.
 
+### Studio V2 workspace
+
+The Studio V2 at `/project/[projectId]/edit-v2` applies the same identity to an Operate workspace. Its desktop grid places scenes above a searchable vertical block list on the left, the scene monitor and direct writing in the center, and a Bloc / Scène / Univers inspector on the right. The optional timeline sits below the central and right panes. The default columns are 18rem, a flexible central column with a 22rem minimum, and 23rem; at 1200px the rails compact to 15rem and 20rem. Desktop scenes, block list, central writing area, and inspector scroll within their own regions.
+
+At 1000px and below, the inspector moves beneath the two-column scene/script and monitor region, and the page grows vertically. At 640px and below, panels stack: scenes, monitor and writing, vertical blocks, inspector, then optional timeline. The top actions wrap; the layout control and return to the existing editor remain available. Preferences become an inline region on mobile. Timeline and cast visibility are remembered locally, with session behavior retained if local storage is unavailable.
+
+**The Writing Plane Rule.** Keep preview and direct narrative writing together; detailed block settings and world references belong in the inspector, while the vertical list carries sequence and selection.
+
 ## Elevation & Depth
 
-The system is flat by default and uses no shadows. Depth comes from tonal separation, one-pixel borders, and layout planes. Hover may shift a control by a restrained two pixels when that movement reinforces action, but it must not introduce floating card chrome.
+Interface chrome is flat by default and uses no shadows. Depth comes from tonal separation, one-pixel borders, and layout planes. Hover may shift a control by a restrained two pixels when that movement reinforces action, but it must not introduce floating card chrome.
 
 ### Named Rules
 
-**The Flat-by-Default Rule.** Use surface tone and borders for hierarchy; shadows are not part of the incumbent visual vocabulary.
+**The Flat-by-Default Rule.** Use surface tone and borders for interface hierarchy; shadows are not part of the chrome vocabulary. Authored scene imagery may use image-specific depth, such as the portrait drop shadow in the monitor; that treatment does not extend to tool panels.
 
 ## Shapes
 
@@ -178,6 +194,7 @@ Primary interface geometry is rectilinear: buttons, inputs, cards, badges, and m
 - **Primary:** Charcoal or transparent ground with amber border and text; hover fills amber and reverses text to Ink Black.
 - **Hover / Focus:** Brief color transition; signature calls to action may lift two pixels. Keyboard focus is a solid three-pixel amber outline with a four-pixel offset.
 - **Ghost:** Transparent with no visible resting border; a quiet Graphite Rule wash appears on hover.
+- **Studio save / playback:** Filled Editorial Amber with Ink Black text distinguishes committing and playback from outlined secondary tools. Studio keyboard focus uses a three-pixel amber outline with a two-pixel offset; animation controls use a two-pixel outline.
 - **Disabled:** Reduced opacity with a disabled cursor; state remains legible without animation.
 
 ### Cards / Containers
@@ -205,6 +222,20 @@ The signature login expression pairs the oversized Narra wordmark with one full-
 
 Entry motion draws the margin rule and settles the content once. Under reduced-motion preferences, both entrance animations and all button/arrow transitions are removed.
 
+### Studio navigation and writing
+
+The vertical block list shows sequence/type, a two-line text excerpt, and speaker information when applicable. Selection uses a restrained amber wash plus a left rule; hover uses the raised surface. The central writing field uses prose typography, an amber caret, and vertical resizing. Duplicate and reorder actions sit directly below the writing field.
+
+Inspector tabs use plain French labels, muted inactive text, and an amber underline for the selected tab. Univers links are amber rows separated by fine rules, with stroke SVG external-link icons; they open the relevant world reference in a separate tab. Icons inherit text color and use a consistent stroked shape vocabulary rather than typographic symbols.
+
+### Animation tracks and monitor
+
+Animation settings group entry and continuous tracks into expandable sections. The first effect in each group opens initially. Parameter fields use a two-column grid, while actions wrap. Amber marks focus, range controls, and effect summaries; values and measurement context stay distinct from narrative prose.
+
+The monitor and reader share the animated backdrop component. Entry tracks play once when their backdrop identity or image changes; unchanged track parameters preserve continuous animation clocks across dialogue renders. Authored effects may include atmospheric overlays, gradients, and filters within the scene image; these are narrative content rather than interface chrome. Reduced-motion preferences stop particle movement and cancel Web Animations, including when the system preference changes during the session.
+
+**The Continuous Scene Rule.** Dialogue changes do not restart unchanged backdrop tracks; restart entry behavior when the backdrop itself changes.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -217,7 +248,7 @@ Entry motion draws the margin rule and settles the content once. Under reduced-m
 
 ### Don't:
 
-- **Don't** introduce competing brand hues, gradients, or decorative color fields.
+- **Don't** introduce competing brand hues, gradients, or decorative color fields in interface chrome; authored narrative scenes retain their own visual effects.
 - **Don't** add rounded cards, pill-shaped controls, or soft shadow stacks to ordinary UI.
 - **Don't** mix prose, data, and interface type roles for visual novelty.
 - **Don't** add secondary actions to a single-task authentication surface.

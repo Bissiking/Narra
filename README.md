@@ -75,3 +75,5 @@ src/
 - Lore, timeline, médiathèque
 - Arborescence générique (saisons, chapitres, arcs...)
 - Recherche à travers les entités
+
+Studio V2 et animations combinables : [guide de mise en scène et migrations](docs/STUDIO_V2.md).

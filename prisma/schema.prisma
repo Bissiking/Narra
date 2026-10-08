@@ -198,6 +198,7 @@ model SceneBlock {
   fadeDuration Float?    @map("fade_duration")
   loop        Boolean?   @default(false)
   animationPreset String? @map("animation_preset")
+  animationConfig Json @default("[]") @map("animation_config")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

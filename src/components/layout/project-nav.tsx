@@ -27,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "", label: "Vue d'ensemble", icon: <Icon><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></Icon> },
   { href: "/read", label: "Lire", accent: true, icon: <Icon><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></Icon> },
   { href: "/edit", label: "Éditer", accent: true, requiresWrite: true, icon: <Icon><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></Icon> },
+  { href: "/edit-v2", label: "Studio V2", accent: true, requiresWrite: true, icon: <Icon><rect x="3" y="3" width="18" height="18" /><path d="M8 3v18M16 3v18M8 15h8" /></Icon> },
   { href: "/structure", label: "Structure", icon: <Icon><circle cx="18" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><path d="M13 6h3a2 2 0 0 1 2 2v7" /><path d="M6 9v12" /></Icon> },
   { href: "/characters", label: "Personnages", icon: <Icon><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></Icon> },
   { href: "/locations", label: "Lieux", icon: <Icon><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></Icon> },
@@ -56,7 +57,7 @@ export default function ProjectNav({ projectId, projectType, role }: ProjectNavP
     "/presentation": format.nav.presentation,
   };
 
-  if (pathname === `/project/${projectId}/read`) return null;
+  if (pathname === `/project/${projectId}/read` || pathname === `/project/${projectId}/edit-v2`) return null;
 
   return (
     <nav className={`flex w-full shrink-0 flex-col border-b border-narra-border bg-narra-surface md:border-b-0 md:border-r ${collapsed ? "md:w-16" : "md:w-56"}`}>

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.0 — 2026-10-08
+
+- Studio V2 en parallèle du montage actuel : déroulé vertical, écriture directe, aperçu VN, inspecteur Bloc/Scène/Univers, duplication, déplacement et disposition mémorisée.
+- 38 effets de caméra, action, transition, cinéma et environnement combinables, avec pistes d’entrée et pistes continues, durées, délais, intensité, direction, vitesse, progression, répétition et ancrage.
+- Moteur partagé entre aperçu et lecteur : les animations continues restent actives entre les dialogues ; Fade in et Fade out peuvent se superposer avec un délai.
+- Wiki enrichi avec personnalité, motivations, forces, faiblesses, apparitions déduites des dialogues, lieux, organisations et lore ; navigation de l’aperçu et contrôle d’accès corrigés.
+- Migrations complétées pour les animations et les anciens ajouts de schéma non suivis (lieux, collaborations, invitations, progression de lecture).
+
 ## 0.11.25 — 2026-09-28
 
 - L’éditeur peut ouvrir une lecture de contrôle directement depuis le plan sélectionné, sans reprendre l’œuvre depuis le début.

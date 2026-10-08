@@ -1,0 +1,21 @@
+.root, .layer, .image { position: absolute; inset: 0; pointer-events: none; }
+.root { overflow: hidden; }
+.image { background-size: cover; background-position: center; }
+.overlay { overflow: hidden; }
+.overlay[data-effect="flash-white"] { background: white; }
+.overlay[data-effect="flash-black"] { background: black; }
+.overlay[data-effect="vignette"] { background: radial-gradient(ellipse, transparent 30%, #000 100%); }
+.overlay i { position: absolute; width: 3px; height: 3px; background: #dedbd0; border-radius: 50%; animation: particleDrift 6s linear infinite; }
+.overlay[data-effect="rain"] i { width: 1px; height: 35px; background: #b8d4e4; border-radius: 0; animation: particleFall .7s linear infinite; }
+.overlay[data-effect="snow"] i { width: 5px; height: 5px; background: #fff; animation: particleFall 5s linear infinite; }
+.overlay[data-effect="sparks"] i, .overlay[data-effect="embers"] i { background: #ff9c38; animation: particleRise 3s linear infinite; }
+.overlay[data-effect="sparks"] i { width: 2px; height: 12px; }
+.overlay[data-effect="fog"] i, .overlay[data-effect="smoke"] i { width: 55%; height: 40%; background: radial-gradient(ellipse, #c4c6cc66, transparent 70%); animation: cloudDrift 12s ease-in-out infinite alternate; }
+.overlay[data-effect="smoke"] i { background: radial-gradient(ellipse, #88888899, transparent 70%); }
+@keyframes particleFall { from { transform: translate(0,-20vh); } to { transform: translate(-8vw,80vh); } }
+@keyframes particleRise { from { transform: translate(0,20vh); opacity: 0; } 20% { opacity: 1; } to { transform: translate(8vw,-60vh); opacity: 0; } }
+@keyframes particleDrift { from { transform: translate(0,0); } to { transform: translate(3vw,-8vh); } }
+@keyframes cloudDrift { from { transform: translate(-20%,0); } to { transform: translate(20%,-20%); } }
+@media(prefers-reduced-motion: reduce) { .overlay i { animation: none; } }
+
+.overlay i { animation-duration: var(--particle-duration); animation-iteration-count: var(--particle-repeat); animation-timing-function: var(--particle-easing); }

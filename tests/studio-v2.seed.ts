@@ -1,0 +1,27 @@
+import { PrismaClient } from '@prisma/client';
+import { createSessionToken } from '../src/lib/auth';
+import { createAnimationTrack } from '../src/lib/scene-animations';
+import { writeFileSync, mkdirSync, copyFileSync } from 'node:fs';
+async function main() {
+if (!process.env.DATABASE_URL || !new URL(process.env.DATABASE_URL).pathname.includes('_qa_')) throw new Error('Utiliser une base dédiée contenant _qa_ dans son nom.');
+mkdirSync('.impeccable', { recursive: true });
+const db = new PrismaClient();
+const user = await db.user.create({ data: { email: `qa-${Date.now()}@narra.local`, name: 'Auteur QA' } });
+const outsider = await db.user.create({ data: { email: `other-${Date.now()}@narra.local`, name: 'Autre auteur' } });
+const project = await db.project.create({ data: { name: 'Les lumières du port', slug: `port-qa-${Date.now()}`, ownerId: user.id, type: 'vn', pageTheme: 'visual-novel', pagePublished: false } });
+const character = await db.character.create({ data: { projectId: project.id, alias: 'Mira', role: 'Gardienne du phare', biography: 'Elle veille sur les navires depuis dix ans.', personality: 'Patiente et attentive.', motivations: 'Retrouver son frère.', strengths: 'Lire les étoiles.', weaknesses: 'La peur des profondeurs.', wikiSections: [{ id: 'custom', title: 'Le serment', content: 'Ne jamais laisser le feu s’éteindre.' }] } });
+const location = await db.location.create({data:{projectId: project.id, name:'Le vieux port',description:'Un port abrité sous les falaises.'}});
+await db.organization.create({data:{projectId:project.id,name:'Les veilleurs',description:'Ils protègent les navigateurs.'}});
+await db.loreEntry.create({data:{projectId:project.id,title:'La marée des étoiles',category:'world',content:'Chaque hiver, la mer reflète un ciel inconnu.'}});
+const scene = await db.scene.create({data:{projectId:project.id,title:'Une lumière dans la brume',locationId:location.id}});
+const tracks = [createAnimationTrack('fade-in','entry'), createAnimationTrack('drift'),createAnimationTrack('fog')];
+const bg = await db.sceneBlock.create({data:{sceneId:scene.id,type:'background',content:'',order:0,displayMode:'layer',mediaUrl:'/uploads/narra-qa-backdrop.svg',animationConfig:tracks}});
+const first = await db.sceneBlock.create({data:{sceneId:scene.id,type:'dialogue',content:'La lumière est revenue. Quelqu’un nous attend de l’autre côté du port.',characterId:character.id,order:1}});
+const second = await db.sceneBlock.create({data:{sceneId:scene.id,type:'dialogue',content:'Alors nous partirons avant que la brume ne se lève.',characterId:character.id,order:2}});
+const session = (u: typeof user) => createSessionToken({userId:u.id,kyrosSub:'qa',email:u.email,name:u.name,role:'user'});
+writeFileSync(process.env.NARRA_QA_FIXTURE || '.impeccable/qa-fixture.json', JSON.stringify({project,scene,character,bg,first,second,token:session(user),outsiderToken:session(outsider)}));
+mkdirSync('public/uploads',{recursive:true});
+writeFileSync('public/uploads/narra-qa-backdrop.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><rect width="1600" height="900" fill="#18333b"/><path d="M0 600L400 370 900 570 1600 300V900H0Z" fill="#10222a"/><circle cx="1170" cy="190" r="60" fill="#d7c59e"/><path d="M720 610L750 250H780L810 610Z" fill="#b4a28a"/><path d="M700 250H830L765 180Z" fill="#16252d"/></svg>');
+copyFileSync('src/app/icon.png', 'public/uploads/narra-qa-other.png');
+console.log('Fixture créée dans la base QA isolée.');await db.$disconnect();
+} main();

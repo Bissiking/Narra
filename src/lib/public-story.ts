@@ -39,6 +39,7 @@ export async function getPublishedStory(slug: string) {
           sceneAppearances: { include: { scene: { select: { id: true, title: true, node: { select: { title: true } } } } } },
         },
       },
+      loreEntries: { where: { deletedAt: null }, orderBy: { title: "asc" } },
       organizations: { where: { deletedAt: null }, orderBy: { name: "asc" } },
       locations: { where: { deletedAt: null }, orderBy: { name: "asc" } },
     },
@@ -53,7 +54,7 @@ export async function getStoryForPreview(slug: string) {
   const session = verifySessionToken(cookies().get(SESSION_COOKIE)?.value);
   if (!session) return null;
   return db.project.findFirst({
-    where: { slug, deletedAt: null },
+    where: { slug, deletedAt: null, OR: [{ ownerId: session.userId }, { collaborators: { some: { userId: session.userId } } }] },
     include: {
       genres: true,
       owner: { select: { name: true, email: true } },
@@ -87,6 +88,7 @@ export async function getStoryForPreview(slug: string) {
           sceneAppearances: { include: { scene: { select: { id: true, title: true, node: { select: { title: true } } } } } },
         },
       },
+      loreEntries: { where: { deletedAt: null }, orderBy: { title: "asc" } },
       organizations: { where: { deletedAt: null }, orderBy: { name: "asc" } },
       locations: { where: { deletedAt: null }, orderBy: { name: "asc" } },
     },

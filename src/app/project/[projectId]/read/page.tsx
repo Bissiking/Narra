@@ -53,6 +53,7 @@ type ReaderScene = {
     volume: number | null;
     fadeDuration: number | null;
     loop: boolean | null;
+  animationConfig?: unknown;
     animationPreset: string | null;
     character: {
       id: string;

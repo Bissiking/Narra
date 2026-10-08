@@ -1,5 +1,6 @@
 "use client";
 
+import AnimationTrackEditor from "@/components/animation-track-editor";
 import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -34,6 +35,7 @@ interface SceneBlock {
   volume?: number | null;
   fadeDuration?: number | null;
   loop?: boolean | null;
+  animationConfig?: unknown;
   animationPreset?: "none" | "zoom-in" | "zoom-out" | "pan-left-right" | "pan-right-left" | "drift-up" | "fade-in" | "float" | null;
 }
 
@@ -140,7 +142,7 @@ function SceneBlockItem({
           </button>}
         </div>}
 
-        <div className="min-w-0 flex-1">
+        <fieldset disabled={!canEdit} className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <span className="font-mono text-[10px] tabular-nums text-narra-muted" aria-hidden="true">
               #{String(block.order + 1).padStart(3, "0")}
@@ -409,21 +411,7 @@ function SceneBlockItem({
                 label="Choisir"
                 accept="image/*"
               />
-              <label className="label mt-3">Animation de l’image</label>
-              <select
-                className="select"
-                value={block.animationPreset || "none"}
-                onChange={(event) => onUpdate(block.id, { animationPreset: event.target.value as SceneBlock["animationPreset"] })}
-              >
-                <option value="none">Aucune</option>
-                <option value="zoom-in">Zoom lent avant</option>
-                <option value="zoom-out">Zoom lent arrière</option>
-                <option value="pan-left-right">Pan gauche → droite</option>
-                <option value="pan-right-left">Pan droite → gauche</option>
-                <option value="drift-up">Drift bas → haut</option>
-                <option value="fade-in">Fade in</option>
-                <option value="float">Léger flottement</option>
-              </select>
+              <AnimationTrackEditor config={block.animationConfig} legacy={block.animationPreset} disabled={!canEdit} onChange={(animationConfig) => onUpdate(block.id, { animationConfig, animationPreset: "none" })} />
               <p className="mt-2 text-xs text-narra-muted">
                 L’image reste affichée jusqu’au prochain changement d’arrière-plan ou à la scène suivante.
               </p>
@@ -465,7 +453,7 @@ function SceneBlockItem({
             }
             title={onInsertAfter ? "Ctrl + Entrée : insérer un bloc du même type après celui-ci" : undefined}
           />}
-        </div>
+        </fieldset>
       </div>
     </div>
   );
