@@ -31,6 +31,7 @@ export async function GET(
             },
           },
         },
+        blocks: { where: { type: "background", mediaUrl: { not: null } }, select: { mediaUrl: true }, orderBy: { order: "asc" }, take: 1 },
         _count: { select: { blocks: true } },
       },
       orderBy: { order: "asc" },

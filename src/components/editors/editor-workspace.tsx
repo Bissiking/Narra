@@ -26,9 +26,12 @@ import SceneScriptImporter from "@/components/scene-script-importer";
 import type { ParsedSceneScriptBlock } from "@/lib/scene-script-parser";
 import { getEditorProfile, getProjectFormat } from "@/lib/editor-profiles";
 import { buildCompositePlans, isPlanLayer, type CompositePlan } from "@/lib/scene-composition";
+import { buildStudioEpisodes, findStudioGroup } from "@/lib/studio-navigation";
+import EpisodeOverview, { EpisodeTree, EpisodeTimeline, STATUS_LABELS } from "@/components/editors/episode-overview";
+import StudioV2View from "./studio-v2-view";
 import editorStyles from "@/app/project/[projectId]/edit/editor-workspace.module.css";
 
-interface Scene {
+export interface Scene {
   id: string;
   title: string;
   status: string;
@@ -40,26 +43,27 @@ interface Scene {
   location: { id: string; name: string; imageUrl?: string | null } | null;
   characters: { character: { id: string; firstName: string | null; lastName: string | null; alias: string | null; portraitUrl: string | null } }[];
   _count: { blocks: number };
+  blocks?: { mediaUrl?: string | null }[];
 }
 
-interface NarrativeNode {
+export interface NarrativeNode {
   id: string; type: string; title: string; order: number; children: NarrativeNode[];
 }
 
-interface Character {
+export interface Character {
   id: string; firstName: string | null; lastName: string | null; alias: string | null;
   portraitUrl: string | null; nameColor: string;
   images: { id: string; label: string; emotion: string; url: string }[];
 }
 
-interface SceneBlock {
+export interface SceneBlock {
   id: string; type: string; content: string; order: number;
   characterId: string | null; emotion: string | null; position: string | null; speakerNote: string | null;
   animationConfig?: unknown;
   mediaUrl?: string | null; displayMode?: "solo" | "caption" | "layer" | null; showPortrait?: boolean | null; portraitImageUrl?: string | null; audioAction?: string | null; volume?: number | null; fadeDuration?: number | null; loop?: boolean | null; animationPreset?: "none" | "zoom-in" | "zoom-out" | "pan-left-right" | "pan-right-left" | "drift-up" | "fade-in" | "float" | null;
 }
 
-interface PreviewSettings {
+export interface PreviewSettings {
   name: string;
   pageBackgroundUrl: string | null;
   pageBackgroundColor: string;
@@ -89,7 +93,7 @@ function createDraftBlock(type: string, characters: Character[]): SceneBlock {
   };
 }
 
-interface NarrativeNodeOption {
+export interface NarrativeNodeOption {
   id: string; title: string; depth: number; path: string[]; rootId: string; rootTitle: string; rank: number;
 }
 
@@ -113,6 +117,10 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
   const params = useParams();
   const projectId = params.projectId as string;
 
+  const [navigationMode, setNavigationMode] = useState<"episode" | "subblock">(version === 2 ? "subblock" : "episode");
+  const [episodeId, setEpisodeId] = useState<string | null>(null);
+  const [movingScene, setMovingScene] = useState(false);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
   const [blockSearch, setBlockSearch] = useState("");
   const [inspectorTab, setInspectorTab] = useState("content");
   const [showTimeline, setShowTimeline] = useState(true);
@@ -397,6 +405,7 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
         setBlocks(result.blocks);
         setSelectedBlockId(result.blocks.find((block) => block.order === selectedOrder)?.id || result.blocks[0]?.id || null);
         setDirty(false);
+        setScenes(current => current.map(scene => scene.id === selectedScene ? {...scene, _count: {blocks: result.blocks.length}, wordCount: result.blocks.reduce((n, b) => n + (["music", "sfx", "background"].includes(b.type) ? 0 : b.content.split(/\s+/).filter(Boolean).length), 0)} : scene));
         setLastSaved(new Date());
         return true;
       }
@@ -438,12 +447,13 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
   }, [dirty, saveBlocks]);
 
   const selectScene = useCallback(async (sceneId: string) => {
-    if (sceneId === selectedScene) return;
+    if (sceneId === selectedScene) return true;
     if (dirty && !(await saveBlocks())) {
-      setSaveError("Une modification attend encore d’être sauvegardée. Relancez le changement de scène.");
-      return;
+      setSaveError("Une modification attend encore d’être sauvegardée. Relancez le changement de sous-bloc.");
+      return false;
     }
     setSelectedScene(sceneId);
+    return true;
   }, [dirty, saveBlocks, selectedScene]);
 
   // Save scene title
@@ -462,6 +472,7 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
       const updated = await res.json();
       setScenes((s) => s.map((sc) => (sc.id === selectedScene ? { ...sc, status: updated.status, node: updated.node, readerTitle: updated.readerTitle, showReaderTitle: updated.showReaderTitle } : sc)));
     }
+    if (!res.ok) { if (version === 2) throw new Error("Metadata save failed"); setSaveError("Impossible de sauvegarder les réglages."); return; }
     setShowMetadata(false);
   }
 
@@ -478,6 +489,7 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
       if (!res.ok) throw new Error(data.error);
       setScenes((c) => [...c, data]);
       setSelectedScene(data.id);
+      if (version === 2) { setEpisodeId(null); setNavigationMode("subblock"); }
       setNewSceneTitle("");
       setShowCreateScene(false);
     } catch (err) { setCreateError(err instanceof Error ? err.message : "Erreur"); } finally { setCreatingScene(false); }
@@ -507,6 +519,36 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
     return groups;
   }, []);
 
+  const episodes = buildStudioEpisodes(structure, scenes);
+  const activeEpisode = episodes.find(e => e.id === episodeId) || episodes.find(e => e.scenes.some(s => s.id === selectedScene)) || episodes[0];
+  const episodeMode = version === 2 && navigationMode === "episode";
+  async function openSubblock(id: string) {
+    if (await selectScene(id)) { setEpisodeId(episodes.find(e => e.scenes.some(s => s.id === id))?.id || null); setNavigationMode("subblock"); setBlockSearch(""); setInspectorTab("content"); setShowMetadata(false); }
+  }
+  async function selectEpisode(id: string) {
+    const episode = episodes.find(e => e.id === id);
+    if (!episode || id === activeEpisode?.id) return;
+    if (dirty && !(await saveBlocks())) return;
+    setEpisodeId(id); setSelectedScene(episode.scenes[0]?.id || null); setNavigationMode("episode"); setBlockSearch("");
+  }
+  async function moveScene(id: string, direction: -1 | 1) {
+    if (!activeEpisode || movingScene || !canEdit) return;
+    const group = findStudioGroup(activeEpisode.groups, id);
+    if (!group) return;
+    const index = group.scenes.findIndex(s => s.id === id);
+    const target = index + direction;
+    if (target < 0 || target >= group.scenes.length) return;
+    setMovingScene(true); setNavigationError(null);
+    const ordered = arrayMove(group.scenes, index, target);
+    try {
+      const response = await fetch('/api/projects/'+projectId+'/scenes/reorder', {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({nodeId: group.nodeId, sceneIds: ordered.map(s => s.id)})});
+      if (!response.ok) throw new Error("Impossible d’enregistrer l’ordre. Rechargez le studio puis réessayez.");
+      const orders = new Map(ordered.map((s, i) => [s.id, i]));
+      setScenes(current => current.map(s => orders.has(s.id) ? {...s, order: orders.get(s.id)!} : s));
+    } catch (error) { setNavigationError(error instanceof Error ? error.message : "Réordonnancement impossible."); }
+    finally { setMovingScene(false); }
+  }
+
   if (loading) return <div className="min-h-screen flex items-center justify-center"><span className="text-narra-muted">Chargement...</span></div>;
 
   const selectedSceneData = scenes.find((s) => s.id === selectedScene);
@@ -522,6 +564,30 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
   const projectFormat = getProjectFormat(projectType);
   const selectedBlock = selectedBlockIndex >= 0 ? blocks[selectedBlockIndex] : null;
 
+  if (Number(version) === 2) return <StudioV2View
+    projectId={projectId} projectType={projectType} settings={previewSettings}
+    scenes={sortedScenes} groups={sceneGroups} nodeOptions={nodeOptions} characters={characters}
+    episodes={episodes} activeEpisode={activeEpisode} episodeMode={episodeMode}
+    selectedScene={selectedSceneData || null} blocks={blocks} selectedBlockId={selectedBlockId}
+    onSelectBlock={setSelectedBlockId} onOpenScene={openSubblock} onSelectScene={selectScene}
+    onModeChange={mode => mode === "episode" ? setNavigationMode("episode") : selectedScene && void openSubblock(selectedScene)}
+    onSelectEpisode={selectEpisode} onMoveScene={moveScene} movingScene={movingScene}
+    onAddBlock={addBlock} onUpdateBlock={updateBlock} onRemoveBlock={removeBlock} onImport={importBlocks}
+    onRestoreBlocks={next => { setBlocks(next); setSelectedBlockId(current => next.some(block => block.id === current) ? current : next[0]?.id || null); markDirty(); }}
+    onReorderPlans={handlePlanDragEnd} onReorderMusic={handleMusicDragEnd}
+    canEdit={canEdit} loading={blocksLoading} loadError={blockLoadError} onRetry={() => setBlockReloadKey(k => k+1)}
+    dirty={dirty} saving={saving} saveError={saveError} lastSaved={lastSaved} onSave={saveBlocks}
+    navigationError={navigationError} onlineCount={onlineUsers.size}
+    onCreateScene={() => { setNewSceneNodeId(activeEpisode?.groups[0]?.nodeId || (activeEpisode && nodeMetadata.has(activeEpisode.id) ? activeEpisode.id : "")); setShowCreateScene(v => !v); }}
+    createSceneForm={showCreateScene ? <form onSubmit={handleCreateScene} className={editorStyles.createSceneForm}>
+      <input value={newSceneTitle} onChange={e => setNewSceneTitle(e.target.value)} placeholder="Titre du sous-bloc" aria-label="Titre du sous-bloc" autoFocus required />
+      <select value={newSceneNodeId} onChange={e => setNewSceneNodeId(e.target.value)} aria-label="Rattachement narratif"><option value="">Sans rattachement</option>{nodeOptions.map(n => <option key={n.id} value={n.id}>{n.path.join(" / ")}</option>)}</select>
+      {createError && <p role="alert">{createError}</p>}<button type="submit" disabled={creatingScene}>{creatingScene ? "Création…" : "Créer la scène"}</button>
+    </form> : null}
+    metadata={{status:selectedStatus,nodeId:selectedNodeId,readerTitle,showReaderTitle,onStatus:setSelectedStatus,onNode:setSelectedNodeId,onReaderTitle:setReaderTitle,onShowTitle:setShowReaderTitle,onSave:saveMetadata}}
+    title={{value:titleValue,onChange:setTitleValue,onSave:saveTitle}} onDeleteScene={deleteScene}
+  />;
+
   return (
     <div className={`${editorStyles.workspace} ${version === 2 ? editorStyles.v2 : ""} ${version === 2 && !showTimeline ? editorStyles.withoutTimeline : ""}`}>
       <header className={editorStyles.topbar}>
@@ -531,12 +597,13 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
           <span>{previewSettings.name}</span>
         </div>
         <div className={editorStyles.sceneTitle}>
-          {selectedScene && editTitle ? (
+          {version === 2 && <div className={editorStyles.narrativePath}><button type="button" onClick={() => setNavigationMode("episode")}>{activeEpisode?.title || "Épisode"}</button>{!episodeMode && <><span aria-hidden="true">›</span><span>Sous-bloc</span></>}</div>}
+          {!episodeMode && selectedScene && editTitle ? (
             <input value={titleValue} onChange={(event) => setTitleValue(event.target.value)} onBlur={saveTitle} onKeyDown={(event) => event.key === "Enter" && saveTitle()} autoFocus aria-label="Titre de la scène" />
           ) : (
-            <button type="button" onClick={() => selectedScene && setEditTitle(true)} disabled={!selectedScene || !canEdit}>{selectedSceneData?.title || "Aucune scène sélectionnée"}</button>
+            <button type="button" onClick={() => selectedScene && setEditTitle(true)} disabled={episodeMode || !selectedScene || !canEdit}>{episodeMode ? "Organisation du scénario" : selectedSceneData?.title || "Aucun sous-bloc sélectionné"}</button>
           )}
-          {selectedScene && <span>{blocks.length} {editorProfile.unit[blocks.length === 1 ? 0 : 1]} · {wordCount} mots</span>}
+          {selectedScene && <span>{episodeMode ? (activeEpisode?.scenes.length || 0)+" sous-blocs" : blocks.length+" "+(version === 2 ? "éléments" : editorProfile.unit[blocks.length === 1 ? 0 : 1])} · {episodeMode ? activeEpisode?.scenes.reduce((n,s)=>n+s.wordCount,0) || 0 : wordCount} mots</span>}
         </div>
         <div className={editorStyles.topActions}>
           <Link className={editorStyles.secondaryButton} href={`/project/${projectId}/${version === 2 ? "edit" : "edit-v2"}`}>{version === 2 ? "Éditeur actuel" : "Studio V2"}</Link>
@@ -545,7 +612,7 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
           {dirty && !saving && !saveError && <span className={editorStyles.dirtyState}>Modifié</span>}
           {lastSaved && !saving && !dirty && <span className={editorStyles.savedState}>Sauvé à {lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>}
           {saveError && <span className={editorStyles.saveError} role="alert">Non sauvegardé</span>}
-          {canEdit && <button type="button" className={editorStyles.secondaryButton} onClick={() => { if (version === 2) { setInspectorTab("scene"); setShowMetadata(true); } else setShowMetadata((value) => !value); }} disabled={!selectedScene}>Réglages</button>}
+          {canEdit && <button type="button" className={editorStyles.secondaryButton} onClick={() => { if (version === 2) { setNavigationMode("subblock"); setInspectorTab("scene"); setShowMetadata(true); } else setShowMetadata((value) => !value); }} disabled={!selectedScene}>Réglages</button>}
           {canEdit && <button type="button" className={editorStyles.saveButton} onClick={saveBlocks} disabled={!selectedScene || saving || blocksLoading || !!blockLoadError}><SaveIcon />{saving ? "Sauvegarde" : "Sauver"}</button>}
         </div>
       </header>
@@ -553,9 +620,20 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
       {version === 2 && showPreferences && <section className={editorStyles.preferences} aria-label="Personnaliser le studio"><strong>Votre espace de travail</strong><label><input type="checkbox" checked={showTimeline} onChange={(e) => setPreference("timeline", e.target.checked)} /> Afficher la timeline</label><label><input type="checkbox" checked={showCast} onChange={(e) => setPreference("cast", e.target.checked)} /> Afficher la distribution</label><button type="button" onClick={() => setShowPreferences(false)}>Fermer</button></section>}
       <aside className={editorStyles.library} aria-label="Scènes du projet">
         <div className={editorStyles.panelHeader}>
-          <div><strong>Scènes</strong><span>{scenes.length} · {totalWords.toLocaleString("fr-FR")} mots</span></div>
-          {canEdit && <button type="button" onClick={() => setShowCreateScene((value) => !value)} aria-expanded={showCreateScene} aria-label="Créer une scène"><PlusIcon /></button>}
+          <div><strong>{version === 2 ? "Navigation" : "Scènes"}</strong><span>{scenes.length} · {totalWords.toLocaleString("fr-FR")} mots</span></div>
+          {canEdit && <button type="button" onClick={() => { if (version === 2 && !showCreateScene) setNewSceneNodeId(activeEpisode?.groups[0]?.nodeId || (activeEpisode && nodeMetadata.has(activeEpisode.id) ? activeEpisode.id : "")); setShowCreateScene((value) => !value); }} aria-expanded={showCreateScene} aria-label="Créer une scène"><PlusIcon /></button>}
         </div>
+        {version === 2 && <div className={editorStyles.scopeNavigation}>
+          <div className={editorStyles.modeSwitch} role="group" aria-label="Mode de navigation">
+            <button type="button" aria-pressed={episodeMode} onClick={() => setNavigationMode("episode")}>Épisode</button>
+            <button type="button" aria-pressed={!episodeMode} disabled={!selectedScene} onClick={() => selectedScene && void openSubblock(selectedScene)}>Sous-bloc</button>
+          </div>
+          <label htmlFor="studio-episode">Épisode actif</label>
+          <select id="studio-episode" value={activeEpisode?.id || ""} onChange={e => void selectEpisode(e.target.value)}>
+            {!episodes.length && <option value="">Aucun épisode</option>}
+            {episodes.map(e => <option key={e.id} value={e.id}>{e.path.join(" / ") || e.title}</option>)}
+          </select>
+        </div>}
         {showCreateScene && <form onSubmit={handleCreateScene} className={editorStyles.createSceneForm}>
           <input value={newSceneTitle} onChange={(event) => setNewSceneTitle(event.target.value)} placeholder={projectFormat.content.titlePlaceholder} aria-label={`Titre ${projectFormat.content.ofDefinite}`} autoFocus required />
           <select value={newSceneNodeId} onChange={(event) => setNewSceneNodeId(event.target.value)} aria-label="Rattachement narratif">
@@ -565,7 +643,7 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
           {createError && <p role="alert">{createError}</p>}
           <button type="submit" disabled={creatingScene}>{creatingScene ? "Création…" : "Créer la scène"}</button>
         </form>}
-        <div className={editorStyles.sceneList}>
+        {version === 1 && <div className={editorStyles.sceneList}>
           {sceneGroups.map((group) => <section key={group.id}>
             <h2>{group.title}</h2>
             {group.scenes.map((scene, sceneIndex) => <button key={scene.id} type="button" onClick={() => void selectScene(scene.id)} aria-current={selectedScene === scene.id ? "true" : undefined}>
@@ -574,26 +652,31 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
               <span className={editorStyles.sceneCount}>{scene._count.blocks}</span>
             </button>)}
           </section>)}
-        </div>
+        </div>}
       </aside>
 
-      {version === 2 && <section className={editorStyles.blockRail} aria-label="Blocs de la scène">
-        <div className={editorStyles.panelHeader}><strong>Déroulé de la scène</strong><span>{blocks.length} blocs</span></div>
+      {version === 2 && episodeMode && <section className={editorStyles.blockRail} aria-label="Blocs et sous-blocs de l’épisode"><div className={editorStyles.panelHeader}><div><strong>Structure de l’épisode</strong><span>{activeEpisode?.scenes.length || 0} sous-blocs</span></div></div>{activeEpisode ? <EpisodeTree episode={activeEpisode} selectedId={selectedScene} onSelect={id => void selectScene(id)} projectId={projectId} /> : <div className={editorStyles.inspectorEmpty}>Créez un sous-bloc pour commencer.</div>}<div className={editorStyles.railTools}><Link href={"/project/"+projectId+"/structure"}>Gérer les blocs et épisodes</Link></div></section>}
+      {version === 2 && !episodeMode && <section className={editorStyles.blockRail} aria-label="Blocs de la scène">
+        <div className={editorStyles.panelHeader}><div><button type="button" className={editorStyles.returnEpisode} onClick={() => setNavigationMode("episode")}><BackIcon /> Retour à l’épisode</button><strong>{selectedSceneData?.title || "Sous-bloc"}</strong></div><span>{blocks.length} éléments</span></div>
         <input className={editorStyles.blockSearch} value={blockSearch} onChange={(e) => setBlockSearch(e.target.value)} placeholder="Rechercher un texte, un type…" aria-label="Rechercher un bloc" />
         <div className={editorStyles.blockList}>{blocksLoading ? <p>Chargement…</p> : blocks.filter((b) => `${b.content} ${BLOCK_LABELS[b.type]}`.toLocaleLowerCase("fr").includes(blockSearch.toLocaleLowerCase("fr"))).map((b) => <button type="button" key={b.id} aria-pressed={selectedBlockId === b.id} onClick={() => { setSelectedBlockId(b.id); setInspectorTab("content"); setShowMetadata(false); }}><span>{String(b.order + 1).padStart(2, "0")} · {BLOCK_LABELS[b.type]}</span><strong>{b.content.trim() || b.mediaUrl?.split("/").at(-1) || "Sans contenu"}</strong>{b.type === "dialogue" && <small>{characterName(characters.find((c) => c.id === b.characterId), b.speakerNote)}</small>}</button>)}{!blocksLoading && !blocks.length && <p>Ajoutez un dialogue ou un décor pour commencer.</p>}</div>
         <div className={editorStyles.railTools}>{canEdit && editorProfile.blocks.map((b) => <button type="button" key={b.value} disabled={!selectedScene || blocksLoading || !!blockLoadError} onClick={() => addBlock(b.value, selectedBlockId)}>+ {b.label}</button>)}</div>
       </section>}
       <main className={editorStyles.monitorArea}>
-        {blocksLoading ? <div className={editorStyles.noSelection}><strong>Chargement de la preview…</strong></div> : blockLoadError ? <div className={editorStyles.noSelection}><strong>Preview indisponible</strong><span>Rechargez la timeline pour reprendre le montage.</span></div> : selectedSceneData ? <PreviewMonitor scene={selectedSceneData} blocks={blocks} selectedBlockId={selectedBlockId} onSelect={setSelectedBlockId} characters={characters} settings={previewSettings} /> : <div className={editorStyles.noSelection}><strong>Choisissez une scène</strong><span>Le moniteur affichera ici votre montage.</span></div>}
-        {version === 2 && selectedBlock && !blocksLoading && <section className={editorStyles.writingDesk} aria-label="Écriture du bloc sélectionné"><label htmlFor="studio-content">{BLOCK_LABELS[selectedBlock.type]} · texte</label><textarea id="studio-content" value={selectedBlock.content} readOnly={!canEdit} placeholder="Écrivez le texte de ce bloc…" onChange={(e) => updateBlock(selectedBlock.id, { content: e.target.value })} />{canEdit && <div><button type="button" onClick={() => { const copy = { ...selectedBlock, id: `temp-${crypto.randomUUID()}` }; setBlocks((current) => { const next = [...current]; next.splice(selectedBlockIndex + 1, 0, copy); return next.map((b, order) => ({ ...b, order })); }); setSelectedBlockId(copy.id); markDirty(); }}>Dupliquer le bloc</button><button type="button" disabled={selectedBlockIndex <= 0} onClick={() => { setBlocks((current) => arrayMove(current, selectedBlockIndex, selectedBlockIndex - 1).map((b, order) => ({ ...b, order }))); markDirty(); }}>Déplacer avant</button><button type="button" disabled={selectedBlockIndex === blocks.length - 1} onClick={() => { setBlocks((current) => arrayMove(current, selectedBlockIndex, selectedBlockIndex + 1).map((b, order) => ({ ...b, order }))); markDirty(); }}>Déplacer après</button></div>}</section>}
+        {episodeMode ? activeEpisode ? <EpisodeOverview episode={activeEpisode} selectedId={selectedScene} onSelect={id => void selectScene(id)} onOpen={id => void openSubblock(id)} onMove={(id, direction) => void moveScene(id, direction)} canEdit={canEdit} moving={movingScene} /> : <div className={editorStyles.noSelection}><strong>Aucun épisode à afficher</strong><span>Créez un sous-bloc avec le bouton + de Navigation.</span></div> : blocksLoading ? <div className={editorStyles.noSelection}><strong>Chargement de la preview…</strong></div> : blockLoadError ? <div className={editorStyles.noSelection}><strong>Preview indisponible</strong><span>Rechargez la timeline pour reprendre le montage.</span></div> : selectedSceneData ? <PreviewMonitor key={selectedSceneData.id} scene={selectedSceneData} blocks={blocks} selectedBlockId={selectedBlockId} onSelect={setSelectedBlockId} characters={characters} settings={previewSettings} /> : <div className={editorStyles.noSelection}><strong>Choisissez une scène</strong><span>Le moniteur affichera ici votre montage.</span></div>}
+        {version === 2 && !episodeMode && selectedBlock && !blocksLoading && <section className={editorStyles.writingDesk} aria-label="Écriture du bloc sélectionné"><label htmlFor="studio-content">{BLOCK_LABELS[selectedBlock.type]} · texte</label><textarea id="studio-content" value={selectedBlock.content} readOnly={!canEdit} placeholder="Écrivez le texte de ce bloc…" onChange={(e) => updateBlock(selectedBlock.id, { content: e.target.value })} />{canEdit && <div><button type="button" onClick={() => { const copy = { ...selectedBlock, id: `temp-${crypto.randomUUID()}` }; setBlocks((current) => { const next = [...current]; next.splice(selectedBlockIndex + 1, 0, copy); return next.map((b, order) => ({ ...b, order })); }); setSelectedBlockId(copy.id); markDirty(); }}>Dupliquer l’élément</button><button type="button" disabled={selectedBlockIndex <= 0} onClick={() => { setBlocks((current) => arrayMove(current, selectedBlockIndex, selectedBlockIndex - 1).map((b, order) => ({ ...b, order }))); markDirty(); }}>Déplacer avant</button><button type="button" disabled={selectedBlockIndex === blocks.length - 1} onClick={() => { setBlocks((current) => arrayMove(current, selectedBlockIndex, selectedBlockIndex + 1).map((b, order) => ({ ...b, order }))); markDirty(); }}>Déplacer après</button></div>}</section>}
       </main>
 
       <aside className={editorStyles.inspector} aria-label="Inspecteur">
         <div className={editorStyles.panelHeader}>
-          <div><strong>Inspecteur</strong><span>{selectedBlock ? selectedBlock.type === "music" ? "Piste musique" : `Plan ${String(selectedPlanIndex + 1).padStart(2, "0")} · ${BLOCK_LABELS[selectedBlock.type] || selectedBlock.type}` : "Aucun plan actif"}</span></div>
+          <div><strong>Inspecteur</strong><span>{episodeMode ? "Organisation de l’épisode" : selectedBlock ? selectedBlock.type === "music" ? "Piste musique" : `Plan ${String(selectedPlanIndex + 1).padStart(2, "0")} · ${BLOCK_LABELS[selectedBlock.type] || selectedBlock.type}` : "Aucun plan actif"}</span></div>
         </div>
-        {version === 2 && <div className={editorStyles.inspectorTabs} role="tablist" aria-label="Outils du studio"><button type="button" role="tab" aria-selected={inspectorTab === "content"} onClick={() => { setInspectorTab("content"); setShowMetadata(false); }}>Bloc</button><button type="button" role="tab" aria-selected={inspectorTab === "scene"} onClick={() => { setInspectorTab("scene"); setShowMetadata(true); }}>Scène</button><button type="button" role="tab" aria-selected={inspectorTab === "world"} onClick={() => { setInspectorTab("world"); setShowMetadata(false); }}>Univers</button></div>}
-        {version === 2 && inspectorTab === "world" ? <div className={editorStyles.worldTools}><h2>Références de la scène</h2><p>Retrouvez les fiches et les médias sans perdre votre montage.</p>{[["characters", "Personnages et expressions"], ["locations", "Lieux et décors"], ["lore", "Lore et informations"], ["media", "Bibliothèque de médias"]].map(([path, label]) => <Link key={path} href={`/project/${projectId}/${path}`} target="_blank"><span>{label}</span><ExternalLinkIcon /></Link>)}</div> : showMetadata && selectedScene ? <div className={editorStyles.metadataPanel}>
+        {version === 2 && !episodeMode && <div className={editorStyles.inspectorTabs} role="tablist" aria-label="Outils du studio"><button type="button" role="tab" aria-selected={inspectorTab === "content"} onClick={() => { setInspectorTab("content"); setShowMetadata(false); }}>Élément</button><button type="button" role="tab" aria-selected={inspectorTab === "scene"} onClick={() => { setInspectorTab("scene"); setShowMetadata(true); }}>Sous-bloc</button><button type="button" role="tab" aria-selected={inspectorTab === "world"} onClick={() => { setInspectorTab("world"); setShowMetadata(false); }}>Univers</button></div>}
+        {episodeMode ? <div className={editorStyles.episodeInspector}>
+          <h2>{selectedSceneData?.title || "Sélectionnez un sous-bloc"}</h2>
+          {selectedSceneData && <><p>{selectedSceneData.node?.title || "Sans bloc"}</p><dl><dt>Statut</dt><dd>{STATUS_LABELS[selectedSceneData.status] || selectedSceneData.status}</dd><dt>Éléments</dt><dd>{selectedSceneData._count.blocks}</dd><dt>Mots</dt><dd>{selectedSceneData.wordCount.toLocaleString("fr-FR")}</dd></dl><button type="button" className={editorStyles.saveButton} onClick={() => void openSubblock(selectedSceneData.id)}>Monter ce sous-bloc <NextIcon /></button><p>Le montage s’ouvre avec sa propre timeline, ses décors, dialogues et sons.</p></>}
+          {(navigationError || saveError) && <p role="alert" className={editorStyles.saveError}>{navigationError || saveError}</p>}
+        </div> : version === 2 && inspectorTab === "world" ? <div className={editorStyles.worldTools}><h2>Références de la scène</h2><p>Retrouvez les fiches et les médias sans perdre votre montage.</p>{[["characters", "Personnages et expressions"], ["locations", "Lieux et décors"], ["lore", "Lore et informations"], ["media", "Bibliothèque de médias"]].map(([path, label]) => <Link key={path} href={`/project/${projectId}/${path}`} target="_blank"><span>{label}</span><ExternalLinkIcon /></Link>)}</div> : showMetadata && selectedScene ? <div className={editorStyles.metadataPanel}>
           <label>Statut<select value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)}><option value="draft">Brouillon</option><option value="writing">En cours</option><option value="review">Révision</option><option value="final">Final</option></select></label>
           <label>Séquence<select value={selectedNodeId} onChange={(event) => setSelectedNodeId(event.target.value)}><option value="">Aucune</option>{nodeOptions.map((node) => <option key={node.id} value={node.id}>{`${"— ".repeat(node.depth)}${node.title}`}</option>)}</select></label>
           <label>Titre affiché en lecture<input value={readerTitle} onChange={(event) => setReaderTitle(event.target.value)} placeholder="Prélude, Intro, Épilogue, 5 jours plus tôt…" /></label>
@@ -619,9 +702,10 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
         </div> : null}
       </aside>
 
-      {(version === 1 || showTimeline) && <section className={editorStyles.timeline} aria-label="Timeline de la scène">
+      {episodeMode && showTimeline && activeEpisode && <EpisodeTimeline episode={activeEpisode} selectedId={selectedScene} onOpen={id => void openSubblock(id)} />}
+      {!episodeMode && (version === 1 || showTimeline) && <section className={editorStyles.timeline} aria-label={version === 2 ? "Timeline du sous-bloc" : "Timeline de la scène"}>
         <div className={editorStyles.timelineToolbar}>
-          <div><strong>Timeline composite</strong><span>{selectedPlanIndex >= 0 ? `TC ${formatTimecode(selectedPlanIndex)}` : "Prêt au montage"}</span></div>
+          <div><strong>{version === 2 ? "Timeline · "+(selectedSceneData?.title || "Sous-bloc") : "Timeline composite"}</strong><span>{selectedPlanIndex >= 0 ? `TC ${formatTimecode(selectedPlanIndex)}` : "Prêt au montage"}</span></div>
           {canEdit && <div className={editorStyles.quickAdd}>
             <button type="button" onClick={() => addBlock("heading", selectedPlan?.blocks.at(-1)?.id || selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}><PlusIcon />Plan</button>
             <button type="button" onClick={() => addBlock("action", selectedPlan?.blocks.at(-1)?.id || selectedBlockId)} disabled={!selectedScene || blocksLoading || !!blockLoadError}>Action</button>
@@ -663,7 +747,7 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
         </div>
         {selectedScene && <div className={editorStyles.timelineFooter}>
           <span>{projectFormat.nav.edit} · {editorProfile.label}</span>
-          {canEdit && <button type="button" onClick={deleteScene}><DeleteIcon />Supprimer la scène</button>}
+          {canEdit && <button type="button" onClick={deleteScene}><DeleteIcon />{version === 2 ? "Supprimer le sous-bloc" : "Supprimer la scène"}</button>}
         </div>}
       </section>}
     </div>

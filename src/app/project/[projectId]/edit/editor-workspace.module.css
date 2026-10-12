@@ -401,3 +401,82 @@
   .v2 .saveButton { font-size: .75rem; padding: .45rem .75rem; }
   .v2 .sceneTitle > span { display: block; }
 }
+
+/* Navigation scope: episode organization and isolated sub-block editing. */
+.v2 { --edit-radius: 6px; color-scheme: dark; }
+.v2 button, .v2 input, .v2 select, .v2 textarea { border-radius: var(--edit-radius); }
+.v2 .library { overflow-y: auto; }
+.scopeNavigation { padding: .75rem 1rem 1rem; }
+.modeSwitch { display: flex; gap: .25rem; padding: .25rem; margin-bottom: .75rem; border: 1px solid var(--edit-border); border-radius: 8px; background: var(--edit-bg); }
+.modeSwitch button { flex: 1; min-height: 2.5rem; padding: .5rem; color: var(--edit-muted); font-size: .8rem; font-weight: 600; }
+.modeSwitch button[aria-pressed="true"] { color: var(--edit-accent-bright); background: #f59e0b18; }
+.scopeNavigation label { display: block; margin-bottom: .4rem; color: var(--edit-muted); font-size: .75rem; }
+.scopeNavigation select { width: 100%; min-height: 2.5rem; padding: .5rem; color: var(--edit-ink); background: var(--edit-bg); border: 1px solid var(--edit-border); font-size: .8rem; }
+.narrativePath { display: flex; align-items: center; gap: .5rem; margin-bottom: .2rem; color: var(--edit-muted); font-size: .75rem; }
+.sceneTitle .narrativePath button { width: auto; color: var(--edit-accent-bright); font-size: .75rem; font-weight: 400; }
+.returnEpisode { display: inline-flex; align-items: center; gap: .3rem; min-height: 2.5rem; margin-bottom: .4rem; color: var(--edit-accent-bright); font-size: .75rem; }
+.narrativeTree { flex: 1; min-height: 0; overflow: auto; padding: .5rem; }
+.narrativeBranch { padding: .2rem 0; }
+.narrativeBranch summary { display: flex; align-items: center; gap: .5rem; min-height: 2.75rem; padding: .5rem; cursor: pointer; font-size: .8rem; font-weight: 600; }
+.narrativeBranch summary > svg:first-child { color: var(--edit-muted); width: .75rem; flex-shrink: 0; transform: rotate(0deg); }
+.narrativeBranch[open] > summary > svg:first-child { transform: rotate(90deg); }
+.narrativeBranch summary span { flex: 1; overflow-wrap: anywhere; }
+.narrativeBranch summary small { color: var(--edit-muted); font-variant-numeric: tabular-nums; }
+.narrativeBranch summary svg { color: var(--edit-accent); flex-shrink: 0; }
+.narrativeBranch .narrativeBranch { margin-left: .7rem; border-left: 1px solid var(--edit-border); }
+.narrativeBranch > button { display: flex; align-items: center; gap: .5rem; width: 100%; min-height: 3.25rem; padding: .5rem .65rem; text-align: left; }
+.narrativeBranch > button:hover, .narrativeBranch summary:hover { background: var(--edit-raised); }
+.narrativeBranch > button[aria-current="true"] { color: var(--edit-accent-bright); background: #f59e0b14; }
+.narrativeBranch > button svg { flex-shrink: 0; }
+.narrativeBranch strong { display: block; font-size: .8rem; font-weight: 500; overflow-wrap: anywhere; }
+.narrativeBranch small { display: block; color: var(--edit-muted); font-size: .7rem; }
+.railTools a { color: var(--edit-accent-bright); font-size: .8rem; text-underline-offset: .25rem; }
+.railTools a:hover { text-decoration: underline; }
+.episodeOverview { width: 100%; }
+.episodeOverview header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 1rem; border-bottom: 1px solid var(--edit-border); }
+.episodeOverview h2 { font-size: 1.5rem; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.episodeOverview header p { margin-top: .4rem; color: var(--edit-muted); font-size: .8rem; }
+.episodeHint { margin: 1rem 0; color: var(--edit-muted); font-size: .8rem; line-height: 1.6; }
+.episodeGroup { margin: 1.75rem 0 0; }
+.episodeGroup h3 { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .6rem; font-size: .9rem; font-weight: 600; overflow-wrap: anywhere; }
+.episodeGroup h3 svg { color: var(--edit-accent); }
+.episodeGroup h3 span { margin-left: auto; color: var(--edit-muted); font-size: .75rem; font-weight: 400; }
+.episodeScene { display: flex; align-items: center; gap: .5rem; min-width: 0; margin: .5rem 0; padding: .35rem; border: 1px solid var(--edit-border); border-radius: 8px; background: var(--edit-surface); }
+.episodeScene[data-selected="true"] { border-color: var(--edit-accent); background: #f59e0b0c; }
+.sceneSummary { display: flex; align-items: center; gap: .75rem; flex: 1; min-width: 0; padding: .35rem; text-align: left; }
+.sceneSummary > span:nth-child(3) { flex: 1; min-width: 0; }
+.sceneSummary strong { display: block; font-size: .875rem; font-weight: 500; overflow-wrap: anywhere; }
+.sceneSummary small { display: block; margin-top: .3rem; color: var(--edit-muted); font-size: .75rem; }
+.sceneThumbnail { display: grid; place-items: center; flex: 0 0 4rem; width: 4rem; height: 2.75rem; overflow: hidden; border-radius: 4px; color: var(--edit-muted); background: var(--edit-raised); }
+.sceneThumbnail img { width: 100%; height: 100%; object-fit: cover; }
+.episodeSceneNumber { color: var(--edit-accent-bright); font-family: "IBM Plex Mono", monospace; font-size: .75rem; }
+.sceneStatus { color: var(--edit-muted); font-size: .75rem; }
+.sceneStatus[data-status="final"] { color: var(--edit-ink); }
+.episodeSceneActions { display: flex; align-items: center; gap: .25rem; }
+.episodeSceneActions button { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; min-width: 2.5rem; min-height: 2.5rem; padding: .5rem; color: var(--edit-muted); font-size: .75rem; }
+.episodeSceneActions button:last-child { color: var(--edit-accent-bright); }
+.episodeSceneActions button:hover:not(:disabled) { color: var(--edit-ink); background: var(--edit-raised); }
+.groupEmpty { padding: 1rem 0; color: var(--edit-muted); font-size: .85rem; line-height: 1.6; }
+.episodeInspector { padding: 1.25rem; overflow-y: auto; }
+.episodeInspector h2 { font-size: 1.125rem; font-weight: 600; overflow-wrap: anywhere; }
+.episodeInspector p { margin: .75rem 0 1.25rem; color: var(--edit-muted); font-size: .85rem; line-height: 1.6; }
+.episodeInspector dl { display: grid; grid-template-columns: 1fr auto; gap: .85rem; padding: 1rem 0; margin-bottom: 1.25rem; border-top: 1px solid var(--edit-border); border-bottom: 1px solid var(--edit-border); font-size: .85rem; }
+.episodeInspector dt { color: var(--edit-muted); }
+.episodeInspector dd { font-variant-numeric: tabular-nums; }
+.episodeTimelineTrack { display: flex; gap: .5rem; align-items: stretch; padding: 1rem; overflow: auto; }
+.episodeTimelineTrack button { display: flex; flex-direction: column; gap: .5rem; flex: 0 0 13rem; padding: 1rem; color: var(--edit-ink); background: var(--edit-raised); border: 1px solid var(--edit-border); text-align: left; }
+.episodeTimelineTrack button[aria-pressed="true"] { border-color: var(--edit-accent); }
+.episodeTimelineTrack button:hover { background: #242428; }
+.episodeTimelineTrack span, .episodeTimelineTrack small { color: var(--edit-muted); font-size: .75rem; }
+.episodeTimelineTrack strong { font-size: .85rem; font-weight: 500; overflow-wrap: anywhere; }
+@media (max-width: 1400px) { .sceneSummary { gap: .5rem; } .sceneStatus { display: none; } .sceneThumbnail { flex-basis: 3rem; width: 3rem; } }
+@media (max-width: 1000px) { .scopeNavigation { padding-inline: .75rem; } .episodeScene { flex-wrap: wrap; } .episodeSceneActions { margin-left: auto; } }
+@media (max-width: 640px) { .v2 .library { height: auto; min-height: 13rem; flex-shrink: 0; } .episodeOverview h2 { font-size: 1.25rem; } .episodeGroup h3 span { width: 100%; margin-left: 1.6rem; } .episodeTimelineTrack { min-height: 10rem; } .timelineToolbar > .episodeHint { display: none; } }
+
+@media (max-width: 640px) {
+  .episodeScene .sceneSummary { flex: 1 0 100%; width: 100%; padding: .5rem; }
+  .episodeScene .episodeSceneActions { width: 100%; justify-content: flex-end; padding: 0 .25rem .25rem; }
+  .episodeScene .sceneThumbnail { flex-basis: 2.5rem; width: 2.5rem; height: 2.5rem; }
+}
+
+.v2 summary:focus-visible { outline: 3px solid var(--edit-accent); outline-offset: 2px; }

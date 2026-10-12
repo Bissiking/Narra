@@ -1,0 +1,466 @@
+.workspace {
+ --edit-bg:var(--studio-bg); --edit-surface:var(--studio-panel); --edit-raised:var(--studio-raised); --edit-border:var(--studio-border); --edit-ink:var(--studio-ink); --edit-muted:var(--studio-muted); --edit-accent:var(--studio-amber); --edit-accent-bright:var(--studio-amber);
+ --studio-bg:#080a0b; --studio-panel:#0e1114; --studio-raised:#171b20; --studio-border:#252a30; --studio-ink:#f4f4f5; --studio-muted:#a8aeb9; --studio-amber:#ffac16;
+ display:grid; grid-template-columns:23.2% minmax(0,1fr) 20.7%; grid-template-rows:56px minmax(0,1fr) 34.5%; grid-template-areas:"header header header" "library monitor inspector" "timeline timeline timeline";
+ gap:14px; width:100%;height:100svh;min-height:740px;padding:0 12px 12px;position:relative;overflow:hidden;color:var(--studio-ink);background:var(--studio-bg);font-size:13px; color-scheme:dark;
+}
+.workspace * {box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#414750 transparent}
+.workspace button,.workspace select,.workspace input,.workspace textarea {font:inherit}
+.workspace button {display:inline-flex;align-items:center;justify-content:center;gap:8px;color:inherit;cursor:pointer;border-radius:6px;background:transparent;transition:background-color .15s,border-color .15s}
+.workspace button:disabled {opacity:.4;cursor:not-allowed}
+.workspace button:hover:not(:disabled) {background:#ffffff09}
+.workspace :is(button,a,input,select,textarea,summary):focus-visible {outline:2px solid var(--studio-amber);outline-offset:3px}
+.workspace svg {width:18px;height:18px;flex-shrink:0}
+.workspace ::selection {background:#ffac1645}
+.topbar {grid-area:header;display:flex;align-items:center;gap:24px;padding:8px 10px 8px 16px;margin-inline:-12px;border:1px solid var(--studio-border);border-radius:12px;background:linear-gradient(125deg,#14171b,#0d1013 55%);min-width:0;z-index:25}
+.brand {display:flex;align-items:center;gap:14px;flex-shrink:0;font-size:18px;font-weight:650;white-space:nowrap}
+.brand>b {font-size:18px;color:var(--studio-amber)}
+.brand>svg {width:10px;color:#747b87}
+.logo {display:grid;place-items:center;width:35px;height:39px;font-size:27px;line-height:1;font-weight:700;color:#fff;border:1px solid var(--studio-amber);border-radius:4px;box-shadow:inset 0 0 0 3px #08090b}
+.formatBadge {font-size:13px;font-weight:500;color:#ffd07b;background:#3e2c10;border-radius:24px;padding:6px 14px}
+.breadcrumb {display:flex;align-items:center;gap:12px;flex:1;min-width:0;color:#c5c9d4;font-size:14px}
+.breadcrumb>a,.breadcrumb>span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+.breadcrumb>svg {width:12px}
+.breadcrumb>div {min-width:0}
+.breadcrumb button {max-width:100%;justify-content:flex-start;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 0}
+.breadcrumb small {display:block;font-size:10px;color:var(--studio-muted);margin-top:3px}
+.topActions {display:flex;align-items:center;gap:10px;flex-shrink:0}
+.topActions>button,.layoutControl>button {min-height:38px;padding:8px 13px;border:1px solid #3a404a;white-space:nowrap}
+.topActions .activeButton {color:var(--studio-amber);border-color:#9f670e;background:#ffac1610}
+.topActions .primary,.topActions .exportButton {color:#130e03;background:var(--studio-amber);border:1px solid #ffc25b;font-weight:650;padding-inline:20px;min-width:110px}
+.topActions .primary:hover:not(:disabled),.topActions .exportButton:hover:not(:disabled) {background:#ffc04f}
+.historyButtons {display:flex;gap:4px;margin-right:16px}
+.iconButton {width:32px;height:32px;padding:6px;border:1px solid transparent}
+.topbar .historyButtons button {background:#161a20}
+.layoutControl {position:relative}
+.layoutMenu {position:absolute;right:0;top:46px;width:270px;padding:14px;background:#14181d;border:1px solid #434952;border-radius:10px;box-shadow:0 12px 36px #000a;display:grid;gap:8px}
+.layoutMenu>strong {font-weight:600;margin-bottom:4px}
+.layoutMenu button {justify-content:flex-start;text-align:left;padding:10px;border:1px solid #353b45;min-height:58px}
+.layoutMenu button[aria-pressed=true] {background:#ffac1615;border-color:#ab730f;color:var(--studio-amber)}
+.layoutMenu small {display:block;font-size:11px;color:var(--studio-muted);margin-top:4px}
+.layoutMenu>a {font-size:12px;color:var(--studio-muted);padding:10px 2px 2px;text-decoration:underline;text-underline-offset:3px}
+.library,.inspector,.monitor,.timeline {min-width:0;min-height:0;border:1px solid var(--studio-border);background:linear-gradient(120deg,#111418,#0c0f11 75%);border-radius:12px;overflow:hidden}
+.library {grid-area:library;display:flex;flex-direction:column}
+.libraryHeader {min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border-bottom:1px solid var(--studio-border)}
+.libraryHeader strong,.inspectorHeader strong {font-size:16px;font-weight:650}
+.libraryHeader small,.inspectorHeader small {display:block;color:var(--studio-muted);font-size:12px;margin-top:4px}
+.libraryHeader>button {border:1px solid #815913;color:var(--studio-amber);min-height:35px;padding:6px 14px}
+.scopeControls {display:flex;gap:8px;align-items:center;padding:6px 12px;border-bottom:1px solid var(--studio-border);flex-wrap:wrap}
+.scopeControls>div {display:flex;gap:2px;padding:2px;border-radius:6px;background:#080b0d;border:1px solid #20252a}
+.scopeControls button {min-height:27px;padding:4px 15px;font-size:11px;color:var(--studio-muted)}
+.scopeControls button[aria-pressed=true] {background:#ffac1615;color:var(--studio-amber)}
+.scopeControls select {min-width:0;max-width:100%;flex:1;border:1px solid var(--studio-border);border-radius:4px;padding:6px;background:#090c0e;font-size:11px}
+.sceneList {flex:1;overflow:auto;padding:0 10px 8px}
+.season {border-bottom:1px solid #22272d;padding-bottom:6px}
+.season summary {display:flex;align-items:center;gap:10px;min-height:40px;padding:8px 4px;cursor:pointer;list-style:none;user-select:none}
+.season summary::-webkit-details-marker {display:none}
+.season summary>svg {width:12px;height:12px;color:#9096a2}
+.season[open] summary>svg {transform:rotate(90deg);color:var(--studio-amber)}
+.season summary>span {flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.season summary>small {color:var(--studio-muted);font-size:11px;white-space:nowrap}
+.sceneRow {display:flex;align-items:stretch;min-width:0;min-height:58px;margin:2px 0;border:1px solid #22272c;border-radius:7px;background:#101317}
+.sceneRow[data-selected=true] {background:#ffac1610;border-color:var(--studio-amber);box-shadow:inset 0 0 0 1px #ffac1620}
+.sceneRow button {border:0;border-radius:6px;min-width:0}
+.sceneButton {flex:1;justify-content:flex-start!important;gap:12px!important;min-height:56px;padding:5px 6px}
+.sceneButton>svg {width:14px;color:#858c98}
+.sceneRow[data-selected=true] .sceneButton>svg,.sceneRow[data-selected=true] .sceneNumber {color:var(--studio-amber)}
+.sceneThumb {display:grid;place-items:center;width:58px;height:41px;flex:0 0 58px;overflow:hidden;position:relative;border-radius:4px;background:#1a2026;color:#68727e}
+.sceneThumb>img {width:100%;height:100%;object-fit:cover}
+.sceneThumb>small {position:absolute;bottom:2px;right:3px;border-radius:3px;background:#000d;padding:1px 3px;color:#fff;font-size:10px}
+.sceneNumber {font-variant-numeric:tabular-nums;font-size:12px;font-weight:650;align-self:flex-start;margin-top:6px}
+.sceneName {flex:1;min-width:0;text-align:left}
+.sceneName strong {display:block;font-size:13px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sceneName small {display:block;font-size:12px;color:var(--studio-muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sceneElements {color:#c0c5d0;font-size:11px;white-space:nowrap}
+.sceneMore {width:28px;flex:0 0 28px;color:#b6bdc7!important}
+.libraryTabs,.outerTabs {display:flex;min-height:43px;border-bottom:1px solid var(--studio-border)}
+.libraryTabs>button {flex:1;gap:7px;font-size:12px;border-radius:0;min-width:0;padding:9px 6px}
+.libraryTabs>button[aria-pressed=true],.outerTabs>button[aria-pressed=true] {color:var(--studio-amber);background:#ffac1609;border-bottom:2px solid var(--studio-amber)}
+.libraryTabs svg {width:15px}
+.addScene {margin:10px 12px 4px;min-height:34px;flex-shrink:0;color:var(--studio-amber)!important;border:1px solid #715017;background:#ffac1605!important}
+.sceneDrop {min-height:32px;width:100%;margin-top:6px;font-size:12px;color:var(--studio-muted)!important;border:1px dashed #737b88}
+.createForm {padding:6px 12px;border-bottom:1px solid var(--studio-border)}
+.createForm>form {margin:0;padding:0;display:grid;gap:8px}
+.createForm input,.createForm select {max-width:100%;width:100%;min-width:0;background:#080b0d;border:1px solid #3b424b;border-radius:5px;padding:8px}
+.createForm button {background:var(--studio-amber);color:#080b0d;min-height:34px;font-weight:600}
+.monitorArea {grid-area:monitor;min-height:0;min-width:0}
+.monitor {display:flex;flex-direction:column;width:100%;height:100%;background:#090c0e}
+.monitorHeader {display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px;padding:7px 12px;font-size:13px}
+.monitorHeader>span {min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.monitorHeader button {min-height:28px;padding:4px 9px;border:1px solid #3a4048;white-space:nowrap;font-size:12px}
+.monitorHeader svg {width:15px}
+.previewStage {position:relative;flex:1;min-height:0;overflow:hidden;margin:0 12px 10px;border-radius:7px;background:var(--preview-bg,#06090c);color:var(--preview-ink,#fff);display:grid;place-items:center;isolation:isolate}
+.previewStage>div:first-child:not(.empty):not(.previewText) {position:absolute;inset:0}
+.previewText {position:absolute;bottom:6%;left:6%;right:6%;z-index:2;padding:18px 22px;border:1px solid #ffffff20;border-radius:6px;background:#0a0e13dc;box-shadow:0 5px 20px #0003}
+.previewText>img {width:90px;height:110px;object-fit:cover;float:left;margin-right:18px;border-radius:4px}
+.previewText strong {display:block;font-size:16px;margin-bottom:6px}
+.previewText p {font-family:"Source Serif 4",Georgia,serif;font-size:19px;line-height:1.5;white-space:pre-wrap}
+.headingText {bottom:14%;background:transparent;border:0;text-align:center;box-shadow:none}
+.headingText h1 {font-family:"Source Serif 4",Georgia,serif;font-size:clamp(22px,2.5vw,44px);text-shadow:0 3px 20px #000;line-height:1.2}
+.transport {display:flex;align-items:center;gap:20px;min-height:70px;padding:10px 12px;border-top:1px solid var(--studio-border);flex-shrink:0}
+.playControls {display:flex;align-items:center;gap:8px}
+.playControls button {border:0}
+.roundPlay {border:1px solid #81570f!important;border-radius:50%!important;width:45px;height:45px;color:#fff!important;background:#ffac1620!important}
+.roundPlay svg {fill:currentColor;width:21px;height:21px}
+.progressTransport {display:flex;flex-direction:column;flex:1;min-width:60px;gap:8px}
+.workspace input[type=range] {height:4px;min-width:0;accent-color:var(--studio-amber);padding:0;cursor:pointer}
+.progressTransport input {width:100%;background:linear-gradient(to right,var(--studio-amber) var(--progress),#343b43 var(--progress));border-radius:3px;appearance:none}
+.progressTransport input::-webkit-slider-thumb {appearance:none;width:12px;height:12px;background:#f5f5f5;border-radius:50%;box-shadow:0 0 0 1px #0006}
+.progressTransport>span {font-variant-numeric:tabular-nums;font-size:14px}
+.progressTransport small {color:var(--studio-muted);font-size:13px;margin-left:5px}
+.transportEnd {display:flex;align-items:center;gap:14px;margin-left:auto}
+.transport select {border:1px solid #3a4048;border-radius:5px;background:#0c1014;padding:5px;font-size:12px}
+.inspector {grid-area:inspector;display:flex;flex-direction:column}
+.inspectorHeader {display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:64px;padding:12px 19px}
+.inspectorTabs {display:flex;border-top:1px solid var(--studio-border);border-bottom:1px solid var(--studio-border);padding:3px 12px;flex-shrink:0}
+.inspectorTabs button {flex:1;border:1px solid transparent;min-height:35px;font-size:12px;color:#c5cad7}
+.inspectorTabs button[aria-selected=true] {color:var(--studio-amber);border-color:#775011;background:#ffac1610}
+.inspectorBody {overflow:auto;flex:1;min-height:0;padding:16px 19px}
+.inspectorBody h2 {font-size:14px;font-weight:600;margin-bottom:18px}
+.inspectorBody h3 {font-size:13px;font-weight:600}
+.metadataForm {display:grid;gap:14px}
+.metadataForm>label:not(.switchLabel) {display:grid;gap:6px;font-size:12px;color:#b9c0ce}
+.metadataForm input:not([type=checkbox]),.metadataForm select {width:100%;min-width:0;min-height:34px;padding:6px 10px;color:var(--studio-ink);background:#080b0d;border:1px solid #303740;border-radius:5px}
+.statusControl {position:relative}
+.statusControl>i {position:absolute;top:11px;left:11px;width:12px;height:12px;background:var(--studio-amber);border-radius:50%;pointer-events:none}
+.statusControl>i[data-status=final] {background:#4ade80}
+.statusControl select {padding-left:32px}
+.switchLabel {display:flex;align-items:center;gap:12px;color:#c3c9d5;font-size:11px;padding:0}
+.switchLabel input {appearance:none;width:34px;height:20px;background:#2a3038;border:0;border-radius:20px;position:relative;cursor:pointer;flex-shrink:0}
+.switchLabel input:before {content:"";position:absolute;width:18px;height:18px;border-radius:50%;top:1px;left:1px;background:#9098a6;transition:transform .15s}
+.switchLabel input:checked {background:var(--studio-amber)}
+.switchLabel input:checked:before {transform:translateX(14px);background:#fff}
+.metadataForm>button {min-height:31px;border:1px solid #60461c;color:#e5b54e;font-size:11px}
+.backgroundField {border-top:1px solid #252a30;margin-top:18px;padding-top:14px}
+.backgroundField h3 {margin-bottom:10px}
+.backgroundPreview {display:flex;align-items:center;gap:12px;margin-bottom:8px;min-width:0}
+.backgroundPreview>img {width:88px;height:44px;object-fit:cover;flex-shrink:0;border:1px solid #b88023;border-radius:5px}
+.backgroundPreview>span {font-size:11px;line-height:1.5;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.backgroundPreview>button {border:1px solid #393f47;width:30px;height:30px;flex-shrink:0}
+.mediaPicker>div:first-child>input {display:none}
+.mediaPicker>div:first-child>button,.amberOutline {width:100%;min-height:32px;color:var(--studio-amber)!important;border:1px solid #976a15;background:#ffac160d!important;font-weight:550;font-size:12px}
+.mediaPicker > :global(.relative) {display:none}
+.animationDetails {border-top:1px solid #252a30;margin-top:16px;padding:12px 0;font-size:12px}
+.animationDetails summary {display:flex;align-items:center;justify-content:space-between;font-weight:550;cursor:pointer;min-height:28px;list-style:none}
+.animationDetails summary svg {width:12px;transform:rotate(90deg)}
+.animationDetails[open] summary svg {transform:rotate(-90deg)}
+.animationDetails[open] summary {margin-bottom:12px}
+.elementHeading {margin-bottom:16px}
+.elementHeading h2 {margin-bottom:4px}
+.elementHeading small {color:var(--studio-muted);font-size:11px}
+.inspectorBody [data-scene-block-id] label {font-size:12px}
+.inspectorBody [data-scene-block-id] :is(textarea,select,input) {border-radius:5px;font-size:12px;background:#090c10;border-color:#303740}
+.inspectorBody [data-scene-block-id] textarea {font-size:14px;line-height:1.6;min-height:100px}
+.inspectorBody [data-scene-block-id] button {font-size:11px}
+.elementActions {display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.elementActions button,.deleteScene {font-size:11px;min-height:30px;border:1px solid #353c45;padding:6px 10px}
+.elementActions button:last-child,.deleteScene {color:#ed9a9a!important}
+.deleteScene {margin-top:24px}
+.controlRead {display:flex;align-items:center;gap:8px;margin-top:16px;color:var(--studio-amber);font-size:12px}
+.episodeInfo {padding-block:18px;margin-top:16px;border-top:1px solid #252a30}
+.episodeInfo p {font-size:12px;color:var(--studio-muted);margin:8px 0 16px}
+.resources {padding:14px 16px}
+.inspectorBody .resources {padding:0}
+.resources h2 {font-size:15px;font-weight:600}
+.resources p {margin:14px 0;color:var(--studio-muted);line-height:1.6;font-size:12px}
+.resources a {display:flex;align-items:center;gap:8px;justify-content:space-between;padding:12px 0;color:var(--studio-amber);border-bottom:1px solid #252a30;font-size:13px}
+.colorSwatches {display:grid;gap:16px;margin-block:24px}
+.colorSwatches>div {display:flex;gap:10px;align-items:center}
+.colorSwatches i {width:26px;height:26px;border:1px solid #737b86;border-radius:5px}
+.colorSwatches span {flex:1}
+.colorSwatches code {color:var(--studio-muted);font-size:11px}
+.audioList>button {display:flex;align-items:center;gap:12px;justify-content:flex-start;width:100%;padding:12px 0;border-bottom:1px solid var(--studio-border);text-align:left;font-size:12px}
+.audioList>button small {display:block;margin-top:4px;color:var(--studio-muted);font-size:11px}
+.timeline {grid-area:timeline;display:flex;flex-direction:column;position:relative}
+.timelineToolbar {display:flex;align-items:center;gap:14px;min-height:53px;padding:8px 14px;border-bottom:1px solid #252a30;flex-shrink:0}
+.timelineTitle {display:flex;align-items:center;gap:12px;white-space:nowrap}
+.timelineTitle>svg {width:25px;height:25px;padding:4px;color:var(--studio-amber);background:#1a2027;border-radius:50%}
+.timelineTitle>strong {font-size:14px;font-weight:600}
+.timelineTime {font-variant-numeric:tabular-nums;font-size:12px;color:var(--studio-amber);margin-left:10px}
+.timelineTime small {color:#d8dce5;font-size:11px}
+.timelineTools {display:flex;align-items:center;gap:5px}
+.toolDivider {height:26px;width:1px;background:#282d33;margin-inline:8px}
+.selectedTool {display:grid;place-items:center;width:32px;height:32px;color:var(--studio-amber);background:#ffac1615;border:1px solid #aa7113;border-radius:5px}
+.timelineEnd {display:flex;align-items:center;gap:6px;margin-left:auto}
+.timelineEnd>input {width:105px}
+.timelineEnd .iconButton {background:#171c22;width:27px;height:27px}
+.timingHint {font-size:10px;color:#979fab;margin-right:10px}
+.fitButton {border:1px solid #343b45;padding:4px 8px;font-size:11px!important;margin-left:8px}
+.addControl {position:relative}
+.addElement {height:31px;padding:5px 10px;border:1px solid #9b6b17;color:var(--studio-amber)!important;background:#ffac1610!important;font-size:12px!important}
+.addMenu {position:absolute;bottom:42px;left:0;z-index:30;width:220px;max-height:440px;overflow:auto;background:#151a21;border:1px solid #424b58;border-radius:12px;padding:9px;box-shadow:0 12px 30px #000b}
+.addMenu>button {width:100%;justify-content:flex-start;gap:12px;padding:8px 10px;text-align:left}
+.addMenu>button svg {color:var(--studio-amber);width:21px;height:21px}
+.addMenu>button:nth-child(2)>svg {color:#60a5fa}.addMenu>button:nth-child(3)>svg {color:#a78bfa}.addMenu>button:nth-child(4)>svg {color:#34d399}.addMenu>button:nth-child(5)>svg {color:#22d3ee}
+.addMenu small {display:block;font-size:10px;color:#a9b2bf;margin-top:3px}
+.timelineViewport {min-height:0;flex:1;overflow:auto;position:relative}
+.trackCanvas {min-width:100%;width:calc(var(--track-width) + 216px);position:relative}
+.rulerRow,.trackRow {display:grid;grid-template-columns:216px var(--track-width);width:100%}
+.rulerRow {height:30px}
+.rulerLabel {position:sticky;left:0;z-index:12;background:#101419;border-bottom:1px solid #252a30;border-right:1px solid #252a30}
+.ruler {position:relative;border-bottom:1px solid #252a30;background:repeating-linear-gradient(90deg,transparent 0,transparent 13px,#282e3670 13px,#282e3670 14px) top left/100% 5px no-repeat;cursor:crosshair}
+.rulerTicks {position:absolute;inset:0;pointer-events:none}
+.rulerTicks>span {position:absolute;top:9px;font-size:10px;color:#a1aab8;font-variant-numeric:tabular-nums;transform:translateX(3px);white-space:nowrap}
+.ruler input {position:absolute;inset:0;width:100%;height:100%!important;opacity:0;z-index:3}
+.ruler input:focus-visible {opacity:.8;outline-offset:-2px}
+.playheadHandle {position:absolute;top:3px;z-index:2;transform:translateX(-5px);border-radius:3px 3px 0 0;width:10px;height:14px;background:var(--studio-amber);pointer-events:none}
+.playheadHandle:after {content:"";position:absolute;left:0;top:13px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid var(--studio-amber)}
+.trackRow {min-height:44px;border-bottom:1px solid #222830;height:calc((100% - 30px)/5)}
+.trackRow[data-track=video] {height:58px;min-height:58px}
+.trackLabel {display:flex;align-items:center;gap:14px;padding:7px 15px;position:sticky;left:0;z-index:12;background:#0e1216;border-right:1px solid #252a30;font-size:13px}
+.trackLabel>span {flex:1;min-width:0;white-space:nowrap}
+.trackLabel>svg {width:19px}
+.trackLabel>div {display:flex;align-items:center;gap:4px}
+.trackLabel button {width:26px;height:26px;padding:6px;color:#a1abb7}
+.trackLabel button svg {width:13px;height:13px}
+.trackLabel button[aria-pressed=true] {color:var(--studio-amber);background:#ffac1610}
+.trackRow[data-track=note] .trackLabel>svg {color:var(--studio-amber)}
+.trackRow[data-track=sfx] .trackLabel>svg {color:#57b8ec}
+.trackLane {position:relative;min-height:43px}
+.trackRow[data-hidden=true] .trackLane>.segment,.trackRow[data-hidden=true] .trackLane>div>.segment {opacity:.3}
+.segment {position:absolute;top:6px;height:32px;overflow:hidden;justify-content:flex-start!important;gap:8px!important;text-align:left;border:1px solid #7f8ab4;border-radius:5px!important;padding:5px 9px;color:#f4f6fb;font-size:11px!important}
+.segment>svg {width:15px;height:15px}
+.segment>span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;position:relative;z-index:1}
+.segment[aria-pressed=true] {outline:1px solid var(--studio-amber);outline-offset:1px;z-index:3}
+.videoSegment {height:50px;top:3px;background:#14191e!important;border-color:#505863;padding:3px;gap:8px!important;touch-action:none}
+.videoSegment>img {width:94px;height:42px;object-fit:cover;border-radius:3px;flex-shrink:0}
+.videoSegment>span {flex:1;min-width:0}
+.videoSegment strong {display:block;overflow:hidden;text-overflow:ellipsis;font-size:11px;font-weight:500}
+.videoSegment small {display:block;margin-top:5px;color:#abb4c3;font-size:10px}
+.videoSegment>em {font-style:normal;font-size:11px;margin-left:auto;margin-right:7px;flex-shrink:0}
+.videoSegment[aria-pressed=true] {border-color:var(--studio-amber);background:#ffac160d!important}
+.dialogueSegment {background:#433976!important;border-color:#8476d8}
+.actionSegment {background:#54306d!important;border-color:#8e63b0}
+.backgroundSegment {background:#60452f!important;border-color:#ab855b}
+.musicSegment {background:#103d2c!important;border-color:#268860;touch-action:none}
+.sfxSegment {background:#103353!important;border-color:#398bcc}
+.noteSegment {background:#49351b!important;border-color:#a87b38}
+.waveform {position:absolute;inset:0 0 0 auto;width:70%!important;height:100%!important;opacity:.6;pointer-events:none;stroke:#4dd296;stroke-width:.7}
+.sfxSegment .waveform {stroke:#59b7ef}
+.playheadLine {position:absolute;top:0;bottom:0;width:2px;left:var(--playhead);background:var(--studio-amber);z-index:6;pointer-events:none}
+.emptyLane {display:block;font-size:12px;color:var(--studio-muted);padding:16px}
+.empty {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;min-height:100px;color:var(--studio-muted);font-size:13px;text-align:center;line-height:1.6}
+.empty>button {padding:7px 14px;border:1px solid #815913;color:var(--studio-amber)}
+.episodeArea {height:100%;overflow:auto;border:1px solid var(--studio-border);border-radius:12px;padding:20px;background:var(--studio-panel)}
+.episodeTimeline {display:flex;gap:8px;overflow:auto;flex:1;padding:18px}
+.episodeTimeline button {display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:12px;flex:0 0 220px;padding:18px;background:#13181e;border:1px solid #303843;text-align:left}
+.episodeTimeline button[aria-pressed=true] {border-color:var(--studio-amber);background:#ffac160c}
+.episodeTimeline span,.episodeTimeline small {color:var(--studio-muted);font-size:11px}
+.episodeTimeline strong {font-size:13px;font-weight:550;overflow-wrap:anywhere}
+.errorNotice {position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;background:#431f24;color:#ffe0e1;border:1px solid #a85b64;border-radius:8px;padding:12px 18px;font-size:13px;max-width:calc(100% - 24px);box-shadow:0 6px 30px #000b}
+.errorNotice button {white-space:nowrap;padding:5px 10px;border:1px solid #c58289}
+.inlineNote {margin-top:16px;font-size:12px;line-height:1.5;color:var(--studio-muted)}
+.saveStatus {position:absolute;left:24px;bottom:calc(34.5% + 23px);font-size:9px;color:#909ba8;pointer-events:none}
+.timeBadge {display:inline-block;padding:5px 9px;border-radius:5px;background:#171d24;color:#f5f5f5;font-variant-numeric:tabular-nums;font-size:11px}
+.detailed {grid-template-columns:22.5% minmax(0,1fr) 22%;grid-template-rows:60px minmax(0,1fr) 37%;gap:10px;padding:6px 15px}
+.detailed .topbar {margin:0;padding:8px 20px;gap:20px}
+.detailed .brand {border-right:1px solid #5a626d;padding-right:20px;font-size:17px}
+.detailed .logo {height:34px;width:32px;font-size:24px}
+.detailed .breadcrumb button {font-size:16px;font-weight:650}
+.detailed .breadcrumb button svg {width:14px;color:#a7adb6}
+.detailed .historyButtons {margin-right:0;border:1px solid #252b32;border-radius:7px;padding:2px}
+.detailed .historyButtons button {background:transparent}
+.detailed .topActions {gap:12px}
+.detailed .topActions .primary {min-width:0;padding-inline:10px;border-color:#414955;color:#c7ced9;background:transparent;font-weight:400}
+.detailed .topActions .exportButton {min-width:134px}
+.detailed .monitor {padding:12px 0 0;border-radius:0 0 12px 12px}
+.detailed .previewStage {border-radius:0;margin:0 15px 0}
+.detailed .transport {min-height:58px;padding:8px 10px;gap:16px}
+.detailed .transport>.playControls {position:absolute;left:50%;transform:translateX(-50%)}
+.detailed .monitor {position:relative}
+.detailed .transport>.timeBadge {width:83px;text-align:center;padding-block:8px;background:#12171d}
+.detailed .sceneList {padding-inline:12px}
+.detailed .sceneRow {min-height:66px;margin-bottom:5px}
+.detailed .sceneButton {gap:14px!important;padding:6px}
+.detailed .sceneThumb {width:76px;height:51px;flex-basis:76px}
+.detailed .sceneNumber {margin-top:8px}
+.detailed .sceneName small {font-size:11px;margin-top:6px}
+.detailed .season summary {min-height:40px}
+.detailed .outerTabs {padding:2px 3px 0}
+.outerTabs>button {flex:1;padding:8px 3px;min-width:0;font-size:11px;border-radius:7px 7px 0 0}
+.detailed .outerTabs>button[aria-pressed=true] {border:1px solid #a16b13;border-bottom:2px solid #e59b13;background:#ffac1610;font-weight:600}
+.detailed .inspectorTabs {border-top:0;border-bottom:0;padding:10px 9px 0}
+.detailed .inspectorTabs button {min-height:31px;border-color:#282e36;border-radius:0;font-size:11px}
+.detailed .inspectorTabs button:first-child {border-radius:6px 0 0 6px}
+.detailed .inspectorTabs button:last-child {border-radius:0 6px 6px 0}
+.detailed .inspectorTabs button[aria-selected=true] {border-color:#9c6a14}
+.detailed .inspectorBody {padding:14px 12px}
+.detailed .metadataForm>label:not(.switchLabel) {display:grid;grid-template-columns:92px minmax(0,1fr);align-items:center;font-size:11px;gap:8px}
+.detailed .metadataForm .switchLabel {font-size:11px}
+.detailed .metadataForm>label>input,.detailed .metadataForm>label>select {font-size:11px}
+.detailed .timelineToolbar {min-height:36px;padding:5px 12px}
+.detailed .timelineTitle {order:2;margin-left:12px}
+.detailed .timelineTitle>.timeBadge {background:var(--studio-amber);color:#100b04;padding:3px 8px;font-size:11px;font-weight:600}
+.detailed .timelineTools {order:1}
+.detailed .addControl {order:3}
+.detailed .timelineEnd {order:4}
+.detailed .addElement {border-radius:50%;width:30px;height:30px;padding:6px;color:#161004!important;background:var(--studio-amber)!important}
+.detailed .addMenu {bottom:auto;top:42px}
+.detailed .trackRow {height:35px;min-height:35px}
+.detailed .trackRow[data-track=video] {height:50px;min-height:50px}
+.detailed .trackLane {min-height:34px}
+.detailed .trackLabel {font-size:12px;gap:12px;padding-block:4px}
+.detailed .segment {top:3px;height:28px}
+.detailed .videoSegment {height:43px;top:3px}
+.detailed .videoSegment>img {height:36px}
+.detailed .videoSegment>em {display:none}
+.detailed .dialogueSegment {background:#304c83!important;border-color:#4a72b4}
+.detailed .sfxSegment {background:#0c4b55!important;border-color:#2d8996}
+.detailed .sfxSegment .waveform {stroke:#40c0cf}
+.detailed .noteSegment {background:#554622!important;border-color:#9a843d}
+.detailed .segment:not(.videoSegment) svg:not(.waveform) {display:none}
+@media(min-height:1020px) { .compact .trackRow {height:calc((34.5svh - 100px)/5)} .detailed .trackRow {height:calc((37svh - 84px)/7)} }
+@media(max-width:1450px) {
+ .workspace {grid-template-columns:23% minmax(0,1fr) 24%;gap:10px}
+ .topbar {gap:16px;padding-left:12px}
+ .brand {gap:9px;font-size:15px}.brand>b {font-size:15px}.formatBadge {display:none}
+ .breadcrumb {font-size:12px;gap:8px}
+ .topActions {gap:7px}.historyButtons {margin-right:4px}
+ .topActions>button,.layoutControl>button {padding-inline:9px;font-size:12px}
+ .topActions .primary {padding-inline:14px;min-width:95px}
+ .sceneButton {gap:8px!important}.sceneElements {display:none}
+ .timelineToolbar {gap:10px}.timingHint {font-size:10px}
+ .detailed .topbar {padding-inline:12px}.detailed .topActions {gap:7px}
+ .detailed .topActions .exportButton {min-width:105px}
+ .detailed .sceneThumb {width:62px;flex-basis:62px}
+}
+@media(max-width:1100px) {
+ .workspace {grid-template-columns:25% minmax(0,1fr) 27%;min-height:740px}
+ .brand>b,.brand>svg {display:none}
+ .topActions .activeButton {display:none}
+ .topActions>button>span,.layoutControl>button>span {display:none}
+ .topActions .primary,.detailed .topActions .exportButton {min-width:40px;padding-inline:9px}
+ .detailed .topActions>button>svg:last-child:not(:first-child) {display:none}
+ .detailed .brand {padding-right:10px}
+ .topbar {gap:12px}
+ .inspectorBody,.inspectorHeader {padding-inline:12px}
+ .sceneButton {gap:6px!important}.sceneThumb {width:44px;flex-basis:44px}.sceneName strong {font-size:12px}
+ .detailed .sceneThumb {width:48px;flex-basis:48px}.detailed .sceneButton {gap:7px!important}
+ .timelineTitle>strong {font-size:12px}.timelineTime {margin-left:0}
+ .timelineEnd>input {width:70px}.timelineTools {gap:0}
+ .detailed .metadataForm>label:not(.switchLabel) {grid-template-columns:1fr}
+}
+@media(max-width:820px) {
+ .workspace,.detailed {height:auto;min-height:100svh;overflow:visible;grid-template-columns:220px minmax(0,1fr);grid-template-rows:60px 420px auto auto;grid-template-areas:"header header" "library monitor" "timeline timeline" "inspector inspector";padding:0 8px 8px;gap:10px}
+ .topbar,.detailed .topbar {margin:0 -8px;padding:8px 10px;position:sticky;top:0}
+ .brand {gap:8px}.logo {width:28px;height:32px;font-size:22px}
+ .brand>strong {font-size:14px}.breadcrumb>a,.breadcrumb>svg,.breadcrumb>span {display:none}
+ .topActions {gap:4px}.topActions>button,.layoutControl>button {min-height:32px;padding:6px}.historyButtons {display:none}
+ .topActions .primary,.detailed .topActions .exportButton {min-width:32px}
+ .timeline {min-height:335px}.detailed .timeline {min-height:350px}
+ .timelineToolbar {flex-wrap:wrap;gap:6px}
+ .timelineTitle {gap:6px}.timelineTools {gap:0}.timelineEnd>input {width:70px}
+ .fitButton {display:none}
+ .inspector {min-height:360px;max-height:none}.inspectorBody {max-height:600px;padding:18px}
+ .inspectorHeader {min-height:50px}.inspectorTabs {max-width:440px;width:100%;align-self:center}
+ .detailed .outerTabs {min-height:43px}.detailed .metadataForm>label:not(.switchLabel) {grid-template-columns:140px 1fr}
+ .metadataForm {max-width:560px}.backgroundField {max-width:560px}
+ .saveStatus {display:none}
+ .transport {gap:8px;padding-inline:8px}.transportEnd {gap:4px}.playControls {gap:1px}
+ .transport select {max-width:48px}
+ .previewStage {margin-inline:8px}
+ .roundPlay {width:34px;height:34px}
+ .previewText p {font-size:15px}
+}
+@media(max-width:640px) {
+ .workspace,.detailed {display:flex;flex-direction:column;padding:0 8px 8px;gap:10px}
+ .topbar,.detailed .topbar {min-height:56px;gap:10px;flex-shrink:0;order:0;flex-wrap:wrap}
+ .brand>strong {display:none}.detailed .brand {padding-right:0;border:0}
+ .breadcrumb {min-width:70px}.breadcrumb button,.detailed .breadcrumb button {font-size:12px}
+ .detailed .breadcrumb small {font-size:8px}
+ .topActions {gap:4px}
+ .topActions>button,.layoutControl>button {width:30px;height:30px;min-height:30px;padding:6px}
+ .topActions .primary,.detailed .topActions .primary,.detailed .topActions .exportButton {width:30px;min-width:30px;padding:5px}
+ .library {order:2;max-height:320px;flex-shrink:0}
+ .monitorArea {order:1;height:320px;flex-shrink:0}
+ .monitorHeader {font-size:11px;padding:6px 8px;min-height:36px}
+ .monitorHeader button {font-size:0;gap:0}
+ .monitorHeader svg {width:15px}
+ .transport {min-height:60px;padding:8px;gap:6px}
+ .transportEnd>button:last-child {display:none}
+ .progressTransport {min-width:40px}.progressTransport>span {font-size:11px}.progressTransport small {font-size:10px}
+ .transportEnd {gap:0}
+ .transport select {padding:4px 0;font-size:10px;max-width:37px}
+ .playControls button {width:26px;height:30px;padding:4px}
+ .playControls .roundPlay {width:33px;height:33px}
+ .detailed .transport {gap:6px}.detailed .transport>.timeBadge {width:67px;font-size:10px}
+ .detailed .transport>.playControls {left:53%}
+ .detailed .transportEnd>span {font-size:10px}
+ .timeline {order:3;min-height:360px}
+ .detailed .timeline {min-height:400px}
+ .timelineToolbar {padding:8px;gap:6px}
+ .timelineTitle {width:100%;justify-content:flex-start;gap:8px}
+ .timelineTitle>.timelineTime {margin-left:auto}
+ .timelineEnd {gap:2px}.timelineEnd>input {width:48px}.timelineTools .toolDivider,.timelineTools .selectedTool {display:none}
+ .timelineTools>.iconButton {width:26px;height:28px}
+ .timelineEnd>.iconButton {width:25px;height:25px}
+ .addElement {font-size:0!important;gap:0!important;padding:5px}
+ .detailed .timelineTitle {width:auto;order:0;margin-left:0;margin-right:auto}
+ .detailed .timelineTools {order:1}.detailed .addControl {order:2}.detailed .timelineEnd {width:100%;order:3;justify-content:flex-end}
+ .detailed .addMenu {left:auto;right:-70px}
+ .trackCanvas {width:calc(var(--track-width) + 148px)}
+ .rulerRow,.trackRow {grid-template-columns:148px var(--track-width)}
+ .trackLabel {padding-inline:8px;gap:6px;font-size:11px}
+ .trackLabel>svg {width:14px}
+ .trackLabel>div {gap:0}
+ .trackLabel button {width:20px;padding:3px}
+ .trackLabel button svg {width:12px}
+ .detailed .trackLabel {font-size:10px;gap:6px}
+ .inspector {order:4;max-height:none}.inspectorBody {padding:14px}
+ .detailed .metadataForm>label:not(.switchLabel) {grid-template-columns:90px minmax(0,1fr)}
+ .episodeArea {padding:14px}
+ .libraryHeader {min-height:54px}
+ .sceneList {min-height:120px}
+ .previewText {padding:10px 14px}
+ .previewText p {font-size:14px}.previewText strong {font-size:13px}
+ .previewText>img {width:60px;height:76px;margin-right:10px}
+ .layoutMenu {position:fixed;top:58px;right:12px;max-width:calc(100vw - 24px)}
+}
+.workspace :is(.monitor,.timeline,.inspector):fullscreen {background:#080a0b;border-radius:0;padding:16px;width:100vw;height:100vh}
+.monitor:fullscreen .previewStage {flex:1}
+.timeline:fullscreen .trackRow {min-height:calc((100vh - 110px)/7)}
+@media(prefers-reduced-motion:reduce) { .workspace button,.switchLabel input:before {transition:none} }
+
+/* Scope switches fit the reference chrome without adding a row above the scenes. */
+@media(min-width:821px) {
+ .compact .library {position:relative}
+ .compact .scopeControls {position:absolute;top:18px;right:112px;border:0;padding:0;background:transparent;max-width:155px;z-index:2}
+ .compact .scopeControls button {padding:4px 8px;font-size:10px;min-height:25px}
+ .compact .scopeControls select {position:absolute;top:33px;right:0;min-width:200px;background:#151a20;box-shadow:0 4px 16px #000b;z-index:20}
+ .detailed .topbar>.scopeControls {border:0;padding:0;flex-shrink:0}
+ .detailed .topbar>.scopeControls button {padding-inline:10px}
+ .detailed .topbar>.scopeControls select {max-width:170px}
+}
+@media(min-width:821px) and (max-width:1450px) { .compact .scopeControls {right:98px;top:11px}.compact .scopeControls button {font-size:9px;padding-inline:6px;min-height:22px}.compact .libraryHeader strong {font-size:14px}.compact .libraryHeader small {font-size:11px}.compact .libraryHeader {padding-left:12px}.compact .libraryHeader>button {padding-inline:10px;font-size:12px} }
+@media(min-width:821px) and (max-width:1100px) { .compact .scopeControls {position:static;border-bottom:1px solid var(--studio-border);padding:5px 12px;max-width:none}.compact .scopeControls select {position:static;min-width:0}.detailed .topbar>.scopeControls {max-width:200px}.detailed .scopeControls button {font-size:10px;padding-inline:6px} }
+@media(max-width:820px) { .detailed .topbar>.scopeControls {order:5;width:100%;justify-content:center;border:0;padding:4px 0 0}.detailed .topbar {position:relative}.detailed .monitorArea {margin-top:4px} }
+.trackCanvas {height:100%;min-height:248px}
+.compact .trackRow:not([data-track=video]) {height:calc((100% - 88px)/4);min-height:40px}
+.detailed .trackCanvas {min-height:290px}
+.detailed .trackRow:not([data-track=video]) {height:calc((100% - 80px)/6);min-height:35px}
+@media(max-width:1450px) { .videoSegment>img {width:64px} }
+.inlineAdd {position:absolute;top:20px;z-index:16}
+.inlineAdd>button {height:33px;width:33px;border-radius:50%;background:var(--studio-amber);color:#171004;border:1px solid #ffd38a;box-shadow:0 0 0 4px #11151a}
+.inlineAdd>button:hover:not(:disabled) {background:#ffbf4f}
+.inlineAddMenu {position:absolute;top:43px;left:8px;min-width:210px;background:#151a21;border:1px solid #515966;border-radius:10px;padding:8px;box-shadow:0 8px 30px #000b}
+.inlineAddMenu>button {width:100%;justify-content:flex-start;padding:8px 10px;text-align:left;gap:12px;font-size:12px}
+.inlineAddMenu small {display:block;font-size:10px;color:#a9b2bf;margin-top:3px}
+.inlineAddMenu>button>svg {color:#62a7fc}
+.inlineAddMenu>button:nth-child(2)>svg {color:#a78bfa}.inlineAddMenu>button:nth-child(3)>svg {color:#34d399}.inlineAddMenu>button:nth-child(4)>svg {color:#22d3ee}.inlineAddMenu>button:nth-child(5)>svg {color:#d1d9e5}.inlineAddMenu>button:last-child>svg {color:var(--studio-amber)}
+@media(max-width:640px) { .inlineAdd {display:none} }
+
+.inlineAddMenu {top:35px;padding:6px}
+.inlineAddMenu>button {padding:4px 10px;line-height:1.1}
+.inlineAddMenu small {line-height:1.15;margin-top:2px}
+@media(max-width:820px) { .workspace,.detailed {grid-template-rows:auto 420px auto auto} }
+
+/* Finish review: retain readable detailed labels and explicit indicative timing at every width. */
+.detailed .metadataForm>label:not(.switchLabel),.detailed .metadataForm>label>input,.detailed .metadataForm>label>select {font-size:13px}
+.detailed .metadataForm .switchLabel {font-size:12px}
+.detailed .segment {font-size:13px!important}
+.detailed .videoSegment strong {font-size:13px}
+.detailed .videoSegment small {font-size:11px}
+.detailed .trackLabel {font-size:13px}
+.timingHint {white-space:nowrap;display:inline;margin-right:4px}
+@media(max-width:820px) { .workspace .fitButton {display:none} }
+@media(max-width:640px) { .detailed .trackLabel {font-size:11px}.detailed .segment {font-size:12px!important}.timelineEnd .timingHint {font-size:10px;margin-right:3px} }

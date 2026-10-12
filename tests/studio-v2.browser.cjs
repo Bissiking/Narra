@@ -9,27 +9,28 @@ const assert = require('node:assert/strict');
  const base=process.env.NARRA_QA_BASE_URL || 'http://127.0.0.1:3034'; const root=process.cwd();fs.mkdirSync(root+'/.impeccable/review',{recursive:true});
  await page.setCookie({name:'narra_session',value:f.token,domain:'127.0.0.1',path:'/',httpOnly:true});
  async function go(path) { const r=await page.goto(base+path,{waitUntil:'networkidle0'});assert.equal(r.status(),200,path); }
+ async function enterSubblock() { await clickText("Sous-bloc"); await page.waitForSelector('[data-track="video"] [data-block-id="'+f.first.id+'"]'); await page.click('[data-track="video"] [data-block-id="'+f.first.id+'"]'); await page.waitForSelector('[data-scene-block-id] textarea'); }
  async function clickText(text) { const buttons=await page.$$('button');for(const b of buttons){if((await b.evaluate(el=>el.textContent.trim()))===text){await b.click();return;}} throw Error('Missing button '+text); }
  await page.setViewport({width:1440,height:1000});
- await go(`/project/${f.project.id}/edit-v2`);await page.waitForSelector('#studio-content');
- assert.match(await page.content(),/Déroulé de la scène/);
+ await go(`/project/${f.project.id}/edit-v2`);await enterSubblock();
+ assert.ok(await page.$('[aria-label="Timeline du sous-bloc"]'));
  await page.screenshot({path:root+'/.impeccable/review/desktop.png',fullPage:true});
  // Direct writing, manual save, reload: persistence through the real API.
- await page.click('#studio-content'); await page.$eval('#studio-content',e=>e.select());await page.keyboard.type('Dialogue enregistré depuis le Studio V2.');
+ await page.click('[data-scene-block-id] textarea'); await page.$eval('[data-scene-block-id] textarea',e=>e.select());await page.keyboard.type('Dialogue enregistré depuis le Studio V2.');
  const saved=page.waitForResponse(r=>r.url().includes(`/api/scenes/${f.scene.id}/blocks`) && r.request().method()==='PUT');await clickText('Sauver');assert.equal((await saved).status(),200);
- await page.reload({waitUntil:'networkidle0'});assert.equal(await page.$eval('#studio-content',e=>e.value),'Dialogue enregistré depuis le Studio V2.');
+ await page.reload({waitUntil:'networkidle0'});if(page.url().includes('/edit-v2'))await enterSubblock();assert.equal(await page.$eval('[data-scene-block-id] textarea',e=>e.value),'Dialogue enregistré depuis le Studio V2.');
  // Decor settings: add both fade tracks, configure delay, persist.
- await page.click('[aria-label="Blocs de la scène"] button[aria-pressed]');
+ await page.click('[data-track="video"] [data-block-id="'+f.bg.id+'"]');
  await page.waitForSelector('fieldset legend');
  await clickText('Ajouter un effet d’entrée');
- const effectSelects=await page.$$('details select');
+ const effectSelects=await page.$('fieldset details select');
  // New entry defaults to Fade in; add Fade out via effect select by label.
  await clickText('Ajouter un effet d’entrée');
- const fadeSelect = (await page.$$('details select')).filter(Boolean);
+ const fadeSelect = (await page.$('fieldset details select')).filter(Boolean);
  const effectHandles=[];for(const h of fadeSelect) if(await h.evaluate(el=>el.options.length===38)) effectHandles.push(h);
  await effectHandles[2].select('fade-out');
- const thirdDetails=(await page.$$('details'))[2];await (await thirdDetails.$('summary')).click();const delayInput=(await thirdDetails.$$('input[type=number]'))[1];await delayInput.click();await delayInput.evaluate(e=>e.select());await page.keyboard.type('4000');
- const inputs=await page.$$('details input[type="number"]');
+ const thirdDetails=(await page.$('fieldset details'))[2];await (await thirdDetails.$('summary')).click();const delayInput=(await thirdDetails.$$('input[type=number]'))[1];await delayInput.click();await delayInput.evaluate(e=>e.select());await page.keyboard.type('4000');
+ const inputs=await page.$('fieldset details input[type="number"]');
  // API validates, PATCH and PUT round-trip configuration.
  const apiResult=await page.evaluate(async({f})=>{
    const res=await fetch(`/api/scenes/${f.scene.id}/blocks`);const blocks=await res.json();
@@ -37,14 +38,14 @@ const assert = require('node:assert/strict');
    return {invalid:invalid.status,tracks:bg.animationConfig.length};
  },{f});assert.equal(apiResult.invalid,400);
  const saved2=page.waitForResponse(r=>r.url().includes(`/api/scenes/${f.scene.id}/blocks`) && r.request().method()==='PUT');await clickText('Sauver');assert.equal((await saved2).status(),200);
- await page.reload({waitUntil:'networkidle0'});await page.click('[aria-label="Blocs de la scène"] button[aria-pressed]');
- assert.ok((await page.$$('details')).length>=5);
+ await page.reload({waitUntil:'networkidle0'});if(page.url().includes('/edit-v2'))await enterSubblock();await page.click('[data-track="video"] [data-block-id="'+f.bg.id+'"]');
+ assert.ok((await page.$('fieldset details')).length>=5);
  await page.screenshot({path:root+'/.impeccable/review/desktop-animations.png',fullPage:true});
  // Mobile layout and persisted preferences.
- await page.setViewport({width:390,height:844});await page.reload({waitUntil:'networkidle0'});
+ await page.setViewport({width:390,height:844});await page.reload({waitUntil:'networkidle0'});if(page.url().includes('/edit-v2'))await enterSubblock();
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Mobile overflow');
  await page.screenshot({path:root+'/.impeccable/review/mobile.png',fullPage:true});
- await clickText('Disposition');await page.click('[aria-label="Personnaliser le studio"] input');await clickText('Fermer');await page.reload({waitUntil:'networkidle0'});assert.equal(await page.$('[aria-label="Timeline de la scène"]'),null);
+ await page.click('[aria-label="Disposition"]');await page.$$eval('[aria-label="Choisir la disposition"] button',buttons=>buttons.find(b=>b.textContent.includes('Détaillée')).click());await page.reload({waitUntil:'networkidle0'});assert.equal(await page.$eval('[data-studio-layout]',el=>el.getAttribute('data-studio-layout')),'detailed');assert.equal((await page.$$('[data-track]')).length,7);
  // Current editor still usable.
  await go(`/project/${f.project.id}/edit`); assert.match(await page.content(),/Timeline composite/);
  // Wiki preview is private, stays within preview, includes complete facts and dynamic appearances.
