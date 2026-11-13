@@ -1,6 +1,6 @@
 {
   "name": "narra",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "private": true,
   "scripts": {
     "dev": "tsx server.ts",
@@ -13,7 +13,9 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "test:animations": "tsx --test tests/scene-animations.test.ts",
-    "test:navigation": "tsx --test tests/studio-navigation.test.ts"
+    "test:navigation": "tsx --test tests/studio-navigation.test.ts",
+    "test:import": "tsx --test tests/scene-script-parser.test.ts",
+    "test:studio-patch": "node tests/studio-patch.browser.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

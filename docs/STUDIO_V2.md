@@ -8,7 +8,7 @@ Studio V2 démarre dans le sous-bloc sélectionné, avec la disposition **Compac
 
 1. Choisir une scène dans la bibliothèque de gauche. **Épisode** ouvre l’organisation des blocs et sous-blocs ; **Sous-bloc** revient au montage de la scène sélectionnée. Voir [Navigation Épisode / Sous-bloc](STUDIO_NAVIGATION.md).
 2. Sélectionner un segment dans la timeline inférieure. Modifier son texte et ses paramètres dans l’inspecteur de droite, onglet **Bloc** en Compacte ou **Plan** en Détaillée. L’aperçu occupe le panneau central.
-3. Utiliser **Ajouter un élément**, ou l’insertion après le plan en Détaillée, pour créer dialogues, actions, décors, musiques, effets sonores et notes. Le menu permet aussi d’importer un scénario. Le glisser-déposer au pointeur ou au clavier réordonne un plan avec ses couches ; les musiques gardent leur ordre indépendant.
+3. Utiliser **Ajouter un élément**, ou l’insertion après le plan en Détaillée, pour créer dialogues, actions, décors, musiques, effets sonores et notes. Le bouton **Importer**, à côté d’**Ajouter**, ouvre l’import de script collé ou de fichier `.md` / `.txt`. Le glisser-déposer au pointeur ou au clavier réordonne un plan avec ses couches ; les musiques gardent leur ordre indépendant.
 4. **Sauver** est visible dans l’en-tête Compacte et dans le menu **Disposition** en Détaillée. **Ctrl+S** déclenche aussi la sauvegarde. Les éléments modifiés bénéficient de la sauvegarde automatique toutes les 30 secondes. Un échec conserve le travail, affiche l’erreur et bloque le changement de sous-bloc ou d’épisode.
 
 L’onglet **Scène** règle le statut, la séquence et le titre de lecture ; les réglages modifiés sont enregistrés avant un changement de scène ou d’épisode et avant la sauvegarde principale. **Enregistrer les réglages** permet de les sauver directement ; un échec conserve les valeurs et permet de réessayer. **Univers** donne accès aux fiches du projet. La vue Détaillée expose aussi **Ressources**, **Médiathèque**, **Effets**, **Couleurs** et **Audio**, avec les sélecteurs de médias et l’éditeur d’animations existants.
@@ -79,3 +79,30 @@ La reconstruction du 8 octobre 2026 a passé la vérification TypeScript, les 4 
 Le banc `tests/studio-navigation.browser.cjs` a également passé le parcours de navigation avec l’interface actuelle, des API simulées et `NARRA_QA_SKIP_CAPTURE=1` : modes, isolation, réordonnancement/rechargement, sauvegarde complète, panne bloquante, épisodes vides, lecture seule et absence de débordement à 1920, 1440 et 390px.
 
 PostgreSQL était indisponible pendant cette reconstruction : les échanges réels avec la base, le SSO et le minutage de la lecture des médias n’ont pas été validés de bout en bout. Les résultats initiaux ci-dessus ne remplacent pas cette vérification des nouveaux layouts. La compilation directe Next.js a réussi (journal `.impeccable/studio-v2-build.log`, code de sortie 0). Le pipeline complet `npm run build` n’est pas validé : une tentative de régénération du client Prisma a rencontré un verrou Windows (`EPERM` sur `query_engine-windows.dll.node`, DLL en cours d’utilisation). Aucun déploiement n’a été lancé.
+
+
+## Patch Studio du 13 novembre 2026
+
+Les poignées de la bibliothèque et de l’organisation **Épisode** réordonnent les sous-blocs au sein de leur bloc actuel. Glisser la poignée à la souris ou au toucher ; au clavier, la sélectionner, appuyer sur Espace, utiliser les flèches, puis Espace pour déposer ou Échap pour annuler. L’ordre est enregistré par l’API existante ; un échec conserve l’ordre précédent et propose de réessayer. Le déplacement entre blocs reste accessible par **Scène → Séquence**.
+
+Dans la timeline, déposer un élément de texte sur **Dialogues**, **Notes internes** ou **Action** change son type. En Compacte, **Plans visuels** convertit le texte en action. Le texte, le personnage et les autres paramètres restent conservés, ce qui permet de revenir au type précédent. Un déplacement sur la même piste réordonne les plans et leurs couches. Les médias et les pistes verrouillées ne sont pas convertis. Le sélecteur **Type du bloc** reste disponible pour changer de type au clavier ; **Annuler/Rétablir** prend en charge les conversions locales.
+
+Cliquer sur le titre du sous-bloc dans l’en-tête pour le renommer, puis Entrée ou le bouton d’enregistrement pour valider. Échap annule. Le titre est aussi accessible dans l’onglet **Scène**. Un échec garde le titre saisi et affiche l’erreur ; le changement de sous-bloc attend la réussite de l’enregistrement.
+
+Les menus utilisent la couche supérieure native du navigateur, ce qui leur permet de dépasser les panneaux du Studio. Les fenêtres d’import, de médias et d’aide utilisent un dialogue modal natif : arrière-plan inactif, Échap pour fermer et restitution du focus. Les explications de portraits, décors, animations et timeline sont disponibles via leurs boutons **Aide**.
+
+### Import Markdown et personnages
+
+**Importer → Ouvrir un fichier .md / .txt** accepte aussi `.markdown` (UTF-8, 2 Mo maximum). Le texte collé reste disponible. L’aperçu liste les blocs avant toute modification. Les balises Narra et le Markdown peuvent cohabiter : titres `#`, noms en gras ou `NOM: réplique`, indications de dialogue, coupes `---` (même sans ligne vide), `***`, `___` et variantes espacées. Les clôtures de code englobantes sont ignorées ; un en-tête YAML simple n’est pas importé comme contenu narratif.
+
+Les noms sont rapprochés des alias, noms complets, prénoms et noms de famille sans tenir compte de la casse, des accents ou de la ponctuation. Les noms ambigus restent à associer. La section **Personnages du script** permet de corriger une association pour toutes les répliques portant ce nom source ; aucun personnage n’est créé ou renommé dans l’univers. Les noms inconnus restent conservés dans les indications du dialogue. Vérifier l’aperçu pour les titres en gras qui peuvent aussi ressembler à des noms.
+
+### Vérification locale du patch
+
+- `npm run test:import` : découpage, formats mixtes, noms ambigus, associations et conversion des types.
+- `npm run test:navigation` et `npm run test:animations` : régressions des fonctions partagées.
+- `NARRA_PUPPETEER_MODULE=/chemin/vers/puppeteer-core NARRA_CHROME=/chemin/vers/chrome npm run test:studio-patch` : lance un serveur Next.js local avec une route QA temporaire, teste les interactions au pointeur et au clavier, les erreurs, l’import, les fenêtres et les dispositions Compacte/Détaillée à 1440, 390 et 320 px. Captures et rapport sous `.impeccable/review/patch-*`. La route est supprimée en fin de test.
+
+Ce parcours utilise des réponses API interceptées. Il ne prouve ni la persistance PostgreSQL réelle, ni le SSO Kyros, ni le fonctionnement sur appareil tactile physique, ni un déploiement.
+
+Validation locale effectuée le 13 novembre 2026 : les 21 tests import/navigation/animations passent ; le parcours Chrome for Testing via Puppeteer passe en Compacte et Détaillée aux trois largeurs, sans erreur JavaScript. Le build Next.js de production compile, vérifie les types et génère les pages. `npm run lint` demande une configuration ESLint absente du dépôt ; un contrôle ciblé des fichiers modifiés avec la configuration Next Core Web Vitals passe sans erreur (11 avertissements : images natives et une dépendance de hook dans le moniteur existant).

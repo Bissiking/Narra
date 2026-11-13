@@ -458,10 +458,23 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
 
   // Save scene title
   async function saveTitle() {
-    if (!selectedScene || !titleValue.trim() || titleValue === scenes.find((s) => s.id === selectedScene)?.title) { setEditTitle(false); return; }
-    const res = await fetch(`/api/projects/${projectId}/scenes/${selectedScene}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: titleValue.trim() }) });
-    if (res.ok) { const updated = await res.json(); setScenes((s) => s.map((sc) => (sc.id === selectedScene ? { ...sc, title: updated.title } : sc))); }
-    setEditTitle(false);
+    if (!selectedScene || !canEdit) return;
+    if (!titleValue.trim()) {
+      if (version === 2) throw new Error("Le titre ne peut pas être vide.");
+      setSaveError("Le titre ne peut pas être vide.");
+      return;
+    }
+    if (titleValue.trim() === scenes.find(s => s.id === selectedScene)?.title) { setEditTitle(false); return; }
+    try {
+      const res = await fetch(`/api/projects/${projectId}/scenes/${selectedScene}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: titleValue.trim() }) });
+      if (!res.ok) throw new Error("Impossible de renommer le sous-bloc. Réessayez.");
+      const updated = await res.json();
+      setScenes(s => s.map(sc => sc.id === selectedScene ? {...sc, title:updated.title} : sc));
+      setTitleValue(updated.title); setEditTitle(false);
+    } catch (error) {
+      if (version === 2) throw error;
+      setSaveError("Impossible de renommer la scène. Réessayez.");
+    }
   }
 
   // Save scene metadata
@@ -532,11 +545,17 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
     setEpisodeId(id); setSelectedScene(episode.scenes[0]?.id || null); setNavigationMode("episode"); setBlockSearch("");
   }
   async function moveScene(id: string, direction: -1 | 1) {
-    if (!activeEpisode || movingScene || !canEdit) return;
-    const group = findStudioGroup(activeEpisode.groups, id);
+    const group = activeEpisode && findStudioGroup(activeEpisode.groups, id);
+    const index = group?.scenes.findIndex(scene => scene.id === id) ?? -1;
+    const target = group?.scenes[index + direction];
+    if (target) await reorderScene(id, target.id);
+  }
+  async function reorderScene(id: string, targetId: string) {
+    if (movingScene || !canEdit || id === targetId) return;
+    const group = episodes.map(episode => findStudioGroup(episode.groups, id)).find(Boolean);
     if (!group) return;
     const index = group.scenes.findIndex(s => s.id === id);
-    const target = index + direction;
+    const target = group.scenes.findIndex(scene => scene.id === targetId);
     if (target < 0 || target >= group.scenes.length) return;
     setMovingScene(true); setNavigationError(null);
     const ordered = arrayMove(group.scenes, index, target);
@@ -571,7 +590,7 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
     selectedScene={selectedSceneData || null} blocks={blocks} selectedBlockId={selectedBlockId}
     onSelectBlock={setSelectedBlockId} onOpenScene={openSubblock} onSelectScene={selectScene}
     onModeChange={mode => mode === "episode" ? setNavigationMode("episode") : selectedScene && void openSubblock(selectedScene)}
-    onSelectEpisode={selectEpisode} onMoveScene={moveScene} movingScene={movingScene}
+    onSelectEpisode={selectEpisode} onMoveScene={moveScene} onReorderScene={reorderScene} movingScene={movingScene}
     onAddBlock={addBlock} onUpdateBlock={updateBlock} onRemoveBlock={removeBlock} onImport={importBlocks}
     onRestoreBlocks={next => { setBlocks(next); setSelectedBlockId(current => next.some(block => block.id === current) ? current : next[0]?.id || null); markDirty(); }}
     onReorderPlans={handlePlanDragEnd} onReorderMusic={handleMusicDragEnd}
@@ -663,7 +682,7 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
         <div className={editorStyles.railTools}>{canEdit && editorProfile.blocks.map((b) => <button type="button" key={b.value} disabled={!selectedScene || blocksLoading || !!blockLoadError} onClick={() => addBlock(b.value, selectedBlockId)}>+ {b.label}</button>)}</div>
       </section>}
       <main className={editorStyles.monitorArea}>
-        {episodeMode ? activeEpisode ? <EpisodeOverview episode={activeEpisode} selectedId={selectedScene} onSelect={id => void selectScene(id)} onOpen={id => void openSubblock(id)} onMove={(id, direction) => void moveScene(id, direction)} canEdit={canEdit} moving={movingScene} /> : <div className={editorStyles.noSelection}><strong>Aucun épisode à afficher</strong><span>Créez un sous-bloc avec le bouton + de Navigation.</span></div> : blocksLoading ? <div className={editorStyles.noSelection}><strong>Chargement de la preview…</strong></div> : blockLoadError ? <div className={editorStyles.noSelection}><strong>Preview indisponible</strong><span>Rechargez la timeline pour reprendre le montage.</span></div> : selectedSceneData ? <PreviewMonitor key={selectedSceneData.id} scene={selectedSceneData} blocks={blocks} selectedBlockId={selectedBlockId} onSelect={setSelectedBlockId} characters={characters} settings={previewSettings} /> : <div className={editorStyles.noSelection}><strong>Choisissez une scène</strong><span>Le moniteur affichera ici votre montage.</span></div>}
+        {episodeMode ? activeEpisode ? <EpisodeOverview episode={activeEpisode} selectedId={selectedScene} onSelect={id => void selectScene(id)} onOpen={id => void openSubblock(id)} onMove={(id, direction) => void moveScene(id, direction)} onReorder={(id,target) => void reorderScene(id,target)} canEdit={canEdit} moving={movingScene} /> : <div className={editorStyles.noSelection}><strong>Aucun épisode à afficher</strong><span>Créez un sous-bloc avec le bouton + de Navigation.</span></div> : blocksLoading ? <div className={editorStyles.noSelection}><strong>Chargement de la preview…</strong></div> : blockLoadError ? <div className={editorStyles.noSelection}><strong>Preview indisponible</strong><span>Rechargez la timeline pour reprendre le montage.</span></div> : selectedSceneData ? <PreviewMonitor key={selectedSceneData.id} scene={selectedSceneData} blocks={blocks} selectedBlockId={selectedBlockId} onSelect={setSelectedBlockId} characters={characters} settings={previewSettings} /> : <div className={editorStyles.noSelection}><strong>Choisissez une scène</strong><span>Le moniteur affichera ici votre montage.</span></div>}
         {version === 2 && !episodeMode && selectedBlock && !blocksLoading && <section className={editorStyles.writingDesk} aria-label="Écriture du bloc sélectionné"><label htmlFor="studio-content">{BLOCK_LABELS[selectedBlock.type]} · texte</label><textarea id="studio-content" value={selectedBlock.content} readOnly={!canEdit} placeholder="Écrivez le texte de ce bloc…" onChange={(e) => updateBlock(selectedBlock.id, { content: e.target.value })} />{canEdit && <div><button type="button" onClick={() => { const copy = { ...selectedBlock, id: `temp-${crypto.randomUUID()}` }; setBlocks((current) => { const next = [...current]; next.splice(selectedBlockIndex + 1, 0, copy); return next.map((b, order) => ({ ...b, order })); }); setSelectedBlockId(copy.id); markDirty(); }}>Dupliquer l’élément</button><button type="button" disabled={selectedBlockIndex <= 0} onClick={() => { setBlocks((current) => arrayMove(current, selectedBlockIndex, selectedBlockIndex - 1).map((b, order) => ({ ...b, order }))); markDirty(); }}>Déplacer avant</button><button type="button" disabled={selectedBlockIndex === blocks.length - 1} onClick={() => { setBlocks((current) => arrayMove(current, selectedBlockIndex, selectedBlockIndex + 1).map((b, order) => ({ ...b, order }))); markDirty(); }}>Déplacer après</button></div>}</section>}
       </main>
 

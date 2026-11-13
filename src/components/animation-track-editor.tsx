@@ -1,6 +1,7 @@
 "use client";
 
 import { ANIMATION_GROUPS, createAnimationTrack, getAnimationTracks, type AnimationTrack } from "@/lib/scene-animations";
+import HelpPopup from "./ui/help-popup";
 import styles from "./animation-track-editor.module.css";
 
 export default function AnimationTrackEditor({ config, legacy, onChange, disabled = false }: { config?: unknown; legacy?: string | null; onChange: (tracks: AnimationTrack[]) => void; disabled?: boolean }) {
@@ -8,7 +9,7 @@ export default function AnimationTrackEditor({ config, legacy, onChange, disable
   const update = (id: string, patch: Partial<AnimationTrack>) => onChange(tracks.map((t) => t.id === id ? { ...t, ...patch } : t));
   return <fieldset className={styles.editor} disabled={disabled}>
     <legend>Animations combinées</legend>
-    <p>Les effets d’entrée se jouent une fois à l’apparition du décor. Les effets continus restent actifs pendant les dialogues. Chaque piste se superpose aux autres.</p>
+    <HelpPopup title="Animations combinées"><p>Les effets d’entrée se jouent une fois à l’apparition du décor. Les effets continus restent actifs pendant les dialogues. Chaque piste se superpose aux autres.</p><p>Pour une apparition puis une disparition, ajoutez Fade in et Fade out avec un délai sur Fade out. L’ancrage X/Y cible le sujet du zoom Focus.</p></HelpPopup>
     {(["entry", "continuous"] as const).map((behavior) => <section key={behavior} aria-label={behavior === "entry" ? "Animations d’entrée" : "Animations continues"}>
       <h3>{behavior === "entry" ? "Entrée · une fois" : "Continue · pendant les dialogues"}</h3>
       {tracks.filter((t) => t.behavior === behavior).map((track, index) => <details key={track.id} open={index === 0} className={styles.track}>
@@ -31,6 +32,5 @@ export default function AnimationTrackEditor({ config, legacy, onChange, disable
       </details>)}
       <button type="button" disabled={tracks.length >= 24} onClick={() => onChange([...tracks, createAnimationTrack(behavior === "entry" ? "fade-in" : "zoom-in", behavior)])}>Ajouter un effet {behavior === "entry" ? "d’entrée" : "continu"}</button>
     </section>)}
-    <p>Pour une apparition puis une disparition, ajoutez Fade in et Fade out avec un délai sur Fade out. L’ancrage X/Y cible le sujet du zoom Focus.</p>
   </fieldset>;
 }

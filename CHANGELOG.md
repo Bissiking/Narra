@@ -1,5 +1,13 @@
 # Changelog
 
+## En préparation — patch Studio (2026-11-13)
+
+- Poignées de réordonnancement fonctionnelles dans la bibliothèque et l’organisation de l’épisode, au pointeur et au clavier ; conservation de l’ordre en cas d’échec de sauvegarde.
+- Menus du Studio dans la couche supérieure du navigateur et fenêtres d’import/médias accessibles, indépendantes du rognage des panneaux, en Compacte comme en Détaillée.
+- Conversion des éléments de texte par dépôt sur une autre piste : Dialogue, Action, Note ; texte et paramètres conservés, pistes verrouillées respectées.
+- Import de fichiers `.md`, `.markdown` et `.txt`, découpage mixte Markdown/balises, coupes `---`, `***`, `___`, noms accentués et correspondances de personnages vérifiables avant import.
+- Renommage depuis le titre du sous-bloc, aides ouvertes à la demande et réglage de boucle musicale dans l’inspecteur.
+
 ## 0.12.0 — 2026-10-08
 
 - Studio V2 en parallèle du montage actuel : déroulé vertical, écriture directe, aperçu VN, inspecteur Bloc/Scène/Univers, duplication, déplacement et disposition mémorisée.

@@ -2,6 +2,7 @@
 
 import AnimationTrackEditor from "@/components/animation-track-editor";
 import { memo } from "react";
+import HelpPopup from "./ui/help-popup";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import MediaPicker from "@/components/media-picker";
@@ -75,7 +76,7 @@ function SceneBlockItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: block.id, disabled: inspector });
+  } = useSortable({ id: block.id, disabled: inspector || !canEdit });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -252,7 +253,7 @@ function SceneBlockItem({
               <div className="grid gap-3">
                 <div>
                   <span className="label block">Options de l’écran-titre</span>
-                  <span className="text-xs text-narra-muted">Le sur-titre et le bouton de navigation peuvent être masqués indépendamment.</span>
+                  <HelpPopup title="Options de l’écran-titre">Le sur-titre et le bouton de navigation peuvent être masqués indépendamment.</HelpPopup>
                 </div>
                 <label className="flex min-h-8 items-center gap-2 text-sm text-narra-text">
                   <input
@@ -291,7 +292,7 @@ function SceneBlockItem({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <span className="label block">Portrait du dialogue</span>
-                  <span className="text-xs text-narra-muted">Choisissez si le personnage apparaît pendant cette réplique.</span>
+                  <HelpPopup title="Portrait du dialogue"><p>Choisissez si le personnage apparaît pendant cette réplique.</p><p>Les expressions proviennent de la fiche du personnage. Sans expression sélectionnée, son portrait principal est utilisé.</p></HelpPopup>
                 </div>
                 <label className="flex min-h-8 items-center gap-2 text-sm text-narra-text">
                   <input
@@ -304,11 +305,7 @@ function SceneBlockItem({
                 </label>
               </div>
 
-              {showPortrait && speakingCharacter && (
-                <p className="mt-2 text-xs text-narra-muted">
-                  Les expressions disponibles proviennent de la fiche du personnage. Sans expression sélectionnée, le portrait principal est utilisé.
-                </p>
-              )}
+
             </div>
           )}
 
@@ -384,7 +381,7 @@ function SceneBlockItem({
                         Lire en boucle
                       </label>
                     )}
-                    {audioAction === "play" && playlistMode && <p className="text-xs text-narra-muted">La boucle se règle pour toute la playlist depuis la piste Musique.</p>}
+                    {audioAction === "play" && playlistMode && <label className="flex min-h-8 items-center gap-2 text-xs text-narra-muted"><input type="checkbox" checked={block.loop ?? true} onChange={event => onUpdate(block.id,{loop:event.target.checked})} className="accent-amber-500"/>Lire en boucle</label>}
                   </>
                 )}
               </div>
@@ -412,9 +409,7 @@ function SceneBlockItem({
                 accept="image/*"
               />
               <AnimationTrackEditor config={block.animationConfig} legacy={block.animationPreset} disabled={!canEdit} onChange={(animationConfig) => onUpdate(block.id, { animationConfig, animationPreset: "none" })} />
-              <p className="mt-2 text-xs text-narra-muted">
-                L’image reste affichée jusqu’au prochain changement d’arrière-plan ou à la scène suivante.
-              </p>
+              <HelpPopup title="Durée du décor">L’image reste affichée jusqu’au prochain changement d’arrière-plan ou à la scène suivante.</HelpPopup>
             </div>
           )}
 

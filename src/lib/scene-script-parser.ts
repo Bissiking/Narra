@@ -35,6 +35,7 @@ export interface SceneScriptParseResult {
   blocks: ParsedSceneScriptBlock[];
   warnings: string[];
   explicitFormat: boolean;
+  speakers: { name: string; characterId: string | null }[];
 }
 
 const TYPE_ALIASES: Record<string, SceneScriptBlockType> = {
@@ -73,7 +74,7 @@ function normalize(value: string) {
 
 function stripMarkdown(value: string) {
   return value
-    .replace(/^\s*[*_](.+)[*_]\s*$/, "$1")
+    .replace(/^\s*(?:\*\*|__|\*|_)(.*?)(?:\*\*|__|\*|_)\s*$/, "$1")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .trim();
 }
@@ -89,10 +90,15 @@ function characterNames(character: SceneScriptCharacter) {
     .map(normalize);
 }
 
-function findCharacter(name: string, characters: SceneScriptCharacter[]) {
+export function matchScriptCharacter(name: string, characters: SceneScriptCharacter[]) {
   const wanted = normalize(name);
   if (!wanted) return null;
-  return characters.find((character) => characterNames(character).includes(wanted)) || null;
+  // Full names and aliases take precedence over ambiguous first/last names.
+  const exact = characters.filter(character => [character.alias, [character.firstName, character.lastName].filter(Boolean).join(" ")].some(value => value && normalize(value) === wanted));
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1) return null;
+  const matches = characters.filter(character => characterNames(character).includes(wanted));
+  return matches.length === 1 ? matches[0] : null;
 }
 
 function emptyBlock(type: SceneScriptBlockType): ParsedSceneScriptBlock {
@@ -130,149 +136,108 @@ function applyAudioMetadata(block: ParsedSceneScriptBlock, metadata: string, war
   }
 }
 
-function parseDialogueMetadata(
-  metadata: string,
-  characters: SceneScriptCharacter[],
-  warnings: Set<string>
-) {
-  const [rawSpeaker = "", rawEmotion = "", rawPosition = ""] = metadata
-    .split("|")
-    .map((part) => part.trim());
-  const character = findCharacter(rawSpeaker, characters);
-  if (rawSpeaker && !character) warnings.add(`Personnage non reconnu : ${rawSpeaker}`);
+const DIRECTIVE = /^\s*(?:\[\s*(PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE|MUSIQUE|MUSIC|SFX|SON)(?::([^\]]*))?\]|@(PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE|MUSIQUE|MUSIC|SFX|SON)(?::([^\s]+(?:\|[^\s]+)*))?)\s*(.*)$/i;
+const isCut = (line: string) => /^(?:-{3,}|(?:\*\s*){3,}|(?:_\s*){3,}|[—–]{3,})$/.test(line);
 
-  return {
-    characterId: character?.id || null,
-    emotion: rawEmotion || null,
-    position: POSITION_ALIASES[normalize(rawPosition)] || null,
-    speakerNote: character || !rawSpeaker ? null : rawSpeaker,
-  };
-}
-
-function parseExplicitFormat(
-  lines: string[],
-  characters: SceneScriptCharacter[]
-): SceneScriptParseResult {
-  const blocks: ParsedSceneScriptBlock[] = [];
-  const warnings = new Set<string>();
-  let current: ParsedSceneScriptBlock | null = null;
-
-  const flush = () => {
-    if (!current) return;
-    current.content = current.content.trim();
-    if (current.content || current.type === "music" || current.type === "sfx") blocks.push(current);
-    current = null;
-  };
-
-  for (const line of lines) {
-    const match = line.match(
-      /^\s*(?:\[\s*(PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE|MUSIQUE|MUSIC|SFX|SON)(?::([^\]]*))?\]|@(PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE|MUSIQUE|MUSIC|SFX|SON)(?::([^\s]+(?:\|[^\s]+)*))?)\s*(.*)$/i
-    );
-
-    if (match) {
-      flush();
-      const label = normalize(match[1] || match[3]);
-      const metadata = (match[2] || match[4] || "").trim();
-      current = emptyBlock(TYPE_ALIASES[label]);
-      current.content = match[5].trim();
-      if (current.type === "dialogue") {
-        Object.assign(current, parseDialogueMetadata(metadata, characters, warnings));
-      } else if (current.type === "music" || current.type === "sfx") {
-        applyAudioMetadata(current, metadata, warnings);
-      }
-      continue;
-    }
-
-    if (!current && line.trim()) current = emptyBlock("narration");
-    if (current) current.content += `${current.content ? "\n" : ""}${line}`;
-  }
-
-  flush();
-  return { blocks, warnings: [...warnings], explicitFormat: true };
-}
-
-function parseMarkdownFormat(
-  lines: string[],
-  characters: SceneScriptCharacter[]
-): SceneScriptParseResult {
-  const blocks: ParsedSceneScriptBlock[] = [];
-  const warnings = new Set<string>();
-  let paragraph: string[] = [];
-  let dialogueCharacter: SceneScriptCharacter | null = null;
-  let speakerNote: string | null = null;
-
-  const flush = () => {
-    const content = paragraph.join("\n").trim();
-    if (content) {
-      const block = emptyBlock(dialogueCharacter ? "dialogue" : "action");
-      block.content = stripMarkdown(content);
-      block.characterId = dialogueCharacter?.id || null;
-      block.speakerNote = speakerNote;
-      blocks.push(block);
-    } else if (speakerNote) {
-      blocks.push({ ...emptyBlock("action"), content: speakerNote });
-    }
-    paragraph = [];
-    dialogueCharacter = null;
-    speakerNote = null;
-  };
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    const heading = trimmed.match(/^#{1,6}\s+(.+)$/);
-    if (heading) {
-      flush();
-      blocks.push({ ...emptyBlock("heading"), content: stripMarkdown(heading[1]) });
-      continue;
-    }
-    if (/^-{3,}$/.test(trimmed)) {
-      flush();
-      blocks.push({ ...emptyBlock("transition"), content: "—" });
-      continue;
-    }
-    const boldLine = trimmed.match(/^\*\*([^*]+)\*\*$/);
-    if (boldLine) {
-      flush();
-      const label = stripMarkdown(boldLine[1]);
-      const character = findCharacter(label, characters);
-      if (character) dialogueCharacter = character;
-      else if (/^(?:COUPE|CUT|FONDU|FADE)(?:\.|\s|$)/i.test(label))
-        blocks.push({ ...emptyBlock("transition"), content: label });
-      else blocks.push({ ...emptyBlock("heading"), content: label });
-      continue;
-    }
-    if (!trimmed) {
-      if (dialogueCharacter && paragraph.length === 0) continue;
-      flush();
-      continue;
-    }
-    if (/^\*[^*].*\*$/.test(trimmed)) {
-      if (dialogueCharacter && paragraph.length === 0) {
-        speakerNote = stripMarkdown(trimmed).replace(/^\(|\)$/g, "");
-        continue;
-      }
-      flush();
-      blocks.push({ ...emptyBlock("action"), content: stripMarkdown(trimmed) });
-      continue;
-    }
-    paragraph.push(line);
-  }
-
-  flush();
-  return { blocks, warnings: [...warnings], explicitFormat: false };
-}
-
+/** Mixed Markdown/Narra input, with explicit, reviewable character assignments. */
 export function parseSceneScript(
   source: string,
-  characters: SceneScriptCharacter[]
+  characters: SceneScriptCharacter[],
+  assignments: Record<string, string | null> = {},
 ): SceneScriptParseResult {
-  const lines = source.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n");
-  const hasDirectives = lines.some((line) =>
-    /^\s*(?:\[\s*(?:PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE|MUSIQUE|MUSIC|SFX|SON)(?::|\s*\])|@(?:PLAN|SECTION|TITRE|HEADING|ACTION|NARRATION|DIALOGUE|TRANSITION|NOTE|MUSIQUE|MUSIC|SFX|SON)\b)/i.test(line)
-  );
-  return hasDirectives
-    ? parseExplicitFormat(lines, characters)
-    : parseMarkdownFormat(lines, characters);
+  let lines = source.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n");
+  // A YAML header is metadata, while ordinary --- cuts remain narrative transitions.
+  if (lines[0]?.trim() === "---") {
+    const end = lines.findIndex((line, index) => index > 0 && line.trim() === "---");
+    if (end > 1 && lines.slice(1, end).every(line => !line.trim() || /^[\w-]+:/.test(line))) lines = lines.slice(end + 1);
+  }
+  const blocks: ParsedSceneScriptBlock[] = [];
+  const warnings = new Set<string>();
+  const speakers = new Map<string, string | null>();
+  let current: ParsedSceneScriptBlock | null = null;
+  let explicit = false;
+  const explicitFormat = lines.some(line => DIRECTIVE.test(line));
+  const flush = () => {
+    if (current) {
+      current.content = stripMarkdown(current.content);
+      if (current.content || ["music", "sfx"].includes(current.type)) blocks.push(current);
+    }
+    current = null; explicit = false;
+  };
+  const dialogue = (raw: string, content = "", emotion = "", position = "") => {
+    flush();
+    const note = raw.match(/\s*\(([^)]+)\)\s*$/);
+    const name = stripMarkdown(raw.replace(/\s*\([^)]+\)\s*$/, "")).replace(/[:：]$/, "").trim();
+    const character = Object.prototype.hasOwnProperty.call(assignments, name)
+      ? characters.find(c => c.id === assignments[name]) || null
+      : matchScriptCharacter(name, characters);
+    if (name) {
+      speakers.set(name, character?.id || null);
+      if (!character) warnings.add(`Personnage à associer : ${name}`);
+    }
+    current = { ...emptyBlock("dialogue"), content, characterId: character?.id || null,
+      speakerNote: [!character ? name : "", note?.[1]].filter(Boolean).join(" · ") || null,
+      emotion: emotion || null, position: POSITION_ALIASES[normalize(position)] || null };
+  };
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index].replace(/^\s*(?:>\s*)+/, ""), trimmed = line.trim();
+    // Ignore code fences often wrapped around generated scripts, keep their content.
+    if (/^(?:`{3,}|~{3,})(?:[\w-]+)?\s*$/.test(trimmed)) { flush(); continue; }
+    const directive = trimmed.match(DIRECTIVE);
+    if (directive) {
+      flush();
+      const type = TYPE_ALIASES[normalize(directive[1] || directive[3])];
+      const metadata = (directive[2] || directive[4] || "").trim();
+      if (type === "dialogue") {
+        const [name = "", emotion = "", position = ""] = metadata.split("|").map(part => part.trim());
+        dialogue(name, directive[5], emotion, position);
+      } else {
+        current = { ...emptyBlock(type), content: directive[5] };
+        if (type === "music" || type === "sfx") applyAudioMetadata(current, metadata, warnings);
+      }
+      explicit = true; continue;
+    }
+    if (isCut(trimmed)) { flush(); blocks.push({ ...emptyBlock("transition"), content: "—" }); continue; }
+    const heading = trimmed.match(/^#{1,6}\s+(.+?)(?:\s+#+)?$/);
+    if (heading) { flush(); blocks.push({ ...emptyBlock("heading"), content: stripMarkdown(heading[1]) }); continue; }
+    if (trimmed && /^\s*={3,}\s*$/.test(lines[index + 1] || "")) {
+      flush(); blocks.push({ ...emptyBlock("heading"), content: stripMarkdown(trimmed) }); index++; continue;
+    }
+    if (!trimmed) {
+      if (!explicit && current?.content.trim()) flush();
+      else if (explicit && current) current.content += "\n";
+      continue;
+    }
+    if (/^(?:COUPE|CUT|FONDU|FADE)(?:[ .:：]|$)/i.test(stripMarkdown(trimmed))) {
+      flush(); blocks.push({ ...emptyBlock("transition"), content: stripMarkdown(trimmed) }); continue;
+    }
+    const bold = trimmed.match(/^(?:\*\*|__)(.+?)(?:\*\*|__)(?:[:：]\s*(.*))?$/);
+    const speakerLine = trimmed.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/__([^_]+)__/g, "$1");
+    const inline = speakerLine.match(/^(?:[-—–]\s*)?(?:\*\*|__)?([^:：]{1,80}?)(?:\*\*|__)?[:：]\s*(.*)$/);
+    const label = stripMarkdown((bold?.[1] || inline?.[1] || trimmed).replace(/[:：]$/, ""));
+    const name = label.replace(/\s*\([^)]+\)$/, "");
+    const known = !!matchScriptCharacter(name, characters) || Object.prototype.hasOwnProperty.call(assignments, name);
+    const upperName = name.length <= 80 && /[A-ZÀ-ÖØ-Þ]/.test(name) && name === name.toLocaleUpperCase("fr") && !/[.!?]/.test(name);
+    const properName = /^[\p{Lu}][\p{Ll}’'’-]+(?:\s+[\p{Lu}][\p{Ll}’'’-]+){0,3}$/u.test(name);
+    const followingText = lines.slice(index + 1).find(value => value.trim());
+    const bareSpeaker = upperName && name.split(/\s+/).length <= 4 && !/^(?:PLAN|SCENE|CHAPITRE|EPISODE|PARTIE|NOTE|ACTION|NARRATION)\b/i.test(normalize(name)) && followingText && !isCut(followingText.trim()) && !/^#/.test(followingText);
+    if (bold || (inline && (known || upperName || properName)) || (known && !inline) || (!inline && bareSpeaker)) {
+      if (bold && !known && !upperName && !properName && bold[2] === undefined) {
+        flush(); blocks.push({ ...emptyBlock("heading"), content: label });
+      } else dialogue(label, bold ? bold[2] || "" : inline?.[2] || "");
+      continue;
+    }
+    if (/^\*[^*].*\*$/.test(trimmed) && current?.type === "dialogue" && !current.content) {
+      current.speakerNote = [current.speakerNote, stripMarkdown(trimmed).replace(/^\(|\)$/g, "")].filter(Boolean).join(" · "); continue;
+    }
+    if (/^\*[^*].*\*$/.test(trimmed) && !explicit) {
+      flush(); blocks.push({ ...emptyBlock("action"), content: stripMarkdown(trimmed) }); continue;
+    }
+    if (!current) current = emptyBlock(explicitFormat ? "narration" : "action");
+    current.content += (current.content ? "\n" : "") + line;
+  }
+  flush();
+  return { blocks, warnings: [...warnings], explicitFormat, speakers: [...speakers].map(([name, characterId]) => ({ name, characterId })) };
 }
 
 export function buildSceneScriptPrompt(characters: SceneScriptCharacter[]) {

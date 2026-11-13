@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
+import Modal from "./ui/modal";
 
 interface Media {
   id: string;
@@ -37,6 +38,7 @@ export default function MediaPicker({
   accept = "image/*",
 }: MediaPickerProps) {
   const [open, setOpen] = useState(false);
+  const modalId = useId();
   const [media, setMedia] = useState<Media[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -58,6 +60,7 @@ export default function MediaPicker({
       .then(async (res) => {
         if (res.ok) setMedia(await res.json());
       })
+      .catch(() => setError("Impossible de charger les médias. Fermez puis réessayez."))
       .finally(() => setLoading(false));
   }, [open, projectId, accept]);
 
@@ -137,14 +140,15 @@ export default function MediaPicker({
       )}
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+        <Modal open={open} onClose={() => setOpen(false)} labelledBy={modalId}>
           <div className="bg-narra-surface border border-narra-border w-full max-w-2xl max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-narra-border">
-              <h2 className="font-bold">Choisir un média</h2>
+              <h2 id={modalId} className="font-bold">Choisir un média</h2>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="text-narra-muted hover:text-narra-text"
+                className="btn-ghost min-h-11 min-w-11 text-narra-muted hover:text-narra-text"
+                aria-label="Fermer le sélecteur de médias"
               >
                 ✕
               </button>
@@ -226,7 +230,7 @@ export default function MediaPicker({
               )}
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

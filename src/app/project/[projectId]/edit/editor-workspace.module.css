@@ -480,3 +480,7 @@
 }
 
 .v2 summary:focus-visible { outline: 3px solid var(--edit-accent); outline-offset: 2px; }
+
+.dragScene {align-self:stretch;flex-shrink:0;cursor:grab;touch-action:none;padding:6px;color:var(--edit-muted)}
+.dragScene svg {width:18px;height:24px;stroke:currentColor;stroke-width:3;stroke-linecap:round;fill:none}
+.dragScene:active {cursor:grabbing}

@@ -464,3 +464,17 @@
 .timingHint {white-space:nowrap;display:inline;margin-right:4px}
 @media(max-width:820px) { .workspace .fitButton {display:none} }
 @media(max-width:640px) { .detailed .trackLabel {font-size:11px}.detailed .segment {font-size:12px!important}.timelineEnd .timingHint {font-size:10px;margin-right:3px} }
+
+/* Popovers render in the browser top layer, beyond clipped editor panes. */
+.addMenu:popover-open,.inlineAddMenu:popover-open,.layoutMenu:popover-open {display:grid;color:var(--studio-ink);font:inherit;box-sizing:border-box}
+.segment {touch-action:none;cursor:grab}
+.segment:active {cursor:grabbing}
+.trackRow[data-drop-over=true] .trackLane {background:#ffac161c;outline:1px dashed var(--studio-amber);outline-offset:-2px}
+.dragPreview {max-width:260px;padding:10px 14px;background:#18181b;color:#fafafa;border:1px solid #f59e0b;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:grabbing}
+.renameForm {display:flex;align-items:center;gap:5px;min-width:0}
+.renameForm input {width:clamp(110px,15vw,260px);min-width:0;max-width:100%;padding:6px 8px;border:1px solid var(--studio-amber);background:var(--studio-bg);color:var(--studio-ink)}
+.renameForm button {flex-shrink:0;padding:6px}
+
+.sceneGrip {flex:0 0 24px;width:24px;padding:4px!important;touch-action:none;cursor:grab!important;color:var(--studio-muted)!important}
+.sceneGrip:active {cursor:grabbing!important}
+.sceneGrip svg {width:13px}

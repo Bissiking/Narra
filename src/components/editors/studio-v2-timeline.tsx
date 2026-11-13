@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, horizontalListSortingStrategy, useSortable, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { DndContext, DragOverlay, closestCenter, pointerWithin, useDroppable, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent, type KeyboardCoordinateGetter } from "@dnd-kit/core";
+import { SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { SceneBlock } from "./editor-workspace";
 import type { CompositePlan } from "@/lib/scene-composition";
 import StudioIcon, { type StudioIconName } from "./studio-v2-icons";
+import FloatingMenu from "@/components/ui/floating-menu";
+import { canConvertTimelineBlock, timelineTypeForTrack } from "@/lib/studio-timeline";
 import styles from "./studio-v2.module.css";
 
 export interface Timing {start:number;end:number;duration:number}
@@ -26,14 +28,27 @@ interface Props {
  blocks:SceneBlock[];plans:CompositePlan<SceneBlock>[];timing:Timing[];detailed:boolean;selectedId:string|null;
  onSelect:(id:string)=>void;onScrub:(time:number)=>void;time:number;duration:number;zoom:number;backdrop:string|null|undefined;
  onAdd:(type:string)=>void;hidden:string[];locked:string[];onToggleTrack:(key:string,kind:"hidden"|"locked")=>void;canEdit:boolean;
+ onConvert:(id:string,type:string)=>void;
  onReorderPlans:(event:DragEndEvent)=>void;onReorderMusic:(event:DragEndEvent)=>void;
 }
+const trackKeyboardCoordinates:KeyboardCoordinateGetter = (event, {context, currentCoordinates}) => {
+ if(!["ArrowLeft","ArrowRight"].includes(event.code)||!context.active||!context.collisionRect)return;
+ event.preventDefault();
+ const track=context.active.data.current?.track;
+ const candidates=context.droppableContainers.getEnabled().filter(item=>item.data.current?.track===track&&item.data.current?.blockId).sort((a,b)=>(context.droppableRects.get(a.id)?.left||0)-(context.droppableRects.get(b.id)?.left||0));
+ const index=candidates.findIndex(item=>item.id===(context.over?.id||context.active?.id));
+ const target=candidates[index+(event.code==="ArrowRight"?1:-1)];
+ const rect=target&&context.droppableRects.get(target.id);
+ if(rect)return {x:currentCoordinates.x+rect.left-context.collisionRect.left,y:currentCoordinates.y+rect.top-context.collisionRect.top};
+};
 const names:Record<string,string>={heading:"Plan",action:"Action",dialogue:"Dialogue",narration:"Narration",background:"Décor",music:"Musique",sfx:"Effet sonore",note:"Note interne",transition:"Transition"};
 export default function StudioTimeline(p:Props) {
  const [adding,setAdding]=useState(false);
+ const [dragged,setDragged]=useState<string|null>(null);
+ const addAnchor=useRef<HTMLButtonElement>(null);
  const viewport=useRef<HTMLDivElement>(null);
  const [available,setAvailable]=useState(1100);
- const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:8}}),useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates}));
+ const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:8}}),useSensor(KeyboardSensor,{coordinateGetter:trackKeyboardCoordinates}));
  useEffect(()=>{const element=viewport.current;if(!element)return;const observer=new ResizeObserver(()=>setAvailable(Math.max(400,element.clientWidth-(innerWidth<640?148:216))));observer.observe(element);return()=>observer.disconnect();},[]);
  const extent=Math.max(20,p.duration);
  const scale=available/extent*p.zoom;
@@ -48,38 +63,63 @@ export default function StudioTimeline(p:Props) {
  const thumbnail=(index:number)=>p.plans.slice(0,index+1).flatMap(plan=>plan.blocks).reverse().find(b=>b.type==="background"&&b.mediaUrl)?.mediaUrl||p.backdrop;
  const positioned=(slot:Timing):CSSProperties=>({left:slot.start*scale,width:Math.max(22,slot.duration*scale-4)});
  function rowClips(key:string) {
-  if(key==="video")return <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={p.onReorderPlans}><SortableContext items={p.plans.map(plan=>plan.id)} strategy={horizontalListSortingStrategy}>{p.plans.map((plan,i)=><PlanSegment key={plan.id} plan={plan} index={i} slot={p.timing[i]} selected={plan.blocks.some(b=>b.id===p.selectedId)} onSelect={p.onSelect} style={positioned(p.timing[i])} thumbnail={thumbnail(i)} disabled={!p.canEdit||p.locked.includes("video")||p.locked.includes(plan.lead.type)}/>)}</SortableContext></DndContext>;
+  if(key==="video")return <SortableContext items={p.plans.map(plan=>plan.id)} strategy={horizontalListSortingStrategy}>{p.plans.map((plan,i)=><PlanSegment key={plan.id} plan={plan} index={i} slot={p.timing[i]} selected={plan.blocks.some(b=>b.id===p.selectedId)} onSelect={p.onSelect} style={positioned(p.timing[i])} thumbnail={thumbnail(i)} disabled={!p.canEdit||p.locked.includes("video")||p.locked.includes(plan.lead.type)}/>)}</SortableContext>;
   if(key==="music") {
    const music=p.blocks.filter(b=>b.type==="music");
-   return <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={p.onReorderMusic}><SortableContext items={music.map(b=>b.id)} strategy={horizontalListSortingStrategy}>{music.map((b,i)=>{const length=(p.duration||3)/music.length;return <MusicSegment key={b.id} block={b} style={positioned({start:i*length,end:(i+1)*length,duration:length})} selected={b.id===p.selectedId} onSelect={p.onSelect} disabled={!p.canEdit||p.locked.includes("music")}/>;})}</SortableContext></DndContext>;
+   return <SortableContext items={music.map(b=>b.id)} strategy={horizontalListSortingStrategy}>{music.map((b,i)=>{const length=(p.duration||3)/music.length;return <MusicSegment key={b.id} block={b} style={positioned({start:i*length,end:(i+1)*length,duration:length})} selected={b.id===p.selectedId} onSelect={p.onSelect} disabled={!p.canEdit||p.locked.includes("music")}/>;})}</SortableContext>;
   }
-  return p.blocks.filter(b=>key==="dialogue"?["dialogue","narration"].includes(b.type):key==="action"?["action","heading","transition"].includes(b.type):b.type===key).map(block=>{
+  const clips=p.blocks.filter(b=>key==="dialogue"?["dialogue","narration"].includes(b.type):key==="action"?["action","heading","transition"].includes(b.type):b.type===key);
+  return <SortableContext items={clips.map(b=>b.id)} strategy={horizontalListSortingStrategy}>{clips.map(block=>{
    const slot=blockTime(block);
    let length=slot.duration;
    if(key==="background"){const next=p.blocks.filter(b=>b.type==="background"&&blockTime(b).start>slot.start).sort((a,b)=>blockTime(a).start-blockTime(b).start)[0];length=(next?blockTime(next).start:p.duration||slot.end)-slot.start;}
-   return <button key={block.id} type="button" className={styles.segment+" "+styles[key+"Segment"]} style={positioned({...slot,duration:length})} aria-pressed={p.selectedId===block.id} onClick={()=>p.onSelect(block.id)} title={(names[block.type]||block.type)+" · "+(block.content||block.mediaUrl?.split("/").at(-1)||"Sans contenu")} data-block-id={block.id}>{["music","sfx"].includes(key)?<><StudioIcon name="sfx"/><span>{block.content||block.mediaUrl?.split("/").at(-1)||"Choisir un son"}</span>{block.mediaUrl&&<AudioWaveform url={block.mediaUrl}/>}</>:<><StudioIcon name={key==="dialogue"?"dialogue":key==="background"?"image":key==="note"?"note":"action"}/><span>{block.content||block.mediaUrl?.split("/").at(-1)||(names[block.type]||"Élément")+" sans contenu"}</span></>}</button>;
-  });
+   return <ElementSegment key={block.id} block={block} track={key} selected={p.selectedId===block.id} onSelect={p.onSelect} style={positioned({...slot,duration:length})} disabled={!p.canEdit||p.locked.includes(key)||p.locked.includes(block.type)||p.locked.includes("video")} />;
+  })}</SortableContext>;
+
  }
- return <div ref={viewport} className={styles.timelineViewport}>
+ function drop(event:DragEndEvent) {
+  setDragged(null);
+  if(!p.canEdit||!event.over)return;
+  const data=event.active.data.current, target=event.over.data.current;
+  const block=p.blocks.find(b=>b.id===data?.blockId);
+  if(!block||!target?.track||p.locked.includes(data?.track)||p.locked.includes(block.type)||p.locked.includes(target.track))return;
+  if(data?.track!==target.track) {
+   const type=timelineTypeForTrack(target.track);
+   if(type&&canConvertTimelineBlock(block.type,type)&&!p.locked.includes(type)&&!p.locked.includes("video"))p.onConvert(block.id,type);
+   return;
+  }
+  if(event.active.id===event.over.id||!target.blockId)return;
+  if(data?.track==="music")p.onReorderMusic(event);
+  else if(!p.locked.includes("video")&&data?.track!=="sfx")p.onReorderPlans({...event,active:{...event.active,id:"plan-"+block.id},over:{...event.over,id:"plan-"+target.blockId}});
+ }
+ return <DndContext sensors={sensors} collisionDetection={args=>{if(!args.pointerCoordinates)return closestCenter({...args,droppableContainers:args.droppableContainers.filter(item=>item.data.current?.track===args.active.data.current?.track&&item.data.current?.blockId)});const hits=pointerWithin(args);return hits.length?(hits.some(hit=>!String(hit.id).startsWith("track-"))?hits.filter(hit=>!String(hit.id).startsWith("track-")):hits):[];}} onDragStart={event=>setDragged(String(event.active.data.current?.blockId||""))} onDragCancel={()=>setDragged(null)} onDragEnd={drop}><div ref={viewport} className={styles.timelineViewport}>
   <div className={styles.trackCanvas} style={{"--track-width":width+"px","--playhead":p.time*scale+"px"} as CSSProperties}>
    <div className={styles.rulerRow}><div className={styles.rulerLabel}/><div className={styles.ruler} style={{width}} onPointerDown={e=>{const bounds=e.currentTarget.getBoundingClientRect();p.onScrub(Math.max(0,Math.min(p.duration,(e.clientX-bounds.left)/scale)));}}><div className={styles.rulerTicks}>{ticks.map(t=><span key={t} style={{left:t*scale}}>{timeLabel(t)}</span>)}</div><input aria-label="Curseur de la timeline" type="range" min={0} max={p.duration||1} step={.01} value={p.time} onChange={e=>p.onScrub(Number(e.target.value))} disabled={!p.duration}/><span className={styles.playheadHandle} style={{left:p.time*scale}}/></div></div>
-   {p.detailed&&p.canEdit&&<div className={styles.inlineAdd} style={{left:216+Math.min(width-36,(p.timing[p.plans.findIndex(plan=>plan.blocks.some(b=>b.id===p.selectedId))]?.end||p.duration)*scale)}}><button type="button" aria-label="Insérer un élément après le plan" aria-expanded={adding} onClick={()=>setAdding(v=>!v)}><StudioIcon name="plus"/></button>{adding&&<div className={styles.inlineAddMenu}>{[{type:"dialogue",icon:"dialogue",hint:"Ajouter une réplique"},{type:"action",icon:"action",hint:"Ajouter une action"},{type:"background",icon:"image",hint:"Ajouter un décor"},{type:"music",icon:"music",hint:"Ajouter une musique"},{type:"sfx",icon:"sfx",hint:"Ajouter un effet sonore"},{type:"note",icon:"note",hint:"Ajouter une note"}].map(item=><button type="button" key={item.type} onClick={()=>{p.onAdd(item.type);setAdding(false);}}><StudioIcon name={item.icon as StudioIconName}/><span>{names[item.type]}<small>{item.hint}</small></span></button>)}</div>}</div>}
-   {tracks.map(track=><div key={track.key} className={styles.trackRow} data-track={track.key} data-hidden={p.hidden.includes(track.key)}>
+   {p.detailed&&p.canEdit&&<div className={styles.inlineAdd} style={{left:216+Math.min(width-36,(p.timing[p.plans.findIndex(plan=>plan.blocks.some(b=>b.id===p.selectedId))]?.end||p.duration)*scale)}}><button ref={addAnchor} type="button" aria-label="Insérer un élément après le plan" aria-expanded={adding} onClick={()=>setAdding(v=>!v)}><StudioIcon name="plus"/></button>{adding&&<FloatingMenu open={adding} onClose={()=>setAdding(false)} anchor={addAnchor} className={styles.inlineAddMenu}>{[{type:"dialogue",icon:"dialogue",hint:"Ajouter une réplique"},{type:"action",icon:"action",hint:"Ajouter une action"},{type:"background",icon:"image",hint:"Ajouter un décor"},{type:"music",icon:"music",hint:"Ajouter une musique"},{type:"sfx",icon:"sfx",hint:"Ajouter un effet sonore"},{type:"note",icon:"note",hint:"Ajouter une note"}].map(item=><button type="button" key={item.type} onClick={()=>{p.onAdd(item.type);setAdding(false);}}><StudioIcon name={item.icon as StudioIconName}/><span>{names[item.type]}<small>{item.hint}</small></span></button>)}</FloatingMenu>}</div>}
+   {tracks.map(track=><TrackRow key={track.key} track={track.key} hidden={p.hidden.includes(track.key)} disabled={!p.canEdit||p.locked.includes(track.key)}>
     <div className={styles.trackLabel}><StudioIcon name={track.icon as StudioIconName}/><span>{track.label}</span><div>{p.detailed&&<button type="button" title={p.hidden.includes(track.key)?"Afficher la piste":"Masquer la piste"} aria-label={(p.hidden.includes(track.key)?"Afficher ":"Masquer ")+track.label} aria-pressed={p.hidden.includes(track.key)} onClick={()=>p.onToggleTrack(track.key,"hidden")}><StudioIcon name={p.hidden.includes(track.key)?"hidden":"eye"}/></button>}<button type="button" title={p.locked.includes(track.key)?"Déverrouiller la piste":"Verrouiller la piste"} aria-label={(p.locked.includes(track.key)?"Déverrouiller ":"Verrouiller ")+track.label} aria-pressed={p.locked.includes(track.key)} onClick={()=>p.onToggleTrack(track.key,"locked")}><StudioIcon name={p.locked.includes(track.key)?"lock":"unlock"}/></button></div></div>
     <div className={styles.trackLane} style={{width}}>{rowClips(track.key)}<span className={styles.playheadLine}/>{!p.blocks.length&&track.key==="video"&&<span className={styles.emptyLane}>Ajoutez un plan avec le bouton +.</span>}</div>
-   </div>)}
+   </TrackRow>)}
   </div>
- </div>;
+ </div><DragOverlay>{dragged&&<div className={styles.dragPreview}>{names[p.blocks.find(b=>b.id===dragged)?.type||""]} · {p.blocks.find(b=>b.id===dragged)?.content || "Élément"}</div>}</DragOverlay></DndContext>;
 }
 function PlanSegment({plan,index,slot,selected,onSelect,style,thumbnail,disabled}:{plan:CompositePlan<SceneBlock>;index:number;slot:Timing;selected:boolean;onSelect:(id:string)=>void;style:CSSProperties;thumbnail:string|null|undefined;disabled:boolean}) {
- const {attributes,listeners,setNodeRef,transform,transition,isDragging}=useSortable({id:plan.id,disabled});
- return <button ref={setNodeRef} type="button" style={{...style,transform:CSS.Transform.toString(transform),transition,zIndex:isDragging?5:undefined}} className={styles.segment+" "+styles.videoSegment} onClick={()=>onSelect(plan.lead.id)} {...attributes} {...listeners} aria-pressed={selected} aria-disabled={false} aria-label={"Plan "+(index+1)+" · "+(plan.lead.content||names[plan.lead.type]||"Sans contenu")} data-block-id={plan.lead.id}>
+ const {attributes,listeners,setNodeRef,transform,transition,isDragging}=useSortable({id:plan.id,disabled,data:{track:"video",blockId:plan.lead.id}});
+ return <button ref={setNodeRef} type="button" style={{...style,transform:CSS.Transform.toString(transform),transition,zIndex:isDragging?5:undefined,opacity:isDragging?.3:1}} className={styles.segment+" "+styles.videoSegment} onClick={()=>onSelect(plan.lead.id)} {...attributes} {...listeners} aria-pressed={selected}  aria-label={"Plan "+(index+1)+" · "+(plan.lead.content||names[plan.lead.type]||"Sans contenu")} data-block-id={plan.lead.id}>
   {thumbnail?<img src={thumbnail} alt=""/>:<StudioIcon name={plan.lead.type==="transition"?"layout":"video"}/>}<span><strong>{String(index+1).padStart(2,"0")} · {plan.lead.content||names[plan.lead.type]||"Plan sans contenu"}</strong><small>{timeLabel(slot.start)} – {timeLabel(slot.end)}</small></span><em>{slot.duration.toFixed(1)}s</em>
  </button>;
 }
 function MusicSegment({block,style,selected,onSelect,disabled}:{block:SceneBlock;style:CSSProperties;selected:boolean;onSelect:(id:string)=>void;disabled:boolean}) {
- const {attributes,listeners,setNodeRef,transform,transition}=useSortable({id:block.id,disabled});
- return <button ref={setNodeRef} type="button" style={{...style,transform:CSS.Transform.toString(transform),transition}} className={styles.segment+" "+styles.musicSegment} onClick={()=>onSelect(block.id)} {...attributes} {...listeners} aria-pressed={selected} aria-disabled={false} data-block-id={block.id}><StudioIcon name="music"/><span>{block.content||block.mediaUrl?.split("/").at(-1)||"Choisir une musique"}</span>{block.mediaUrl&&<AudioWaveform url={block.mediaUrl}/>}</button>;
+ const {attributes,listeners,setNodeRef,transform,transition}=useSortable({id:block.id,disabled,data:{track:"music",blockId:block.id}});
+ return <button ref={setNodeRef} type="button" style={{...style,transform:CSS.Transform.toString(transform),transition}} className={styles.segment+" "+styles.musicSegment} onClick={()=>onSelect(block.id)} {...attributes} {...listeners} aria-pressed={selected}  data-block-id={block.id}><StudioIcon name="music"/><span>{block.content||block.mediaUrl?.split("/").at(-1)||"Choisir une musique"}</span>{block.mediaUrl&&<AudioWaveform url={block.mediaUrl}/>}</button>;
+}
+function TrackRow({track,hidden,disabled,children}:{track:string;hidden:boolean;disabled:boolean;children:React.ReactNode}) {
+ const {setNodeRef,isOver}=useDroppable({id:"track-"+track,data:{track},disabled});
+ return <div ref={setNodeRef} className={styles.trackRow} data-track={track} data-hidden={hidden} data-drop-over={isOver}>{children}</div>;
+}
+function ElementSegment({block,track,selected,onSelect,style,disabled}:{block:SceneBlock;track:string;selected:boolean;onSelect:(id:string)=>void;style:CSSProperties;disabled:boolean}) {
+ const {attributes,listeners,setNodeRef,transform,transition,isDragging}=useSortable({id:block.id,disabled,data:{track,blockId:block.id}});
+ return <button ref={setNodeRef} type="button" {...attributes} {...listeners} className={styles.segment+" "+styles[track+"Segment"]} style={{...style,transform:CSS.Transform.toString(transform),transition,opacity:isDragging?.3:1}} aria-pressed={selected} onClick={()=>onSelect(block.id)} title={(names[block.type]||block.type)+" · "+(block.content||"Sans contenu")} data-block-id={block.id}><StudioIcon name={track==="dialogue"?"dialogue":track==="background"?"image":track==="note"?"note":track==="sfx"?"sfx":"action"}/><span>{block.content||block.mediaUrl?.split("/").at(-1)||names[block.type]}</span>{track==="sfx"&&block.mediaUrl&&<AudioWaveform url={block.mediaUrl}/>}</button>;
 }
 const waveformCache=new Map<string,number[]>();
 function AudioWaveform({url}:{url:string}) {

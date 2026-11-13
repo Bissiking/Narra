@@ -80,9 +80,11 @@ Utilisez les flèches pour réordonner les blocs et la croix pour en retirer un.
 
 Pour les scènes longues, sélectionnez d’abord un bloc : les boutons de la barre d’outils ajoutent alors le nouveau bloc juste après celui-ci. Le menu **+ Insérer après** présent sur chaque bloc permet de choisir précisément le type à insérer. Utilisez **Ctrl + Entrée** (ou **Cmd + Entrée** sur macOS) pour ajouter rapidement un bloc du même type, et **Aller au plan…** pour naviguer directement entre les titres d’une scène.
 
-### Importer une scène préparée avec GPT
+### Importer une scène ou un fichier Markdown
 
-Dans la barre de l’éditeur, choisissez **Importer**, puis **Copier le prompt pour GPT**. Ajoutez votre scène à la fin du prompt et envoyez-le à GPT. Collez ensuite sa réponse dans Narra : un aperçu indique combien de plans, actions, dialogues et transitions ont été détectés avant toute modification.
+Dans la barre de l’éditeur, choisissez **Importer**. Vous pouvez coller un script ou ouvrir un fichier `.md`, `.markdown` ou `.txt` (UTF-8, 2 Mo maximum). Les coupes `---`, `***` et `___` séparent les blocs ; les titres et dialogues sont détectés automatiquement. Vérifiez le découpage et les associations de noms dans **Personnages du script** avant de valider.
+
+Pour préparer une scène avec GPT, choisissez **Copier le prompt pour GPT**. Ajoutez votre scène à la fin du prompt et envoyez-le à GPT. Collez ensuite sa réponse dans Narra : un aperçu indique combien de plans, actions, dialogues et transitions ont été détectés avant toute modification.
 
 Le format accepté est le suivant :
 
