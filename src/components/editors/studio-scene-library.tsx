@@ -15,7 +15,7 @@ export default function StudioSceneLibrary(p:Props) {
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:8}}),useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates}));
   return <DndContext sensors={sensors} collisionDetection={args=>closestCenter({...args,droppableContainers:args.droppableContainers.filter(item=>item.data.current?.scope===args.active.data.current?.scope)})} onDragEnd={({active,over})=>{if(over&&active.id!==over.id)p.onReorder(String(active.id),String(over.id));}}>
     {p.groups.map((group,index)=><details key={group.id} open={index===0||group.scenes.some(scene=>scene.id===p.selectedId)} className={styles.season}>
-      <summary><StudioIcon name="chevron"/><span>{group.title}</span><small>{group.scenes.length} scènes</small></summary>
+      <summary><StudioIcon name="chevron"/><span>{group.title}</span><small>{group.scenes.length} sous-bloc{group.scenes.length!==1?"s":""}</small></summary>
       <SortableContext items={group.scenes.map(scene=>scene.id)} strategy={verticalListSortingStrategy}>{group.scenes.map((scene,i)=><SceneRow key={scene.id} scene={scene} index={i} props={p}/>)}</SortableContext>
     </details>)}
   </DndContext>;

@@ -15,19 +15,31 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   for(let i=0;i<90;i++){try{await fetch(base+'/icon.png');break}catch{await wait(400)}}
   browser=await puppeteer.launch({executablePath:process.env.NARRA_CHROME,headless:true});
   const page=await browser.newPage();await page.setViewport({width:1440,height:900});
-  const errors=[],saved=[],reorders=[];let failRename=false,failReorder=false,viewer=false;
+  const errors=[],saved=[],reorders=[];let failRename=false,failReorder=false,viewer=false,failBlockSave=false;
   page.on('pageerror',error=>errors.push(error.message));
   await page.evaluateOnNewDocument(()=>{window.WebSocket=class{static OPEN=1;readyState=0;send(){}close(){}}});
   let scenes=['Le départ','Le phare','Le retour'].map((title,i)=>({id:'s'+(i+1),title,status:'draft',order:i,wordCount:12,readerTitle:null,showReaderTitle:false,node:{id:'b1',title:'Chapitre 1'},location:null,characters:[],_count:{blocks:i?1:5}}));
-  const structure=[{id:'e1',type:'episode',title:'Épisode 1',order:0,children:[{id:'b1',type:'chapter',title:'Chapitre 1',order:0,children:[]}]}];
+  const structure=[{id:'season1',type:'season',title:'Saison 1 · L’Origine',order:0,children:[
+   {id:'prologue',type:'prologue',title:'Prologue',order:0,children:[]},
+   {id:'intro',type:'custom',title:'Intro',order:1,children:[]},
+   {id:'e1',type:'episode',title:'Épisode 1 · La nomination',order:2,children:[{id:'b1',type:'chapter',title:'Chapitre 1',order:0,children:[]}]},
+   {id:'e2',type:'episode',title:'Épisode 2 — Les conséquences du passé',order:3,children:[]},
+   {id:'empty',type:'episode',title:'Épisode 3 · À écrire',order:4,children:[]},
+  ]}];
+  const extra=(id,title,nodeId,nodeTitle)=>({...scenes[0],id,title,node:{id:nodeId,title:nodeTitle},_count:{blocks:1}});
+  scenes=[extra('prologue-scene','B1-0.1','prologue','Prologue'),extra('intro-scene','B1-0.2','intro','Intro'),...scenes,extra('ep2-scene','B1-1.0','e2','Épisode 2 — Les conséquences du passé')];
+  const nodeById=id=>{const find=nodes=>{for(const node of nodes){if(node.id===id)return {id:node.id,title:node.title};const nested=find(node.children);if(nested)return nested}};return find(structure)||null};
   const characters=[{id:'mira',firstName:'Mira',lastName:'Du Port',alias:'La Veilleuse',portraitUrl:null,images:[]}];
   const blocks={s1:[{id:'d1',type:'dialogue',content:'Nous partons demain.',order:0,characterId:'mira'},{id:'a1',type:'action',content:'Le navire s’éloigne.',order:1},{id:'d2',type:'dialogue',content:'Je vois le phare.',order:2,characterId:'mira'},{id:'n1',type:'note',content:'Vérifier la continuité.',order:3},{id:'m1',type:'music',content:'Thème du port',order:4,loop:true}],s2:[{id:'s2-a',type:'action',content:'Au phare.',order:0}],s3:[{id:'s3-a',type:'action',content:'Le retour.',order:0}]};
+  for(const id of ['prologue-scene','intro-scene','ep2-scene'])blocks[id]=[{id:id+'-a',type:'action',content:'Texte de '+id,order:0}];
+  const creations=[];
   await page.setRequestInterception(true);page.on('request',request=>{void(async()=>{
    const u=new URL(request.url()),p=u.pathname,method=request.method();if(!p.startsWith('/api/'))return request.continue();
    let data=[],status=200;const body=request.postData()?JSON.parse(request.postData()):{};
    if(p.endsWith('/scenes/reorder')){reorders.push(body);if(failReorder){status=409;data={error:'Conflit simulé'}}else{scenes=scenes.map(s=>body.sceneIds.includes(s.id)?{...s,order:body.sceneIds.indexOf(s.id)}:s);data={ok:true}}}
-   else if(p.startsWith('/api/scenes/')){const id=p.split('/')[3];if(method==='PUT'){blocks[id]=body.blocks;data={blocks:blocks[id]};saved.push(body.blocks)}else data=blocks[id]||[];}
-   else if(method==='PATCH'){if(failRename){status=500;data={error:'Panne simulée'}}else{const id=p.split('/').at(-1);scenes=scenes.map(s=>s.id===id?{...s,...body}:s);data=scenes.find(s=>s.id===id)}}
+   else if(p.startsWith('/api/scenes/')){const id=p.split('/')[3];if(method==='PUT'){if(failBlockSave){status=500;data={error:'Panne simulée'}}else{blocks[id]=body.blocks;data={blocks:blocks[id]};saved.push(body.blocks)}}else data=blocks[id]||[];}
+   else if(method==='PATCH'){if(failRename){status=500;data={error:'Panne simulée'}}else{const id=p.split('/').at(-1);scenes=scenes.map(s=>s.id===id?{...s,...body,...(Object.hasOwn(body,'nodeId')?{node:nodeById(body.nodeId)}:{})}:s);data=scenes.find(s=>s.id===id)}}
+   else if(p.endsWith('/scenes')&&method==='POST'){data={...scenes[0],id:'created-'+creations.length,title:body.title,node:nodeById(body.nodeId),order:0,wordCount:0,_count:{blocks:0}};scenes.push(data);blocks[data.id]=[];creations.push(body);}
    else if(p.endsWith('/scenes'))data=scenes;
    else if(p.endsWith('/characters'))data=characters;
    else if(p.endsWith('/narrative-nodes'))data=structure;
@@ -39,11 +51,14 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   const visible=async selector=>{await page.waitForSelector(selector,{visible:true});return page.$(selector)};
   const click=async selector=>{const el=await visible(selector);await el.evaluate(e=>e.scrollIntoView({block:'nearest',inline:'nearest'}));await el.click()};
   const textClick=async text=>{const handles=await page.$$('button');for(const el of handles){if((await el.evaluate(e=>e.textContent.trim()))===text&&await el.isVisible()){await el.evaluate(e=>e.scrollIntoView({block:'nearest'}));await el.click();return}}throw Error('Button not found: '+text)};
-  const fill=async(selector,value)=>{const el=await visible(selector);await el.focus();const modifier=process.platform==='darwin'?'Meta':'Control';await page.keyboard.down(modifier);await page.keyboard.press('a');await page.keyboard.up(modifier);await el.press('Backspace');await el.type(value)};
+  const fill=async(selector,value)=>{const el=await visible(selector);await el.evaluate(e=>{e.focus();e.setSelectionRange(0,e.value.length)});await page.keyboard.type(value)};
   const drag=async(from,to)=>{await visible(from);await visible(to);await page.$eval(from,e=>e.scrollIntoView({block:'nearest',inline:'nearest'}));const a=await (await page.$(from)).boundingBox();await page.$eval(to,e=>e.scrollIntoView({block:'nearest',inline:'nearest'}));const b=await(await page.$(to)).boundingBox();await page.mouse.move(a.x+Math.min(a.width/2,60),a.y+a.height/2);await page.mouse.down();await page.mouse.move(a.x+Math.min(a.width/2,60)+12,a.y+a.height/2,{steps:3});await wait(70);await page.mouse.move(b.x+Math.min(b.width/2,60),b.y+b.height/2,{steps:20});await wait(150);await page.mouse.up();await wait(300)};
   const save=async()=>{const before=saved.length;await textClick('Sauver');for(let i=0;i<100&&saved.length===before;i++)await wait(20);assert.ok(saved.length>before,'save request completed');await page.waitForFunction(()=>[...document.querySelectorAll('[role=status]')].some(e=>e.textContent.includes('sauvegardé à')))};
   const layout=async name=>{await click('[aria-label="Disposition"]');await textClick(name==='compact'?'CompacteImage 1 · cinq pistes':'DétailléeImage 2 · sept pistes');await page.waitForSelector('[data-studio-layout='+name+']')};
   await page.goto(base+'/studio-patch-browser-qa/demo',{waitUntil:'networkidle0'});await visible('[data-track=dialogue] [data-block-id=d1]');
+  assert.equal(await page.$eval('#studio-episode',e=>e.value),'e1');
+  assert.deepEqual(await page.$$eval('[data-library-scene]',rows=>rows.map(row=>row.dataset.libraryScene)),['s1','s2','s3']);
+  assert.ok(await page.$eval('#studio-episode',e=>[...e.options].some(option=>option.textContent.includes('Hors épisodes'))));
   // Convert from populated track to empty space and back; retain content and character metadata.
   await drag('[data-track=dialogue] [data-block-id=d1]','[data-track=note] [class*=trackLane]');
   await visible('[data-track=note] [data-block-id=d1]');await save();
@@ -77,12 +92,32 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   await visible('[aria-label="Personnage pour NORA"]');await page.select('[aria-label="Personnage pour NORA"]','mira');await click('input[value=replace]');await textClick('Importer 6 blocs');await page.waitForSelector('dialog[open]',{hidden:true});await save();
   assert.deepEqual(saved.at(-1).map(b=>b.type),['heading','dialogue','transition','dialogue','transition','note']);assert.ok(saved.at(-1).filter(b=>b.type==='dialogue').every(b=>b.characterId==='mira'));assert.ok(saved.at(-1).every(b=>!b.content.includes('---')));
   console.log('Compact menus, media, help focus and Markdown import passed.');
+  // Reproduce season-level Prologue/Intro followed by two real episodes and an empty one.
+  const choose=async id=>{await page.select('#studio-episode',id);await page.waitForFunction(value=>document.querySelector('#studio-episode')?.value===value,{},id);await wait(100)};
+  const libraryIds=()=>page.$$eval('[data-library-scene]',rows=>rows.map(row=>row.dataset.libraryScene));
+  await click('[data-track=video] [data-block-id]');await fill('[data-scene-block-id] textarea','Le port modifié avant changement d’épisode.');
+  failBlockSave=true;await page.select('#studio-episode','e2');await page.waitForFunction(()=>[...document.querySelectorAll('[role=alert]')].some(e=>e.textContent.includes('Échec de la sauvegarde')));assert.equal(await page.$eval('#studio-episode',e=>e.value),'e1');assert.equal(await page.$eval('[data-scene-block-id] textarea',e=>e.value),'Le port modifié avant changement d’épisode.');
+  failBlockSave=false;
+  await choose('e2');assert.deepEqual(await libraryIds(),['ep2-scene']);assert.equal(await page.$eval('[data-scene-id]',e=>e.dataset.sceneId),'ep2-scene');
+  await choose('legacy-season1');assert.deepEqual(await libraryIds(),['prologue-scene','intro-scene']);assert.ok((await page.$eval('[aria-label="Organisation de l’épisode"]',e=>e.textContent)).includes('Hors épisodes'));assert.equal(await page.$$eval('[data-scene-id]',rows=>rows.length),2);
+  await choose('empty');assert.deepEqual(await libraryIds(),[]);assert.equal(await page.$$eval('[data-scene-id]',rows=>rows.length),0);assert.ok(await page.$eval('[role="group"][aria-label="Mode de navigation"] button:last-child',button=>button.disabled));
+  await choose('e2');await click('[data-scene-id=ep2-scene] [class*=episodeSceneActions] button:last-child');await visible('[data-track=video] [data-block-id=ep2-scene-a]');
+  await page.select('[aria-label="Séquence"]','b1');failRename=true;await textClick('Enregistrer les réglages');await page.waitForFunction(()=>[...document.querySelectorAll('[role=alert]')].some(e=>e.textContent.includes('Impossible de sauvegarder les réglages')));assert.equal(await page.$eval('#studio-episode',e=>e.value),'e2');failRename=false;await textClick('Enregistrer les réglages');await page.waitForFunction(()=>document.querySelector('#studio-episode')?.value==='e1');assert.ok((await libraryIds()).includes('ep2-scene'));
+  // Empty episode creation must attach to that episode, even with a title already used elsewhere.
+  await choose('e2');assert.deepEqual(await libraryIds(),[]);await click('[aria-label="Créer une scène"]');assert.equal(await page.$eval('[aria-label="Rattachement narratif"]',e=>e.value),'e2');
+  await fill('[aria-label="Titre du sous-bloc"]','Une autre lumière');await textClick('Créer la scène');await visible('[data-library-scene=created-0]');assert.deepEqual(await libraryIds(),['created-0']);assert.equal(creations[0].nodeId,'e2');assert.equal(await page.$eval('#studio-episode',e=>e.value),'e2');
+  await page.screenshot({path:'.impeccable/review/episode-isolation-created.png'});
+  await choose('e1');await click('[data-scene-id=s1] [class*=episodeSceneActions] button:last-child');await visible('[data-track=video]');
+  console.log('Prologue/Intro separated, real episodes and empty episodes visible, reassignment and creation isolated.');
   // A single batched responsive inspection, both layouts; popups stay inside the viewport.
   for(const name of ['compact','detailed']){
    if(name==='detailed')await layout(name);
    for(const width of [1440,390,320]){
     await page.setViewport({width,height:900});await wait(150);await page.evaluate(()=>scrollTo(0,0));
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'page overflow '+name+' '+width);
+    await page.$eval('#studio-episode',e=>e.scrollIntoView({block:'center'}));
+    assert.ok(await page.$eval('#studio-episode',e=>{const r=e.getBoundingClientRect();return r.width>100&&r.left>=0&&r.right<=innerWidth}),'episode selector visible '+name+' '+width);
+    await page.screenshot({path:'.impeccable/review/episode-isolation-'+name+'-'+width+'.png',fullPage:true});
     await click('[aria-label="Ajouter un élément"]');await page.waitForFunction(()=>document.querySelector('[popover]:popover-open'));
     assert.ok(await page.evaluate(()=>{const r=document.querySelector('[popover]:popover-open').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight}),'menu bounds '+name+' '+width);
     await page.screenshot({path:'.impeccable/review/patch-'+name+'-'+width+'.png',fullPage:true});await page.keyboard.press('Escape');
@@ -93,7 +128,7 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   }
   viewer=true;await page.reload({waitUntil:'networkidle0'});await visible('[data-track=video]');assert.equal(await page.$('[aria-label^="Ordonner "]'),null);assert.equal(await page.$('[aria-label="Renommer le sous-bloc"]'),null);assert.equal(await page.$('[aria-label="Ajouter un élément"]'),null);
   assert.deepEqual(errors,[]);console.log('Both layouts: 1440/390/320px, popup bounds and zero page errors passed.');
-  fs.writeFileSync('.impeccable/review/patch-browser-report.json',JSON.stringify({passed:true,checks:['track conversion','locked tracks','plan pointer/keyboard reorder','rename failure/retry','episode pointer/keyboard reorder','reorder failure','compact add menu','media modal','help focus and Escape','Markdown file import','character association','responsive compact/detailed'],widths:[1440,390,320],errors,scope:'Local Next.js UI with intercepted APIs; no real PostgreSQL, SSO or deployment.'},null,2));
+  fs.writeFileSync('.impeccable/review/patch-browser-report.json',JSON.stringify({passed:true,checks:['failed episode navigation preserves edits','failed metadata reassignment preserves scope','episode-only library','outside-episode prologue and intro','empty episode visibility','scene reassignment updates active episode','creation in empty episode','track conversion','locked tracks','plan pointer/keyboard reorder','rename failure/retry','episode pointer/keyboard reorder','reorder failure','compact add menu','media modal','help focus and Escape','Markdown file import','character association','responsive compact/detailed'],widths:[1440,390,320],errors,scope:'Local Next.js UI with intercepted APIs; no real PostgreSQL, SSO or deployment.'},null,2));
  }catch(error){if(browser){for(const page of await browser.pages())await page.screenshot({path:'.impeccable/review/patch-failure.png',fullPage:true}).catch(()=>{})}throw error;}
  finally{await browser?.close();server.kill('SIGTERM');fs.rmSync(path.dirname(dir),{recursive:true,force:true});fs.rmSync(path.join(root,'.next-qa/patch-browser/types/app/studio-patch-browser-qa'),{recursive:true,force:true});fs.closeSync(log)}
 })().catch(error=>{console.error(error);process.exitCode=1});

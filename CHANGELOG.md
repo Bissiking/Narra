@@ -2,6 +2,8 @@
 
 ## En préparation — patch Studio (2026-11-13)
 
+- Navigation isolée par épisode : sélecteur permanent, ouverture sur le premier épisode réel, bibliothèque limitée à ses sous-blocs, Prologue/Intro dans Hors épisodes et création correctement rattachée dans les épisodes vides.
+
 - Poignées de réordonnancement fonctionnelles dans la bibliothèque et l’organisation de l’épisode, au pointeur et au clavier ; conservation de l’ordre en cas d’échec de sauvegarde.
 - Menus du Studio dans la couche supérieure du navigateur et fenêtres d’import/médias accessibles, indépendantes du rognage des panneaux, en Compacte comme en Détaillée.
 - Conversion des éléments de texte par dépôt sur une autre piste : Dialogue, Action, Note ; texte et paramètres conservés, pistes verrouillées respectées.

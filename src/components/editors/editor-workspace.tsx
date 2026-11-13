@@ -26,7 +26,7 @@ import SceneScriptImporter from "@/components/scene-script-importer";
 import type { ParsedSceneScriptBlock } from "@/lib/scene-script-parser";
 import { getEditorProfile, getProjectFormat } from "@/lib/editor-profiles";
 import { buildCompositePlans, isPlanLayer, type CompositePlan } from "@/lib/scene-composition";
-import { buildStudioEpisodes, findStudioGroup } from "@/lib/studio-navigation";
+import { buildStudioEpisodes, findStudioGroup, defaultStudioEpisode, activeStudioEpisode, studioLibraryGroups } from "@/lib/studio-navigation";
 import EpisodeOverview, { EpisodeTree, EpisodeTimeline, STATUS_LABELS } from "@/components/editors/episode-overview";
 import StudioV2View from "./studio-v2-view";
 import editorStyles from "@/app/project/[projectId]/edit/editor-workspace.module.css";
@@ -186,12 +186,16 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
         fetch(`/api/projects/${projectId}`),
         fetch(`/api/projects/${projectId}/presentation`),
       ]);
-      if (scenesRes.ok) {
-        const loadedScenes = await scenesRes.json() as Scene[];
-        setScenes(loadedScenes);
-        setSelectedScene((current) => current || loadedScenes[0]?.id || null);
-      }
-      if (structureRes.ok) setStructure(await structureRes.json());
+      const loadedScenes: Scene[] = scenesRes.ok ? await scenesRes.json() : [];
+      const loadedStructure: NarrativeNode[] = structureRes.ok ? await structureRes.json() : [];
+      setScenes(loadedScenes);
+      setStructure(loadedStructure);
+      if (version === 2) {
+        const initial = defaultStudioEpisode(buildStudioEpisodes(loadedStructure, loadedScenes));
+        setEpisodeId(initial?.id || null);
+        setSelectedScene(current => current || initial?.scenes[0]?.id || null);
+        if (initial && !initial.scenes.length) setNavigationMode("episode");
+      } else setSelectedScene(current => current || loadedScenes[0]?.id || null);
       if (charsRes.ok) setCharacters(await charsRes.json());
       if (projectRes.ok) {
         const project = await projectRes.json();
@@ -211,7 +215,7 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
       setLoading(false);
     }
     loadData();
-  }, [projectId]);
+  }, [projectId, version]);
 
   // Load blocks when scene selected
   useEffect(() => {
@@ -533,7 +537,7 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
   }, []);
 
   const episodes = buildStudioEpisodes(structure, scenes);
-  const activeEpisode = episodes.find(e => e.id === episodeId) || episodes.find(e => e.scenes.some(s => s.id === selectedScene)) || episodes[0];
+  const activeEpisode = activeStudioEpisode(episodes, episodeId, selectedScene);
   const episodeMode = version === 2 && navigationMode === "episode";
   async function openSubblock(id: string) {
     if (await selectScene(id)) { setEpisodeId(episodes.find(e => e.scenes.some(s => s.id === id))?.id || null); setNavigationMode("subblock"); setBlockSearch(""); setInspectorTab("content"); setShowMetadata(false); }
@@ -585,7 +589,7 @@ export default function EditorWorkspace({ version = 1 }: { version?: 1 | 2 }) {
 
   if (Number(version) === 2) return <StudioV2View
     projectId={projectId} projectType={projectType} settings={previewSettings}
-    scenes={sortedScenes} groups={sceneGroups} nodeOptions={nodeOptions} characters={characters}
+    scenes={activeEpisode?.scenes || []} groups={studioLibraryGroups(activeEpisode)} nodeOptions={nodeOptions} characters={characters}
     episodes={episodes} activeEpisode={activeEpisode} episodeMode={episodeMode}
     selectedScene={selectedSceneData || null} blocks={blocks} selectedBlockId={selectedBlockId}
     onSelectBlock={setSelectedBlockId} onOpenScene={openSubblock} onSelectScene={selectScene}

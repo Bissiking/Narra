@@ -194,7 +194,13 @@ export default function StudioV2View(props:Props) {
  const portrait=previewBlock?.showPortrait===false?null:previewBlock?.portraitImageUrl||expression?.url||character?.portraitUrl;
  const speaker=character?.alias || [character?.firstName,character?.lastName].filter(Boolean).join(" ") || previewBlock?.speakerNote || "Personnage";
 
- const scopeControls=<div className={styles.scopeControls}><div role="group" aria-label="Mode de navigation"><button type="button" aria-pressed={p.episodeMode} onClick={()=>p.onModeChange("episode")}>Épisode</button><button type="button" aria-pressed={!p.episodeMode} disabled={!p.selectedScene} onClick={()=>p.onModeChange("subblock")}>Sous-bloc</button></div>{p.episodeMode&&<select id="studio-episode" aria-label="Épisode actif" value={p.activeEpisode?.id || ""} onChange={e=>void selectEpisode(e.target.value)}>{!p.episodes.length&&<option value="">Aucun épisode</option>}{p.episodes.map(e=><option key={e.id} value={e.id}>{e.path.join(" / ")||e.title}</option>)}</select>}</div>;
+ const scopeControls=<div className={styles.scopeControls}>
+  <label className={styles.episodeSelector} htmlFor="studio-episode"><span>Épisode / section</span><select id="studio-episode" aria-label="Épisode actif" title={p.activeEpisode?.path.join(" / ")} value={p.activeEpisode?.id || ""} onChange={e=>void selectEpisode(e.target.value)}>
+   {!p.episodes.length&&<option value="">Aucun épisode</option>}
+   {p.episodes.map(episode=><option key={episode.id} value={episode.id}>{episode.title}{episode.kind==="episode"&&episode.path.length>1?" — "+episode.path.slice(0,-1).join(" / "):""} · {episode.scenes.length} sous-bloc{episode.scenes.length!==1?"s":""}</option>)}
+  </select></label>
+  <div role="group" aria-label="Mode de navigation"><button type="button" aria-pressed={p.episodeMode} onClick={()=>p.onModeChange("episode")}>{p.activeEpisode?.kind==="outside"?"Vue d’ensemble":"Épisode"}</button><button type="button" aria-pressed={!p.episodeMode} disabled={!p.selectedScene} onClick={()=>p.onModeChange("subblock")}>Sous-bloc</button></div>
+ </div>;
 
  return <div ref={frameRef} className={styles.workspace+" "+(detailed?styles.detailed:styles.compact)} data-studio-layout={layout}>
   <header className={styles.topbar}>
@@ -204,7 +210,6 @@ export default function StudioV2View(props:Props) {
     <div>{renaming?<form className={styles.renameForm} onSubmit={event=>{event.preventDefault();void rename();}}><input ref={titleInput} aria-label="Nouveau titre du sous-bloc" value={p.title.value} onChange={event=>p.title.onChange(event.target.value)} onKeyDown={event=>{if(event.key==="Escape")cancelRename();}} maxLength={200} disabled={renameSaving}/><button type="submit" disabled={renameSaving||!p.title.value.trim()} aria-label="Enregistrer le nouveau titre"><StudioIcon name="save"/></button><button type="button" onClick={cancelRename} aria-label="Annuler le renommage"><StudioIcon name="close"/></button></form>:<button type="button" aria-label={!p.episodeMode&&p.canEdit&&p.selectedScene?"Renommer le sous-bloc" : undefined} onClick={()=>{if(!p.episodeMode&&p.canEdit&&p.selectedScene)setRenaming(true);else{setInspector("scene");setInspectorSection("inspector");}}}>{p.episodeMode?p.activeEpisode?.title || "Épisode":p.selectedScene?.title || "Aucun sous-bloc"}{!p.episodeMode&&p.canEdit&&<StudioIcon name="edit"/>}</button>}{renameError&&<small role="alert">{renameError}</small>}{detailed&&<small role="status">{state}</small>}</div>
     {!detailed&&p.selectedScene?.readerTitle&&<><StudioIcon name="chevron"/><span>{p.selectedScene.readerTitle}</span></>}
    </div>
-   {detailed&&scopeControls}
    <div className={styles.topActions}>
     <div className={styles.historyButtons}><IconButton icon="undo" label="Annuler la dernière modification" onClick={undo} disabled={!editable||!history.length}/><IconButton icon="redo" label="Rétablir la modification" onClick={redo} disabled={!editable||!future.length}/></div>
     {!detailed&&<button className={styles.activeButton} type="button" onClick={()=>setLibraryTab("scenes")}><StudioIcon name="video"/><span>Éditeur</span></button>}
@@ -217,13 +222,13 @@ export default function StudioV2View(props:Props) {
   </header>
 
   <aside className={styles.library} aria-label="Scènes du projet">
-   {detailed?<div className={styles.libraryTabs}>{[{key:"scenes",label:"Scènes",icon:"video"},{key:"resources",label:"Ressources",icon:"layout"},{key:"media",label:"Médiathèque",icon:"image"}].map(tab=><button type="button" key={tab.key} aria-pressed={libraryTab===tab.key} onClick={()=>setLibraryTab(tab.key)}><StudioIcon name={tab.icon as StudioIconName}/>{tab.label}</button>)}</div>:<div className={styles.libraryHeader}><div><strong>Scènes</strong><small>{p.scenes.length} scènes · {p.scenes.reduce((n,s)=>n+s.wordCount,0).toLocaleString("fr-FR")} mots</small></div>{p.canEdit&&<button type="button" onClick={p.onCreateScene} aria-label="Créer une scène" aria-expanded={!!p.createSceneForm}><StudioIcon name="plus"/>Ajouter</button>}</div>}
-   {!detailed&&scopeControls}
+   {detailed?<div className={styles.libraryTabs}>{[{key:"scenes",label:"Scènes",icon:"video"},{key:"resources",label:"Ressources",icon:"layout"},{key:"media",label:"Médiathèque",icon:"image"}].map(tab=><button type="button" key={tab.key} aria-pressed={libraryTab===tab.key} onClick={()=>setLibraryTab(tab.key)}><StudioIcon name={tab.icon as StudioIconName}/>{tab.label}</button>)}</div>:<div className={styles.libraryHeader}><div><strong>Sous-blocs</strong><small>{p.scenes.length} sous-bloc{p.scenes.length!==1?"s":""} · {p.scenes.reduce((n,s)=>n+s.wordCount,0).toLocaleString("fr-FR")} mots</small></div>{p.canEdit&&<button type="button" onClick={p.onCreateScene} aria-label="Créer une scène" aria-expanded={!!p.createSceneForm}><StudioIcon name="plus"/>Ajouter</button>}</div>}
+   {scopeControls}
    {detailed&&libraryTab==="scenes"&&p.canEdit&&<button type="button" className={styles.addScene} onClick={p.onCreateScene} aria-label="Créer une scène" aria-expanded={!!p.createSceneForm}><StudioIcon name="plus"/>Ajouter une scène</button>}
    {p.createSceneForm&&<div className={styles.createForm}>{p.createSceneForm}</div>}
    {libraryTab==="scenes"||!detailed?<div className={styles.sceneList}>
     <StudioSceneLibrary groups={p.groups} selectedId={p.selectedScene?.id||null} detailed={detailed} canEdit={p.canEdit} moving={p.movingScene} selectedBackdrop={p.blocks.find(block=>block.type==="background"&&block.mediaUrl)?.mediaUrl} onOpen={id=>void(p.episodeMode?selectScene(id):openScene(id))} onSettings={id=>void openScene(id).then(()=>setInspector("scene"))} onReorder={(id,target)=>void p.onReorderScene(id,target)}/>
-    {!p.scenes.length&&<p className={styles.empty}>Créez une scène pour commencer votre scénario.</p>}
+    {!p.scenes.length&&<p className={styles.empty}>{p.activeEpisode?"Aucun sous-bloc dans cette section. Ajoutez-en un pour commencer.":"Créez une scène pour commencer votre scénario."}</p>}
     {detailed&&p.canEdit&&<button type="button" className={styles.sceneDrop} onClick={p.onCreateScene}><StudioIcon name="plus"/>Ajouter un sous-bloc</button>}
    </div>:<div className={styles.resources}><h2>{libraryTab==="media"?"Médiathèque":"Ressources du projet"}</h2><p>{libraryTab==="media"?"Retrouvez les images, musiques et effets sonores de votre histoire.":"Retrouvez les personnages, lieux et éléments de votre univers."}</p>{libraryTab==="media"?<Link href={"/project/"+p.projectId+"/media"}><StudioIcon name="image"/>Ouvrir la médiathèque<StudioIcon name="chevron"/></Link>:<>{[["characters","Personnages"],["locations","Lieux"],["structure","Structure"],["lore","Univers"]].map(([path,label])=><Link href={"/project/"+p.projectId+"/"+path} key={path}>{label}<StudioIcon name="chevron"/></Link>)}</>}</div>}
   </aside>
