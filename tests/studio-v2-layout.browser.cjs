@@ -6,7 +6,7 @@ function tone(){const rate=16000,count=rate*3,data=Buffer.alloc(44+count*2);data
 (async()=>{
  if(fs.existsSync(file))throw Error('QA route exists');
  fs.mkdirSync(dir,{recursive:true});fs.mkdirSync('.impeccable/review',{recursive:true});
- fs.writeFileSync(file,'import EditorWorkspace from "@/components/editors/editor-workspace";export default function Page(){return <EditorWorkspace version={2}/>;}');
+ fs.writeFileSync(file,'import EditorWorkspace from "@/components/editors/editor-workspace";export default function Page(){return <EditorWorkspace/>;}');
  const log=fs.openSync('.impeccable/studio-layout-server.log','w');
  const server=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','-p',String(port),'-H','127.0.0.1'],{cwd:root,env:{...process.env,NARRA_NEXT_DIST_DIR:".next-qa/studio-layout"},windowsHide:true,stdio:['ignore',log,log]});
  let browser;

@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import HelpPopup from "@/components/ui/help-popup";
 import type { StudioEpisode, StudioGroup, StudioScene } from "@/lib/studio-navigation";
-import styles from "@/app/project/[projectId]/edit/editor-workspace.module.css";
+import styles from "./episode-overview.module.css";
 
 export interface EpisodeScene extends StudioScene {
   status: string; wordCount: number; location: {imageUrl?: string | null; name: string} | null;
@@ -20,23 +19,10 @@ interface Props {
   onMove: (sceneId: string, direction: -1 | 1) => void; canEdit: boolean; moving: boolean;
 }
 function FolderIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5h6l2 2h10v13H3z" /></svg>; }
-function ChevronIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>; }
+
 function ArrowRightIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6" /></svg>; }
 function SceneIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6zM14 3v5h4M9 12h6M9 16h6" /></svg>; }
 function Arrow({up = false}: {up?: boolean}) { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={up ? "M12 19V5M6 11l6-6 6 6" : "M12 5v14M6 13l6 6 6-6"} /></svg>; }
-
-export function EpisodeTree({episode, selectedId, onSelect, projectId}: Pick<Props, 'episode'|'selectedId'|'onSelect'> & {projectId: string}) {
-  const [closed, setClosed] = useState<string[]>(() => { try {return JSON.parse(localStorage.getItem('narra-tree-'+projectId) || '[]');} catch {return [];} });
-  const toggle = (id: string, open: boolean) => { const next = open ? closed.filter(x => x !== id) : [...closed.filter(x => x !== id), id]; setClosed(next); try {localStorage.setItem('narra-tree-'+projectId, JSON.stringify(next));} catch {} };
-  function group(g: StudioGroup<EpisodeScene>): React.ReactNode {
-    return <details key={g.id} open={!closed.includes(g.id)} onToggle={e => toggle(g.id, e.currentTarget.open)} className={styles.narrativeBranch}>
-      <summary><ChevronIcon /><FolderIcon /><span>{g.title}</span><small>{g.scenes.length + g.children.length}</small></summary>
-      {g.scenes.map((scene, i) => <button type="button" key={scene.id} aria-current={scene.id === selectedId ? 'true' : undefined} onClick={() => onSelect(scene.id)}><SceneIcon /><span><strong>{String(i + 1).padStart(2,'0')} · {scene.title}</strong><small>{scene._count.blocks} éléments</small></span></button>)}
-      {g.children.map(group)}
-    </details>;
-  }
-  return <div className={styles.narrativeTree}>{episode.groups.map(group)}{!episode.groups.length && <p>Aucun bloc dans cet épisode.</p>}</div>;
-}
 
 export default function EpisodeOverview(props: Props) {
   const {episode, selectedId, onSelect, onOpen, onMove, canEdit, moving} = props;
@@ -76,12 +62,4 @@ function SortableScene({scene, index: i, count, props}: {scene: EpisodeScene; in
       <button type="button" onClick={() => onOpen(scene.id)}>Ouvrir <ArrowRightIcon /></button>
     </div>
   </article>;
-}
-
-export function EpisodeTimeline({episode, selectedId, onOpen}: Pick<Props, 'episode'|'selectedId'|'onOpen'>) {
-  return <section className={styles.timeline} aria-label="Timeline de l’épisode">
-    <div className={styles.timelineToolbar}><div><strong>Déroulé de l’épisode</strong><span>{episode.scenes.length} sous-blocs · ordre narratif</span></div><span className={styles.episodeHint}>Ouvrir un sous-bloc pour monter ses éléments</span></div>
-    <div className={styles.episodeTimelineTrack}>{episode.scenes.map((scene,i)=><button type="button" key={scene.id} aria-pressed={selectedId===scene.id} onClick={()=>onOpen(scene.id)}><span>{String(i+1).padStart(2,'0')} · {scene.node?.title || 'Sans bloc'}</span><strong>{scene.title}</strong><small>{scene._count.blocks} éléments</small></button>)}{!episode.scenes.length && <p>Aucun sous-bloc à afficher.</p>}</div>
-    <div className={styles.timelineFooter}><span>Vue d’ensemble · chaque sous-bloc possède sa timeline</span></div>
-  </section>;
 }

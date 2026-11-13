@@ -2,6 +2,10 @@
 
 ## En préparation — patch Studio (2026-11-13)
 
+- Le Studio issu du V2 devient l’unique éditeur à `/edit` ; Montage et les anciens écrans de scènes sont retirés, avec redirections permanentes conservant les liens vers les scènes.
+
+- Le bouton Réglages et les trois points d’un sous-bloc ouvrent une fenêtre dédiée dans les deux dispositions, avec sauvegarde complète, erreurs visibles et restitution du focus.
+
 - Navigation isolée par épisode : sélecteur permanent, ouverture sur le premier épisode réel, bibliothèque limitée à ses sous-blocs, Prologue/Intro dans Hors épisodes et création correctement rattachée dans les épisodes vides.
 
 - Poignées de réordonnancement fonctionnelles dans la bibliothèque et l’organisation de l’épisode, au pointeur et au clavier ; conservation de l’ordre en cas d’échec de sauvegarde.

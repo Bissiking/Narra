@@ -12,13 +12,13 @@ const assert = require('node:assert/strict');
  async function enterSubblock() { await clickText("Sous-bloc"); await page.waitForSelector('[data-track="video"] [data-block-id="'+f.first.id+'"]'); await page.click('[data-track="video"] [data-block-id="'+f.first.id+'"]'); await page.waitForSelector('[data-scene-block-id] textarea'); }
  async function clickText(text) { const buttons=await page.$$('button');for(const b of buttons){if((await b.evaluate(el=>el.textContent.trim()))===text){await b.click();return;}} throw Error('Missing button '+text); }
  await page.setViewport({width:1440,height:1000});
- await go(`/project/${f.project.id}/edit-v2`);await enterSubblock();
+ await go(`/project/${f.project.id}/edit`);await enterSubblock();
  assert.ok(await page.$('[aria-label="Timeline du sous-bloc"]'));
  await page.screenshot({path:root+'/.impeccable/review/desktop.png',fullPage:true});
  // Direct writing, manual save, reload: persistence through the real API.
  await page.click('[data-scene-block-id] textarea'); await page.$eval('[data-scene-block-id] textarea',e=>e.select());await page.keyboard.type('Dialogue enregistré depuis le Studio V2.');
  const saved=page.waitForResponse(r=>r.url().includes(`/api/scenes/${f.scene.id}/blocks`) && r.request().method()==='PUT');await clickText('Sauver');assert.equal((await saved).status(),200);
- await page.reload({waitUntil:'networkidle0'});if(page.url().includes('/edit-v2'))await enterSubblock();assert.equal(await page.$eval('[data-scene-block-id] textarea',e=>e.value),'Dialogue enregistré depuis le Studio V2.');
+ await page.reload({waitUntil:'networkidle0'});if(page.url().includes('/edit'))await enterSubblock();assert.equal(await page.$eval('[data-scene-block-id] textarea',e=>e.value),'Dialogue enregistré depuis le Studio V2.');
  // Decor settings: add both fade tracks, configure delay, persist.
  await page.click('[data-track="video"] [data-block-id="'+f.bg.id+'"]');
  await page.waitForSelector('fieldset legend');
@@ -38,16 +38,16 @@ const assert = require('node:assert/strict');
    return {invalid:invalid.status,tracks:bg.animationConfig.length};
  },{f});assert.equal(apiResult.invalid,400);
  const saved2=page.waitForResponse(r=>r.url().includes(`/api/scenes/${f.scene.id}/blocks`) && r.request().method()==='PUT');await clickText('Sauver');assert.equal((await saved2).status(),200);
- await page.reload({waitUntil:'networkidle0'});if(page.url().includes('/edit-v2'))await enterSubblock();await page.click('[data-track="video"] [data-block-id="'+f.bg.id+'"]');
+ await page.reload({waitUntil:'networkidle0'});if(page.url().includes('/edit'))await enterSubblock();await page.click('[data-track="video"] [data-block-id="'+f.bg.id+'"]');
  assert.ok((await page.$('fieldset details')).length>=5);
  await page.screenshot({path:root+'/.impeccable/review/desktop-animations.png',fullPage:true});
  // Mobile layout and persisted preferences.
- await page.setViewport({width:390,height:844});await page.reload({waitUntil:'networkidle0'});if(page.url().includes('/edit-v2'))await enterSubblock();
+ await page.setViewport({width:390,height:844});await page.reload({waitUntil:'networkidle0'});if(page.url().includes('/edit'))await enterSubblock();
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Mobile overflow');
  await page.screenshot({path:root+'/.impeccable/review/mobile.png',fullPage:true});
  await page.click('[aria-label="Disposition"]');await page.$$eval('[aria-label="Choisir la disposition"] button',buttons=>buttons.find(b=>b.textContent.includes('Détaillée')).click());await page.reload({waitUntil:'networkidle0'});assert.equal(await page.$eval('[data-studio-layout]',el=>el.getAttribute('data-studio-layout')),'detailed');assert.equal((await page.$$('[data-track]')).length,7);
- // Current editor still usable.
- await go(`/project/${f.project.id}/edit`); assert.match(await page.content(),/Timeline composite/);
+ // The canonical editor is the Studio; no fallback to the retired interface.
+ await go(`/project/${f.project.id}/edit`);assert.ok(await page.$('[data-studio-layout]'));assert.ok(!(await page.content()).includes('Ouvrir l’éditeur actuel'));
  // Wiki preview is private, stays within preview, includes complete facts and dynamic appearances.
  await go(`/stories/${f.project.slug}/wiki-preview`);assert.match(await page.content(),/La marée des étoiles/);assert.equal(await page.$eval('nav a:last-child',e=>e.getAttribute('href')),`/stories/${f.project.slug}/wiki-preview`);
  await go(`/stories/${f.project.slug}/wiki-preview/characters/${f.character.id}`);const html=await page.content();for(const text of ['Personnalité','Motivations','Forces','Faiblesses','Le serment','Une lumière dans la brume']) assert.ok(html.includes(text),text);

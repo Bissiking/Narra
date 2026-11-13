@@ -8,7 +8,7 @@ const routeDir=path.join(root,'src/app/navigation-qa/[projectId]'), routeFile=pa
 (async()=>{
  if(fs.existsSync(routeFile)) throw Error('Le chemin du banc de test existe déjà.');
  fs.mkdirSync(routeDir,{recursive:true});fs.mkdirSync('.impeccable/review',{recursive:true});
- fs.writeFileSync(routeFile,'import EditorWorkspace from "@/components/editors/editor-workspace"; export default function Page(){return <EditorWorkspace version={2}/>;}');
+ fs.writeFileSync(routeFile,'import EditorWorkspace from "@/components/editors/editor-workspace"; export default function Page(){return <EditorWorkspace/>;}');
  const log=fs.openSync('.impeccable/navigation-qa.log','w');
  const server=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','-p',String(port),'-H','127.0.0.1'],{cwd:root,env:{...process.env,NARRA_NEXT_DIST_DIR:".next-qa/navigation"},windowsHide:true,stdio:['ignore',log,log]});
  let browser;

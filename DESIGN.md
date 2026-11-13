@@ -164,9 +164,9 @@ Spacing follows a compact 0.5rem rhythm for local relationships, 1rem for contro
 
 **The One-Task Entry Rule.** Authentication surfaces expose the identity, one Kyros action, and actionable error feedback—nothing competes with the path into the workspace.
 
-### Studio V2 workspace
+### Studio workspace
 
-The Studio V2 at `/project/[projectId]/edit-v2` applies the same identity to an Operate workspace. Its desktop grid places scenes above a searchable vertical block list on the left, the scene monitor and direct writing in the center, and a Bloc / Scène / Univers inspector on the right. The optional timeline sits below the central and right panes. The default columns are 18rem, a flexible central column with a 22rem minimum, and 23rem; at 1200px the rails compact to 15rem and 20rem. Desktop scenes, block list, central writing area, and inspector scroll within their own regions.
+The Studio at `/project/[projectId]/edit` applies the same identity to an Operate workspace. Its desktop grid places scenes above a searchable vertical block list on the left, the scene monitor and direct writing in the center, and a Bloc / Scène / Univers inspector on the right. The optional timeline sits below the central and right panes. The default columns are 18rem, a flexible central column with a 22rem minimum, and 23rem; at 1200px the rails compact to 15rem and 20rem. Desktop scenes, block list, central writing area, and inspector scroll within their own regions.
 
 At 1000px and below, the inspector moves beneath the two-column scene/script and monitor region, and the page grows vertically. At 640px and below, panels stack: scenes, monitor and writing, vertical blocks, inspector, then optional timeline. The top actions wrap; the layout control and return to the existing editor remain available. Preferences become an inline region on mobile. Timeline and cast visibility are remembered locally, with session behavior retained if local storage is unavailable.
 
@@ -253,3 +253,5 @@ The monitor and reader share the animated backdrop component. Entry tracks play 
 - **Don't** mix prose, data, and interface type roles for visual novelty.
 - **Don't** add secondary actions to a single-task authentication surface.
 - **Don't** animate when `prefers-reduced-motion` requests reduction.
+
+The Studio is the sole project editor. Its former V2 address and legacy scene editors redirect to `/edit`; the interface does not expose version switching.

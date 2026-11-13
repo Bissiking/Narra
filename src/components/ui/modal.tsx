@@ -5,8 +5,8 @@ import { createPortal } from "react-dom";
 import styles from "./modal.module.css";
 
 /** Native modal focus, Escape and inert background; outside clipped Studio panels. */
-export default function Modal({ open, onClose, labelledBy, children, className = "" }: {
-  open: boolean; onClose: () => void; labelledBy: string; children: ReactNode; className?: string;
+export default function Modal({ open, onClose, labelledBy, children, className = "", container }: {
+  open: boolean; onClose: () => void; labelledBy: string; children: ReactNode; className?: string; container?: Element | null;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
@@ -25,5 +25,5 @@ export default function Modal({ open, onClose, labelledBy, children, className =
       if (event.target !== event.currentTarget) return;
       const rect = event.currentTarget.getBoundingClientRect();
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
-    }}>{children}</dialog>, document.fullscreenElement || document.body);
+    }}>{children}</dialog>, document.fullscreenElement || container || document.body);
 }

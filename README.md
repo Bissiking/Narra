@@ -76,4 +76,6 @@ src/
 - Arborescence générique (saisons, chapitres, arcs...)
 - Recherche à travers les entités
 
-Studio V2 et animations combinables : [guide de mise en scène et migrations](docs/STUDIO_V2.md).
+Le **Studio** est l’éditeur principal, accessible depuis le menu du projet à `/project/[projectId]/edit`. Les anciennes adresses `/edit-v2` et `/scenes` y redirigent ; `/scenes/[sceneId]` ouvre le même sous-bloc via `?scene=…`.
+
+Studio et animations combinables : [guide de mise en scène et migrations](docs/STUDIO_V2.md).

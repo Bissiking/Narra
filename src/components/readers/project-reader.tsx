@@ -401,7 +401,7 @@ function EmptyReader({ project, variables, exitHref }: { project: Project; varia
         <span className={styles.formatLabel}>{TYPE_LABELS[project.type] || "Projet narratif"}</span>
         <h1>{project.pageTitle || project.name}</h1>
         <p>La première scène attend encore d’être écrite.</p>
-        <Link href={`/project/${project.id}/scenes`} className={styles.primaryAction}>Commencer à écrire</Link>
+        <Link href={`/project/${project.id}/edit`} className={styles.primaryAction}>Commencer à écrire</Link>
       </div>
     </div>
   );

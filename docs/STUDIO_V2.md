@@ -1,6 +1,6 @@
-# Studio V2 et animations — 0.12.0
+# Studio et animations
 
-Le menu du projet propose **Studio V2**, en parallèle de l’éditeur **Montage**. Les deux interfaces modifient les mêmes scènes et blocs. On peut passer de l’une à l’autre après sauvegarde ; les protections contre la perte de modifications restent actives.
+Le **Studio**, issu du V2, est désormais l’unique éditeur de projet à `/project/[projectId]/edit`. Il remplace Montage et les anciens éditeurs de scènes. Le menu du projet conserve une seule entrée d’édition, adaptée au format du récit. Les scènes, blocs, médias et sauvegardes existants sont conservés.
 
 ## Mise en scène
 
@@ -25,7 +25,7 @@ Les musiques et effets sonores utilisent les médias du projet. Les formes d’o
 
 **Exporter**, en Détaillée, télécharge la scène sélectionnée et ses éléments courants au format JSON `.narra.json`. Il s’agit d’un instantané des données présentes dans l’éditeur, pas d’un rendu vidéo.
 
-La reconstruction est une exception visuelle locale épinglée par l’utilisateur : anthracite, ambre, panneaux arrondis et pistes colorées suivent les deux références. Elle ne remplace pas l’identité globale de Narra. Montage conserve son rendu ; les scènes, blocs, médias et animations restent compatibles. La liste des scènes récupère uniquement l’URL du premier décor disponible pour sa vignette, sans nouveau schéma ni migration. Aucun nouveau raster de livraison n’a été généré.
+La reconstruction est une exception visuelle locale épinglée par l’utilisateur : anthracite, ambre, panneaux arrondis et pistes colorées suivent les deux références. Elle ne remplace pas l’identité globale de Narra. Les scènes, blocs, médias et animations existants restent compatibles après retrait de Montage. La liste des scènes récupère uniquement l’URL du premier décor disponible pour sa vignette, sans nouveau schéma ni migration. Aucun nouveau raster de livraison n’a été généré.
 
 ## Effets combinables
 
@@ -106,3 +106,27 @@ Les noms sont rapprochés des alias, noms complets, prénoms et noms de famille 
 Ce parcours utilise des réponses API interceptées. Il ne prouve ni la persistance PostgreSQL réelle, ni le SSO Kyros, ni le fonctionnement sur appareil tactile physique, ni un déploiement.
 
 Validation locale effectuée le 13 novembre 2026 : les 21 tests import/navigation/animations passent ; le parcours Chrome for Testing via Puppeteer passe en Compacte et Détaillée aux trois largeurs, sans erreur JavaScript. Le build Next.js de production compile, vérifie les types et génère les pages. `npm run lint` demande une configuration ESLint absente du dépôt ; un contrôle ciblé des fichiers modifiés avec la configuration Next Core Web Vitals passe sans erreur (11 avertissements : images natives et une dépendance de hook dans le moniteur existant).
+
+
+## Réglages du sous-bloc
+
+**Réglages**, dans l’en-tête des deux dispositions, ouvre une fenêtre dédiée au sous-bloc sélectionné. Les trois points d’une ligne de bibliothèque ouvrent la même fenêtre pour ce sous-bloc, après sauvegarde du travail courant si nécessaire. Le bouton est désactivé en l’absence de sous-bloc sélectionné.
+
+La fenêtre réutilise les champs de l’inspecteur **Scène** : titre, statut, séquence, titre de lecture, visibilité du titre, décor et animations. **Enregistrer** sauvegarde le titre, les réglages et les éléments modifiés ; un échec garde la fenêtre et les valeurs avec un message d’erreur. **Fermer** ou Échap ferme la fenêtre et conserve les valeurs en cours dans l’éditeur ; ce n’est pas une annulation. Le sélecteur de médias peut s’ouvrir au-dessus puis restitue le focus à la fenêtre de réglages. En lecture seule, les champs sont protégés et l’action d’enregistrement est masquée.
+
+Auparavant, depuis le commit `4a361f5`, le bouton sélectionnait uniquement l’onglet Scène de l’inspecteur, déjà actif par défaut ; aucun dialogue n’était ouvert. Le clic pouvait donc ne produire aucun changement visible, particulièrement lorsque l’inspecteur se trouvait plus bas sur mobile.
+
+Le banc `npm run test:studio-patch` couvre l’ouverture depuis l’état initial, l’enregistrement, les échecs et reprises, Échap et le focus, les trois points d’une autre scène, le sélecteur de médias imbriqué, la lecture seule et les fenêtres à 1440, 390 et 320 px dans les deux dispositions. Captures `settings-*` sous `.impeccable/review/`. Les appels API restent simulés dans ce banc.
+
+Validation du correctif Réglages : parcours Puppeteer réussi avec erreurs API simulées et médias imbriqués, 25 tests unitaires réussis, build complet `NARRA_NEXT_DIST_DIR=.next-qa/settings-build npm run build` réussi. ESLint ciblé : 0 erreur, 2 avertissements d’images natives. Aucun déploiement ni essai PostgreSQL/SSO réel.
+
+
+## Retraite des anciens éditeurs
+
+Le V2 devient le Studio principal à `/project/[projectId]/edit`, sans commutateur de version. L’en-tête affiche **Studio** et le menu Disposition ne propose plus d’ancien éditeur. Le code de Montage, les deux anciennes pages d’édition de scènes et leur feuille de style sont retirés. Les styles de la vue d’épisode restent dans son propre module.
+
+Les anciennes adresses répondent par une redirection permanente HTTP 308 : `/edit-v2` et `/scenes` mènent à `/edit` ; `/scenes/[sceneId]` mène à `/edit?scene=[sceneId]`. Les paramètres de requête sont conservés. Un lien de scène ouvre son épisode et ce sous-bloc précis ; un identifiant absent du projet revient à la sélection habituelle. La route cible conserve les contrôles d’accès du projet. Les liens du tableau de bord et du lecteur utilisent directement l’adresse canonique.
+
+Le lecteur et ses fonctions de lecture restent disponibles ; aucune migration ni modification de contenu n’accompagne ce retrait.
+
+Validation du retrait V1 : 25 tests unitaires réussis ; parcours Chrome/Puppeteer sur les deux dispositions à 1440, 390 et 320 px, avec vérification réelle des trois redirections HTTP 308, conservation de la scène et des paramètres répétés, protection de la route canonique sans session et entrée d’édition unique. Le rendu du Studio et les mutations utilisent les API simulées du banc ; PostgreSQL, SSO réel et déploiement restent hors validation. Build complet `NARRA_NEXT_DIST_DIR=.next-qa/studio-main-build npm run build` réussi. ESLint ciblé : 0 erreur, 3 avertissements d’images natives.

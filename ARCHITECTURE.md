@@ -139,3 +139,8 @@ Mon Roman (Project)
 5. **Timestamps** — `createdAt`, `updatedAt` partout
 6. **Validation** — Zod schemas côté serveur
 7. **Optimistic UI** — Mises à jour optimistes côté client
+
+
+## Éditeur principal
+
+`/project/[projectId]/edit` rend le Studio (ancien V2), avec EditorWorkspace pour les données et le composant StudioV2View pour l’interface. Il n’existe plus de branche V1 dans ce composant. Les anciens chemins `/edit-v2`, `/scenes` et `/scenes/:sceneId` sont redirigés par `next.config.js` vers l’éditeur principal ; le dernier conserve la scène via `?scene=:sceneId`. Les API `/api/scenes` ne changent pas. Le lecteur reste indépendant du retrait des anciens éditeurs.

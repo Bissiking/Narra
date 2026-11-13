@@ -7,7 +7,9 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
  if(fs.existsSync(dir))throw Error('QA route already exists');
  fs.mkdirSync(dir,{recursive:true});fs.mkdirSync('.impeccable/review',{recursive:true});
- fs.writeFileSync(path.join(dir,'page.tsx'),'import EditorWorkspace from "@/components/editors/editor-workspace";export default function Page(){return <EditorWorkspace version={2}/>;}');
+ fs.writeFileSync(path.join(dir,'page.tsx'),'export { default } from "@/app/project/[projectId]/edit/page";');
+ fs.mkdirSync(path.join(dir,'navigation'),{recursive:true});
+ fs.writeFileSync(path.join(dir,'navigation/page.tsx'),'import ProjectNav from "@/components/layout/project-nav";export default function Page({params,searchParams}:{params:{projectId:string};searchParams:{role?:string}}){return <ProjectNav projectId={params.projectId} projectType="vn" role={searchParams.role==="viewer"?"viewer":"owner"}/>;}');
  const log=fs.openSync('.impeccable/patch-browser-server.log','w');
  const server=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','-p',String(port),'-H','127.0.0.1'],{cwd:root,env:{...process.env,NARRA_NEXT_DIST_DIR:'.next-qa/patch-browser'},stdio:['ignore',log,log]});
  let browser;
@@ -55,10 +57,39 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   const drag=async(from,to)=>{await visible(from);await visible(to);await page.$eval(from,e=>e.scrollIntoView({block:'nearest',inline:'nearest'}));const a=await (await page.$(from)).boundingBox();await page.$eval(to,e=>e.scrollIntoView({block:'nearest',inline:'nearest'}));const b=await(await page.$(to)).boundingBox();await page.mouse.move(a.x+Math.min(a.width/2,60),a.y+a.height/2);await page.mouse.down();await page.mouse.move(a.x+Math.min(a.width/2,60)+12,a.y+a.height/2,{steps:3});await wait(70);await page.mouse.move(b.x+Math.min(b.width/2,60),b.y+b.height/2,{steps:20});await wait(150);await page.mouse.up();await wait(300)};
   const save=async()=>{const before=saved.length;await textClick('Sauver');for(let i=0;i<100&&saved.length===before;i++)await wait(20);assert.ok(saved.length>before,'save request completed');await page.waitForFunction(()=>[...document.querySelectorAll('[role=status]')].some(e=>e.textContent.includes('sauvegardé à')))};
   const layout=async name=>{await click('[aria-label="Disposition"]');await textClick(name==='compact'?'CompacteImage 1 · cinq pistes':'DétailléeImage 2 · sept pistes');await page.waitForSelector('[data-studio-layout='+name+']')};
+  // Verify real HTTP aliases before the protected layout. The canonical UI below uses mocked APIs.
+  for(const suffix of ['/edit-v2?scene=ep2-scene&tag=a&tag=b','/scenes?scene=ep2-scene&tag=a&tag=b','/scenes/ep2-scene?tag=a&tag=b&scene=wrong']){
+   const response=await fetch(base+'/project/demo'+suffix,{redirect:'manual'});assert.equal(response.status,308,suffix);
+   const destination=new URL(response.headers.get('location'),base);assert.equal(destination.pathname,'/project/demo/edit');assert.equal(destination.searchParams.get('scene'),'ep2-scene');assert.deepEqual(destination.searchParams.getAll('tag'),['a','b']);
+   await page.goto(base+'/studio-patch-browser-qa/demo'+destination.search,{waitUntil:'networkidle0'});await visible('[data-library-scene=ep2-scene]');assert.equal(await page.$eval('#studio-episode',e=>e.value),'e2');
+  }
+  const protectedRoute=await fetch(base+'/project/demo/edit',{redirect:'manual'});assert.equal(protectedRoute.status,307);assert.ok(new URL(protectedRoute.headers.get('location'),base).pathname==='/login');
+  await page.goto(base+'/studio-patch-browser-qa/demo?scene=nonexistent',{waitUntil:'networkidle0'});await visible('[data-library-scene=s1]');assert.equal(await page.$eval('#studio-episode',e=>e.value),'e1');
+  await page.goto(base+'/studio-patch-browser-qa/demo/navigation',{waitUntil:'networkidle0'});assert.equal(await page.$$eval('a[href="/project/demo/edit"]',links=>links.length),1);assert.equal(await page.$$eval('a[href$="/edit-v2"]',links=>links.length),0);
+  await page.goto(base+'/studio-patch-browser-qa/demo/navigation?role=viewer',{waitUntil:'networkidle0'});assert.equal(await page.$$eval('a[href="/project/demo/edit"]',links=>links.length),0);
+  console.log('Canonical editor, three HTTP 308 aliases, scene targets, repeated query values, auth and single navigation entry passed.');
   await page.goto(base+'/studio-patch-browser-qa/demo',{waitUntil:'networkidle0'});await visible('[data-track=dialogue] [data-block-id=d1]');
   assert.equal(await page.$eval('#studio-episode',e=>e.value),'e1');
   assert.deepEqual(await page.$$eval('[data-library-scene]',rows=>rows.map(row=>row.dataset.libraryScene)),['s1','s2','s3']);
   assert.ok(await page.$eval('#studio-episode',e=>[...e.options].some(option=>option.textContent.includes('Hors épisodes'))));
+  await click('[aria-label="Disposition"]');assert.equal(await page.$$eval('[popover]:popover-open a',links=>links.length),0);await page.keyboard.press('Escape');
+  // Settings must open even when the Scene inspector was already selected (the original no-op).
+  await click('[aria-label="Réglages du sous-bloc"]');await visible('dialog[open]');assert.ok(await page.$eval('dialog[open]',e=>e.textContent.includes('Le départ')));
+  await page.select('dialog[open] [aria-label="Statut"]','writing');await fill('dialog[open] [aria-label="Titre affiché en lecture"]','Le départ au petit matin');
+  await textClick('Enregistrer');await page.waitForSelector('dialog[open]',{hidden:true});assert.equal(scenes.find(s=>s.id==='s1').status,'writing');assert.equal(scenes.find(s=>s.id==='s1').readerTitle,'Le départ au petit matin');
+  await click('[aria-label="Réglages du sous-bloc"]');await visible('dialog[open]');assert.equal(await page.$eval('dialog[open] [aria-label="Statut"]',e=>e.value),'writing');
+  await page.select('dialog[open] [aria-label="Statut"]','revision');failRename=true;await textClick('Enregistrer');await page.waitForFunction(()=>document.querySelector('dialog[open] [role=alert]')?.textContent.includes('Impossible de sauvegarder'));
+  assert.equal(await page.$eval('dialog[open] [aria-label="Statut"]',e=>e.value),'revision');failRename=false;await textClick('Enregistrer');await page.waitForSelector('dialog[open]',{hidden:true});
+  await click('[aria-label="Réglages du sous-bloc"]');await visible('dialog[open]');await page.keyboard.press('Escape');await page.waitForSelector('dialog[open]',{hidden:true});assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'Réglages du sous-bloc');
+  // Media opens above the settings dialog and returns to it before the combined save.
+  await click('[aria-label="Réglages du sous-bloc"]');await visible('dialog[open]');
+  await textClick('Choisir une image');await page.waitForFunction(()=>document.querySelector('dialog[open] [class*=mediaPicker]'));
+  await textClick('Choisir une image');await page.waitForFunction(()=>document.querySelectorAll('dialog[open]').length===2);await click('dialog[open] button.card');await page.waitForFunction(()=>document.querySelectorAll('dialog[open]').length===1);
+  assert.ok(await page.$('dialog[open] [class*=backgroundPreview] img'));failBlockSave=true;await textClick('Enregistrer');await page.waitForFunction(()=>document.querySelector('dialog[open] [role=alert]')?.textContent.includes('Échec de la sauvegarde'));assert.ok(await page.$('dialog[open] [class*=backgroundPreview] img'));failBlockSave=false;await textClick('Enregistrer');await page.waitForSelector('dialog[open]',{hidden:true});assert.ok(saved.at(-1).some(block=>block.type==='background'&&block.mediaUrl==='/icon.png'));
+  // Scene ellipsis targets that scene and uses the same settings dialog, in either navigation mode.
+  await click('[aria-label="Réglages de Le phare"]');await visible('dialog[open]');await page.waitForFunction(()=>document.querySelector('dialog[open] header p')?.textContent==='Le phare');await click('[aria-label="Fermer les réglages"]');
+  await click('[data-library-scene=s1] [class*=sceneButton]');await visible('[data-track=dialogue] [data-block-id=d1]');
+  console.log('Settings open, save, retry, Escape/focus and scene ellipsis passed.');
   // Convert from populated track to empty space and back; retain content and character metadata.
   await drag('[data-track=dialogue] [data-block-id=d1]','[data-track=note] [class*=trackLane]');
   await visible('[data-track=note] [data-block-id=d1]');await save();
@@ -106,7 +137,7 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   // Empty episode creation must attach to that episode, even with a title already used elsewhere.
   await choose('e2');assert.deepEqual(await libraryIds(),[]);await click('[aria-label="Créer une scène"]');assert.equal(await page.$eval('[aria-label="Rattachement narratif"]',e=>e.value),'e2');
   await fill('[aria-label="Titre du sous-bloc"]','Une autre lumière');await textClick('Créer la scène');await visible('[data-library-scene=created-0]');assert.deepEqual(await libraryIds(),['created-0']);assert.equal(creations[0].nodeId,'e2');assert.equal(await page.$eval('#studio-episode',e=>e.value),'e2');
-  await page.screenshot({path:'.impeccable/review/episode-isolation-created.png'});
+  if(!process.env.NARRA_PATCH_QA_SKIP_CAPTURE)await page.screenshot({path:'.impeccable/review/episode-isolation-created.png'});
   await choose('e1');await click('[data-scene-id=s1] [class*=episodeSceneActions] button:last-child');await visible('[data-track=video]');
   console.log('Prologue/Intro separated, real episodes and empty episodes visible, reassignment and creation isolated.');
   // A single batched responsive inspection, both layouts; popups stay inside the viewport.
@@ -117,18 +148,21 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'page overflow '+name+' '+width);
     await page.$eval('#studio-episode',e=>e.scrollIntoView({block:'center'}));
     assert.ok(await page.$eval('#studio-episode',e=>{const r=e.getBoundingClientRect();return r.width>100&&r.left>=0&&r.right<=innerWidth}),'episode selector visible '+name+' '+width);
-    await page.screenshot({path:'.impeccable/review/episode-isolation-'+name+'-'+width+'.png',fullPage:true});
+    if(!process.env.NARRA_PATCH_QA_SKIP_CAPTURE)await page.screenshot({path:'.impeccable/review/episode-isolation-'+name+'-'+width+'.png',fullPage:true});
+    await click('[aria-label="Réglages du sous-bloc"]');await visible('dialog[open]');
+    assert.ok(await page.evaluate(()=>{const r=document.querySelector('dialog[open]').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight}),'settings bounds '+name+' '+width);
+    if(!process.env.NARRA_PATCH_QA_SKIP_CAPTURE)await page.screenshot({path:'.impeccable/review/settings-'+name+'-'+width+'.png'});await page.keyboard.press('Escape');await page.waitForSelector('dialog[open]',{hidden:true});
     await click('[aria-label="Ajouter un élément"]');await page.waitForFunction(()=>document.querySelector('[popover]:popover-open'));
     assert.ok(await page.evaluate(()=>{const r=document.querySelector('[popover]:popover-open').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight}),'menu bounds '+name+' '+width);
-    await page.screenshot({path:'.impeccable/review/patch-'+name+'-'+width+'.png',fullPage:true});await page.keyboard.press('Escape');
+    if(!process.env.NARRA_PATCH_QA_SKIP_CAPTURE)await page.screenshot({path:'.impeccable/review/patch-'+name+'-'+width+'.png',fullPage:true});await page.keyboard.press('Escape');
     await textClick('Importer');await visible('dialog[open]');assert.ok(await page.evaluate(()=>{const r=document.querySelector('dialog[open]').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight}),'dialog bounds '+name+' '+width);
     await page.keyboard.press('Escape');await page.waitForSelector('dialog[open]',{hidden:true});
    }
    await page.setViewport({width:1440,height:900});
   }
-  viewer=true;await page.reload({waitUntil:'networkidle0'});await visible('[data-track=video]');assert.equal(await page.$('[aria-label^="Ordonner "]'),null);assert.equal(await page.$('[aria-label="Renommer le sous-bloc"]'),null);assert.equal(await page.$('[aria-label="Ajouter un élément"]'),null);
+  viewer=true;await page.reload({waitUntil:'networkidle0'});await visible('[data-track=video]');assert.equal(await page.$('[aria-label^="Ordonner "]'),null);assert.equal(await page.$('[aria-label="Renommer le sous-bloc"]'),null);assert.equal(await page.$('[aria-label="Ajouter un élément"]'),null);await click('[aria-label="Réglages du sous-bloc"]');await visible('dialog[open]');assert.ok(await page.$eval('dialog[open] [aria-label="Statut"]',e=>e.disabled));assert.equal(await page.$$eval('dialog[open] button',buttons=>buttons.filter(b=>b.textContent.trim()==='Enregistrer').length),0);await page.keyboard.press('Escape');
   assert.deepEqual(errors,[]);console.log('Both layouts: 1440/390/320px, popup bounds and zero page errors passed.');
-  fs.writeFileSync('.impeccable/review/patch-browser-report.json',JSON.stringify({passed:true,checks:['failed episode navigation preserves edits','failed metadata reassignment preserves scope','episode-only library','outside-episode prologue and intro','empty episode visibility','scene reassignment updates active episode','creation in empty episode','track conversion','locked tracks','plan pointer/keyboard reorder','rename failure/retry','episode pointer/keyboard reorder','reorder failure','compact add menu','media modal','help focus and Escape','Markdown file import','character association','responsive compact/detailed'],widths:[1440,390,320],errors,scope:'Local Next.js UI with intercepted APIs; no real PostgreSQL, SSO or deployment.'},null,2));
+  fs.writeFileSync('.impeccable/review/patch-browser-report.json',JSON.stringify({passed:true,checks:['canonical editor page','legacy HTTP 308 redirects','scene deep links and query preservation','protected canonical route','single project edit entry','settings dialog open/save/retry/focus','scene ellipsis opens settings','settings desktop and mobile bounds','nested settings media picker','failed episode navigation preserves edits','failed metadata reassignment preserves scope','episode-only library','outside-episode prologue and intro','empty episode visibility','scene reassignment updates active episode','creation in empty episode','track conversion','locked tracks','plan pointer/keyboard reorder','rename failure/retry','episode pointer/keyboard reorder','reorder failure','compact add menu','media modal','help focus and Escape','Markdown file import','character association','responsive compact/detailed'],widths:[1440,390,320],errors,scope:'Local Next.js UI with intercepted APIs; no real PostgreSQL, SSO or deployment.'},null,2));
  }catch(error){if(browser){for(const page of await browser.pages())await page.screenshot({path:'.impeccable/review/patch-failure.png',fullPage:true}).catch(()=>{})}throw error;}
  finally{await browser?.close();server.kill('SIGTERM');fs.rmSync(path.dirname(dir),{recursive:true,force:true});fs.rmSync(path.join(root,'.next-qa/patch-browser/types/app/studio-patch-browser-qa'),{recursive:true,force:true});fs.closeSync(log)}
 })().catch(error=>{console.error(error);process.exitCode=1});

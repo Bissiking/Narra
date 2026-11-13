@@ -59,7 +59,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           </div>
           <div className="flex gap-3">
             <Link
-              href={`/project/${project.id}/scenes`}
+              href={`/project/${project.id}/edit`}
               className="btn-primary"
             >
               Continuer l'écriture
@@ -113,7 +113,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
                   {recentScenes.map((scene) => (
                     <Link
                       key={scene.id}
-                      href={`/project/${project.id}/scenes/${scene.id}`}
+                      href={`/project/${project.id}/edit?scene=${encodeURIComponent(scene.id)}`}
                       className="flex items-center justify-between p-3 hover:bg-narra-border/30 transition-colors"
                     >
                       <div>
@@ -182,7 +182,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
                   {projectFormat.structure.title}
                 </Link>
                 <Link
-                  href={`/project/${project.id}/scenes`}
+                  href={`/project/${project.id}/edit`}
                   className="block p-2 hover:bg-narra-border/30 transition-colors"
                 >
                   {projectFormat.content.plural[0].toUpperCase() + projectFormat.content.plural.slice(1)}

@@ -5,6 +5,13 @@ const nextConfig = {
   images: {
     remotePatterns: [],
   },
+  async redirects() {
+    return [
+      { source: "/project/:projectId/edit-v2", destination: "/project/:projectId/edit", permanent: true },
+      { source: "/project/:projectId/scenes", destination: "/project/:projectId/edit", permanent: true },
+      { source: "/project/:projectId/scenes/:sceneId", destination: "/project/:projectId/edit?scene=:sceneId", permanent: true },
+    ];
+  },
 };
 
 module.exports = nextConfig;

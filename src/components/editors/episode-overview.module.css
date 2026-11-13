@@ -1,0 +1,36 @@
+.episodeOverview { width: 100%; }
+.episodeOverview header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 1rem; border-bottom: 1px solid var(--studio-border); }
+.episodeOverview h2 { font-size: 1.5rem; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.episodeOverview header p { margin-top: .4rem; color: var(--studio-muted); font-size: .8rem; }
+.episodeGroup { margin: 1.75rem 0 0; }
+.episodeGroup h3 { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .6rem; font-size: .9rem; font-weight: 600; overflow-wrap: anywhere; }
+.episodeGroup h3 svg { color: var(--studio-amber); }
+.episodeGroup h3 span { margin-left: auto; color: var(--studio-muted); font-size: .75rem; font-weight: 400; }
+.episodeScene { display: flex; align-items: center; gap: .5rem; min-width: 0; margin: .5rem 0; padding: .35rem; border: 1px solid var(--studio-border); border-radius: 8px; background: var(--studio-panel); }
+.episodeScene[data-selected="true"] { border-color: var(--studio-amber); background: #f59e0b0c; }
+.sceneSummary { display: flex; align-items: center; gap: .75rem; flex: 1; min-width: 0; padding: .35rem; text-align: left; }
+.sceneSummary > span:nth-child(3) { flex: 1; min-width: 0; }
+.sceneSummary strong { display: block; font-size: .875rem; font-weight: 500; overflow-wrap: anywhere; }
+.sceneSummary small { display: block; margin-top: .3rem; color: var(--studio-muted); font-size: .75rem; }
+.sceneThumbnail { display: grid; place-items: center; flex: 0 0 4rem; width: 4rem; height: 2.75rem; overflow: hidden; border-radius: 4px; color: var(--studio-muted); background: var(--studio-raised); }
+.sceneThumbnail img { width: 100%; height: 100%; object-fit: cover; }
+.episodeSceneNumber { color: var(--studio-amber); font-family: "IBM Plex Mono", monospace; font-size: .75rem; }
+.sceneStatus { color: var(--studio-muted); font-size: .75rem; }
+.sceneStatus[data-status="final"] { color: var(--studio-ink); }
+.episodeSceneActions { display: flex; align-items: center; gap: .25rem; }
+.episodeSceneActions button { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; min-width: 2.5rem; min-height: 2.5rem; padding: .5rem; color: var(--studio-muted); font-size: .75rem; }
+.episodeSceneActions button:last-child { color: var(--studio-amber); }
+.episodeSceneActions button:hover:not(:disabled) { color: var(--studio-ink); background: var(--studio-raised); }
+.groupEmpty { padding: 1rem 0; color: var(--studio-muted); font-size: .85rem; line-height: 1.6; }
+@media (max-width: 1400px) { .sceneSummary { gap: .5rem; } .sceneStatus { display: none; } .sceneThumbnail { flex-basis: 3rem; width: 3rem; } }
+@media (max-width: 1000px) { .episodeScene { flex-wrap: wrap; } .episodeSceneActions { margin-left: auto; } }
+@media (max-width: 640px) {
+  .episodeOverview h2 { font-size: 1.25rem; }
+  .episodeGroup h3 span { width: 100%; margin-left: 1.6rem; }
+  .episodeScene .sceneSummary { flex: 1 0 100%; width: 100%; padding: .5rem; }
+  .episodeScene .episodeSceneActions { width: 100%; justify-content: flex-end; padding: 0 .25rem .25rem; }
+  .episodeScene .sceneThumbnail { flex-basis: 2.5rem; width: 2.5rem; height: 2.5rem; }
+}
+.dragScene {align-self:stretch;flex-shrink:0;cursor:grab;touch-action:none;padding:6px;color:var(--studio-muted)}
+.dragScene svg {width:18px;height:24px;stroke:currentColor;stroke-width:3;stroke-linecap:round;fill:none}
+.dragScene:active {cursor:grabbing}
