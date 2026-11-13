@@ -160,9 +160,48 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
    }
    await page.setViewport({width:1440,height:900});
   }
+  // A production-sized scene: 267 elements over more than ten minutes.
+  const longScene={...scenes.find(scene=>scene.id==='s1'),id:'long-scene',title:'B1-1.0 · 267 éléments',order:99,_count:{blocks:267}};
+  scenes.push(longScene);
+  blocks['long-scene']=Array.from({length:267},(_,index)=>{
+   const type=index===0?'background':index===1?'heading':index%67===0?'music':index%41===0?'sfx':index%29===0?'background':index%23===0?'note':index%3===0?'action':'dialogue';
+   return {id:'long-'+index,type,order:index,content:type==='dialogue'?(index%5===0?`Réplique ${index} : Nous partirons avant le lever du soleil.`:`Réplique ${index} : Le phare nous attend.`):type==='heading'?'Épisode 1 — La nomination':type==='action'?'Le vaisseau traverse la brume.':type==='note'?'Vérifier la continuité.':'',characterId:type==='dialogue'?'mira':null,mediaUrl:type==='background'?'/icon.png':null,displayMode:type==='background'&&index>0?'layer':null};
+  });
+  await page.goto(base+'/studio-patch-browser-qa/demo?scene=long-scene',{waitUntil:'networkidle0'});await layout('compact');await visible('[data-track=video] [data-block-id=long-0]');
+  const geometry=()=>page.evaluate(()=>{
+   const viewport=document.querySelector('[data-timeline-scale]'),ruler=viewport.querySelector('[class*=rulerTicks]');
+   const clips=[...viewport.querySelectorAll('[data-track=video] [data-block-id]')].map(el=>({left:parseFloat(el.style.left),width:el.getBoundingClientRect().width}));
+   const labels=[...ruler.children].map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right}});
+   return {mode:viewport.dataset.timelineScale,width:viewport.clientWidth,scrollWidth:viewport.scrollWidth,scrollLeft:viewport.scrollLeft,clips,overlaps:clips.slice(1).filter((clip,index)=>clips[index].left+clips[index].width>clip.left+.1).length,labelOverlaps:labels.slice(1).filter((label,index)=>labels[index].right>label.left-6).length};
+  });
+  let dimensions=await geometry();assert.equal(dimensions.mode,'readable');assert.ok(dimensions.scrollWidth>dimensions.width*10);assert.ok(dimensions.clips.every(clip=>clip.width>=180));assert.equal(dimensions.overlaps,0);assert.equal(dimensions.labelOverlaps,0);
+  if(!process.env.NARRA_PATCH_QA_SKIP_CAPTURE)await page.screenshot({path:'.impeccable/review/timeline-long-readable-1440.png'});
+  // Transport follows the selected plan through a long scrollable canvas; zoom preserves it.
+  await click('[aria-label="Aller au dernier plan"]');await page.waitForFunction(()=>document.querySelector('[data-timeline-scale]').scrollLeft>1000);
+  const selectedVisible=()=>page.evaluate(()=>{const viewport=document.querySelector('[data-timeline-scale]'),segment=viewport.querySelector('[data-track=video] [aria-pressed=true]'),v=viewport.getBoundingClientRect(),r=segment.getBoundingClientRect(),label=viewport.querySelector('[class*=rulerLabel]').getBoundingClientRect();return r.left>=label.right-1&&r.left<v.right});
+  assert.ok(await selectedVisible());
+  await page.$eval('[aria-label="Zoom de la timeline"]',el=>{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(el,'3');el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));});
+  // Use native range keys to ensure React receives the control change.
+  await(await page.$('[aria-label="Zoom de la timeline"]')).focus();await page.keyboard.press('End');await wait(100);assert.ok(await selectedVisible());assert.ok((await geometry()).clips[0].width>=500);
+  await textClick('Adapter');await page.waitForSelector('[data-timeline-scale=overview]');dimensions=await geometry();assert.ok(dimensions.scrollWidth<=dimensions.width+1);assert.equal(dimensions.overlaps,0);assert.equal(dimensions.labelOverlaps,0);
+  if(!process.env.NARRA_PATCH_QA_SKIP_CAPTURE)await page.screenshot({path:'.impeccable/review/timeline-long-overview-1440.png'});
+  await textClick('Lisible');await page.waitForSelector('[data-timeline-scale=readable]');assert.ok(await selectedVisible());
+  await click('[aria-label="Revenir au début"]');await page.waitForFunction(()=>document.querySelector('[data-timeline-scale]').scrollLeft<1);
+  await drag('[data-track=dialogue] [data-block-id=long-2]','[data-track=dialogue] [data-block-id=long-4]');await save();assert.equal(saved.at(-1).length,267);assert.ok(saved.at(-1).findIndex(block=>block.id==='long-2')>saved.at(-1).findIndex(block=>block.id==='long-4'));
+  for(const name of ['compact','detailed']){
+   if(name==='detailed')await layout(name);
+   for(const width of [1440,390,320]){
+    await page.setViewport({width,height:900});await wait(150);await click('[aria-label="Revenir au début"]');
+    dimensions=await geometry();assert.equal(dimensions.overlaps,0);assert.equal(dimensions.labelOverlaps,0);assert.ok(dimensions.clips.every(clip=>clip.width>=180));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.ok(await page.evaluate(()=>{const panel=document.querySelector('[aria-label="Timeline du sous-bloc"]'),bounds=panel.getBoundingClientRect();return [...panel.querySelectorAll('[class*=timelineToolbar] button,[class*=timelineToolbar] input')].filter(el=>el.getClientRects().length).every(el=>{const r=el.getBoundingClientRect();return r.left>=bounds.left&&r.right<=bounds.right})}),'timeline controls not clipped '+name+' '+width);
+    if(!process.env.NARRA_PATCH_QA_SKIP_CAPTURE)await page.screenshot({path:'.impeccable/review/timeline-long-'+name+'-'+width+'.png',fullPage:true});
+    await textClick('Adapter');await page.waitForSelector('[data-timeline-scale=overview]');dimensions=await geometry();assert.ok(dimensions.scrollWidth<=dimensions.width+1);assert.equal(dimensions.overlaps,0);assert.equal(dimensions.labelOverlaps,0);await textClick('Lisible');
+   }
+   await page.setViewport({width:1440,height:900});
+  }
+  console.log('267-element scene: readable default, overview without overlaps, adaptive ruler, follow/zoom, reorder and both layouts at 1440/390/320px passed.');
   viewer=true;await page.reload({waitUntil:'networkidle0'});await visible('[data-track=video]');assert.equal(await page.$('[aria-label^="Ordonner "]'),null);assert.equal(await page.$('[aria-label="Renommer le sous-bloc"]'),null);assert.equal(await page.$('[aria-label="Ajouter un élément"]'),null);await click('[aria-label="Réglages du sous-bloc"]');await visible('dialog[open]');assert.ok(await page.$eval('dialog[open] [aria-label="Statut"]',e=>e.disabled));assert.equal(await page.$$eval('dialog[open] button',buttons=>buttons.filter(b=>b.textContent.trim()==='Enregistrer').length),0);await page.keyboard.press('Escape');
   assert.deepEqual(errors,[]);console.log('Both layouts: 1440/390/320px, popup bounds and zero page errors passed.');
-  fs.writeFileSync('.impeccable/review/patch-browser-report.json',JSON.stringify({passed:true,checks:['canonical editor page','legacy HTTP 308 redirects','scene deep links and query preservation','protected canonical route','single project edit entry','settings dialog open/save/retry/focus','scene ellipsis opens settings','settings desktop and mobile bounds','nested settings media picker','failed episode navigation preserves edits','failed metadata reassignment preserves scope','episode-only library','outside-episode prologue and intro','empty episode visibility','scene reassignment updates active episode','creation in empty episode','track conversion','locked tracks','plan pointer/keyboard reorder','rename failure/retry','episode pointer/keyboard reorder','reorder failure','compact add menu','media modal','help focus and Escape','Markdown file import','character association','responsive compact/detailed'],widths:[1440,390,320],errors,scope:'Local Next.js UI with intercepted APIs; no real PostgreSQL, SSO or deployment.'},null,2));
+  fs.writeFileSync('.impeccable/review/patch-browser-report.json',JSON.stringify({passed:true,checks:['267-element readable timeline','overview without clip or ruler overlaps','playhead follow and zoom','long-scene reorder','canonical editor page','legacy HTTP 308 redirects','scene deep links and query preservation','protected canonical route','single project edit entry','settings dialog open/save/retry/focus','scene ellipsis opens settings','settings desktop and mobile bounds','nested settings media picker','failed episode navigation preserves edits','failed metadata reassignment preserves scope','episode-only library','outside-episode prologue and intro','empty episode visibility','scene reassignment updates active episode','creation in empty episode','track conversion','locked tracks','plan pointer/keyboard reorder','rename failure/retry','episode pointer/keyboard reorder','reorder failure','compact add menu','media modal','help focus and Escape','Markdown file import','character association','responsive compact/detailed'],widths:[1440,390,320],errors,scope:'Local Next.js UI with intercepted APIs; no real PostgreSQL, SSO or deployment.'},null,2));
  }catch(error){if(browser){for(const page of await browser.pages())await page.screenshot({path:'.impeccable/review/patch-failure.png',fullPage:true}).catch(()=>{})}throw error;}
  finally{await browser?.close();server.kill('SIGTERM');fs.rmSync(path.dirname(dir),{recursive:true,force:true});fs.rmSync(path.join(root,'.next-qa/patch-browser/types/app/studio-patch-browser-qa'),{recursive:true,force:true});fs.closeSync(log)}
 })().catch(error=>{console.error(error);process.exitCode=1});

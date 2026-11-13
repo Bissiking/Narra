@@ -349,7 +349,7 @@
  .timeline {min-height:335px}.detailed .timeline {min-height:350px}
  .timelineToolbar {flex-wrap:wrap;gap:6px}
  .timelineTitle {gap:6px}.timelineTools {gap:0}.timelineEnd>input {width:70px}
- .fitButton {display:none}
+ .fitButton {margin-left:2px;padding-inline:6px}
  .inspector {min-height:360px;max-height:none}.inspectorBody {max-height:600px;padding:18px}
  .inspectorHeader {min-height:50px}.inspectorTabs {max-width:440px;width:100%;align-self:center}
  .detailed .outerTabs {min-height:43px}.detailed .metadataForm>label:not(.switchLabel) {grid-template-columns:140px 1fr}
@@ -455,7 +455,7 @@
 .detailed .videoSegment small {font-size:11px}
 .detailed .trackLabel {font-size:13px}
 .timingHint {white-space:nowrap;display:inline;margin-right:4px}
-@media(max-width:820px) { .workspace .fitButton {display:none} }
+@media(max-width:820px) { .workspace .fitButton {margin-left:2px;padding-inline:6px} }
 @media(max-width:640px) { .detailed .trackLabel {font-size:11px}.detailed .segment {font-size:12px!important}.timelineEnd .timingHint {font-size:10px;margin-right:3px} }
 
 /* Popovers render in the browser top layer, beyond clipped editor panes. */
@@ -490,3 +490,20 @@
 .settingsDialog .metadataForm>label {display:flex;flex-direction:column;align-items:stretch;gap:6px}
 .settingsDialog .metadataForm>label.switchLabel {flex-direction:row;align-items:center;gap:12px}
 .settingsBody>.metadataForm:not(:first-child) {margin-top:18px}
+
+/* Overview clips keep their actual time width; narrow slots never overlap their neighbours. */
+.rulerTicks {overflow:hidden}
+.segment[data-density=compact] {padding-inline:5px;gap:4px!important}
+.videoSegment[data-density=compact]>img,.videoSegment[data-density=compact]>em,.videoSegment[data-density=compact] small {display:none}
+.segment[data-density=overview] {padding:0!important;border:0;min-width:0;border-radius:1px!important}
+.segment[data-density=overview]>* {display:none!important}
+.videoSegment[data-density=overview] {background:#64748b!important}
+.segment[data-density=overview][aria-pressed=true] {outline:2px solid var(--studio-amber);outline-offset:1px}
+.fitButton[aria-pressed=true] {color:var(--studio-amber);border-color:var(--studio-amber)}
+
+.ruler {overflow:hidden}
+.ruler input {margin:0}
+.playheadLine {left:clamp(0px,var(--playhead),calc(100% - 2px))}
+
+.timelineViewport:focus-visible {outline:2px solid var(--studio-amber);outline-offset:-2px}
+@media(max-width:640px) { .timelineEnd {max-width:100%;flex-wrap:wrap;row-gap:6px} }

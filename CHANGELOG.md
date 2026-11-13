@@ -2,6 +2,8 @@
 
 ## En préparation — patch Studio (2026-11-13)
 
+- Timeline lisible sur les scènes longues : échelle de travail par défaut, défilement horizontal, vue d’ensemble à la demande, repères de temps espacés selon le zoom et suivi du curseur.
+
 - Le Studio issu du V2 devient l’unique éditeur à `/edit` ; Montage et les anciens écrans de scènes sont retirés, avec redirections permanentes conservant les liens vers les scènes.
 
 - Le bouton Réglages et les trois points d’un sous-bloc ouvrent une fenêtre dédiée dans les deux dispositions, avec sauvegarde complète, erreurs visibles et restitution du focus.

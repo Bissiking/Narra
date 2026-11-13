@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useId, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, useId, useMemo, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import type { DragEndEvent } from "@dnd-kit/core";
 import type { Scene, SceneBlock, Character, NarrativeNodeOption, PreviewSettings } from "./editor-workspace";
@@ -13,6 +13,7 @@ import SceneScriptImporter from "@/components/scene-script-importer";
 import MediaPicker from "@/components/media-picker";
 import AnimatedBackdrop from "@/components/animated-backdrop";
 import AnimationTrackEditor from "@/components/animation-track-editor";
+import type { TimelineZoom } from "@/lib/studio-timeline";
 import type { ParsedSceneScriptBlock } from "@/lib/scene-script-parser";
 import StudioIcon, { type StudioIconName } from "./studio-v2-icons";
 import StudioTimeline, { buildTiming, timeLabel } from "./studio-v2-timeline";
@@ -73,7 +74,7 @@ export default function StudioV2View(props:Props) {
  const [muted,setMuted]=useState(false);
  const [hiddenTracks,setHiddenTracks]=useState<string[]>([]);
  const [lockedTracks,setLockedTracks]=useState<string[]>([]);
- const [zoom,setZoom]=useState(1);
+ const [zoom,setZoom]=useState<TimelineZoom>(1);
  const [history,setHistory]=useState<SceneBlock[][]>([]);
  const [future,setFuture]=useState<SceneBlock[][]>([]);
  const [fullscreenError,setFullscreenError]=useState<string|null>(null);
@@ -87,8 +88,8 @@ export default function StudioV2View(props:Props) {
  const lastEdit=useRef({key:"",at:0});
  const musicRef=useRef<HTMLAudioElement|null>(null);
  const musicIndex=useRef(0);
- const plans=buildCompositePlans(p.blocks);
- const timing=buildTiming(plans);
+ const plans=useMemo(()=>buildCompositePlans(p.blocks),[p.blocks]);
+ const timing=useMemo(()=>buildTiming(plans),[plans]);
  const duration=timing.at(-1)?.end || (p.blocks.some(b=>b.type==="music") ? 3 : 0);
  const selectedPlanIndex=plans.findIndex(plan=>plan.blocks.some(b=>b.id===p.selectedBlockId));
  const index=selectedPlanIndex<0?0:selectedPlanIndex;
@@ -113,7 +114,7 @@ export default function StudioV2View(props:Props) {
  }
  function cancelRename(){p.title.onChange(p.selectedScene?.title||"");setRenaming(false);setRenameError(null);}
  useEffect(()=>{try{const saved=localStorage.getItem("narra-studio-v2-layout");if(saved==="compact"||saved==="detailed")setLayout(saved);}catch{}},[]);
- useEffect(()=>{setTime(0);setPlaying(false);setHistory([]);setFuture([]);setInspector("scene");setAudioError(null);musicIndex.current=0;},[p.selectedScene?.id]);
+ useEffect(()=>{setTime(0);setZoom(1);setPlaying(false);setHistory([]);setFuture([]);setInspector("scene");setAudioError(null);musicIndex.current=0;},[p.selectedScene?.id]);
  useEffect(()=>{setHistory([]);setFuture([]);},[p.lastSaved]);
  useEffect(()=>{if(p.episodeMode)setPlaying(false);},[p.episodeMode]);
  useEffect(()=>{setTime(t=>Math.min(t,duration));},[duration]);
@@ -299,7 +300,7 @@ export default function StudioV2View(props:Props) {
     <div className={styles.timelineTitle}>{!detailed&&<><StudioIcon name="clock"/><strong>Timeline</strong></>}<span className={detailed?styles.timeBadge:styles.timelineTime}>{p.episodeMode?"Épisode":timeLabel(time,true)}{!p.episodeMode&&!detailed&&<small> / {timeLabel(duration,true)}</small>}</span></div>
     {!p.episodeMode&&<><div className={styles.timelineTools}><IconButton icon="previous" label="Revenir au début" onClick={()=>scrub(0)} disabled={!duration}/><IconButton icon={playing?"pause":"play"} label={playing?"Pause de la timeline":"Lire la timeline"} onClick={togglePlay} disabled={!duration||p.loading}/><IconButton icon="next" label="Aller au dernier plan" onClick={()=>{const last=timing.at(-1);if(last)scrub(last.start);}} disabled={!duration}/><span className={styles.toolDivider}/><span className={styles.selectedTool} title="Sélection des segments"><StudioIcon name="cursor"/></span><IconButton icon="trash" label="Supprimer l’élément sélectionné" onClick={()=>{if(selected){remember("remove-"+selected.id);p.onRemoveBlock(selected.id);}}} disabled={!editable||!selected||mediaLocked}/></div>
     <div className={styles.addControl}>{editable&&<button ref={addAnchor} type="button" className={styles.addElement} aria-expanded={addMenu} aria-label="Ajouter un élément" onClick={()=>setAddMenu(v=>!v)}><StudioIcon name="plus"/>{!detailed&&"Ajouter"}</button>}{addMenu&&<FloatingMenu open={addMenu} onClose={()=>setAddMenu(false)} anchor={addAnchor} className={styles.addMenu}>{ADD_TYPES.map(item=><button key={item.type} onClick={()=>add(item.type)}><StudioIcon name={item.icon}/><span>{item.label}</span></button>)}</FloatingMenu>}<SceneScriptImporter characters={p.characters} existingBlockCount={p.blocks.length} onImport={(blocks,mode)=>{remember("import");p.onImport(blocks,mode);setAddMenu(false);}} compact disabled={!editable}/></div></>}
-    <div className={styles.timelineEnd}>{!p.episodeMode&&<><span className={styles.timingHint}>Temps estimés</span><HelpPopup title="Timeline et glisser-déposer"><p>Les durées sont estimées depuis le texte. Glissez un plan pour réordonner son texte et ses couches ; les musiques se réordonnent sur leur propre piste.</p><p>Déposez un dialogue ou une note sur une autre piste de texte pour changer son type. En Compacte, Plans visuels convertit le texte en action. Les pistes verrouillées bloquent les modifications. Le sélecteur Type du bloc permet aussi de changer de type au clavier.</p></HelpPopup><IconButton icon="minus" label="Réduire le zoom" onClick={()=>setZoom(v=>Math.max(.5,v-.25))} disabled={zoom<=.5}/><input type="range" min={.5} max={3} step={.25} aria-label="Zoom de la timeline" value={zoom} onChange={e=>setZoom(Number(e.target.value))}/><IconButton icon="plus" label="Augmenter le zoom" onClick={()=>setZoom(v=>Math.min(3,v+.25))} disabled={zoom>=3}/><button type="button" className={styles.fitButton} onClick={()=>setZoom(1)}>Adapter</button></>}<IconButton icon={detailed?"list":"grid"} label="Changer la disposition de la timeline" onClick={()=>chooseLayout(detailed?"compact":"detailed")}/><IconButton icon="expand" label="Timeline en plein écran" onClick={()=>void fullscreen(timelineRef.current)}/></div>
+    <div className={styles.timelineEnd}>{!p.episodeMode&&<><span className={styles.timingHint}>Temps estimés</span><HelpPopup title="Timeline et glisser-déposer"><p>La timeline s’ouvre à une échelle de travail lisible et défile horizontalement. Adapter montre toute la scène ; Lisible revient à l’échelle de travail. Le zoom conserve le curseur à l’écran.</p><p>Les durées sont estimées depuis le texte. Glissez un plan pour réordonner son texte et ses couches ; les musiques se réordonnent sur leur propre piste.</p><p>Déposez un dialogue ou une note sur une autre piste de texte pour changer son type. En Compacte, Plans visuels convertit le texte en action. Les pistes verrouillées bloquent les modifications. Le sélecteur Type du bloc permet aussi de changer de type au clavier.</p></HelpPopup><IconButton icon="minus" label="Réduire le zoom" onClick={()=>setZoom(v=>v==="fit"?.5:Math.max(.5,v-.25))} disabled={zoom!=="fit"&&zoom<=.5}/><input type="range" min={.5} max={3} step={.25} aria-label="Zoom de la timeline" value={zoom==="fit"?1:zoom} onChange={e=>setZoom(Number(e.target.value))}/><IconButton icon="plus" label="Augmenter le zoom" onClick={()=>setZoom(v=>v==="fit"?1:Math.min(3,v+.25))} disabled={zoom!=="fit"&&zoom>=3}/><button type="button" className={styles.fitButton} aria-pressed={zoom==="fit"} title={zoom==="fit"?"Revenir à l’échelle de travail lisible":"Voir toute la scène"} onClick={()=>setZoom(value=>value==="fit"?1:"fit")}>{zoom==="fit"?"Lisible":"Adapter"}</button></>}<IconButton icon={detailed?"list":"grid"} label="Changer la disposition de la timeline" onClick={()=>chooseLayout(detailed?"compact":"detailed")}/><IconButton icon="expand" label="Timeline en plein écran" onClick={()=>void fullscreen(timelineRef.current)}/></div>
    </div>
    {p.episodeMode?<div className={styles.episodeTimeline}>{p.activeEpisode?.scenes.map((s,i)=><button type="button" key={s.id} aria-pressed={s.id===p.selectedScene?.id} onClick={()=>void openScene(s.id)}><span>{String(i+1).padStart(2,"0")} · {s.node?.title||"Sans bloc"}</span><strong>{s.title}</strong><small>{s._count.blocks} éléments</small></button>)}{!p.activeEpisode?.scenes.length&&<p className={styles.empty}>Cet épisode ne contient pas encore de sous-bloc.</p>}</div>:p.loading?<p className={styles.empty}>Chargement de la timeline…</p>:p.loadError?<div className={styles.empty} role="alert">{p.loadError}<button onClick={p.onRetry}>Réessayer</button></div>:<StudioTimeline blocks={p.blocks} plans={plans} timing={timing} detailed={detailed} selectedId={p.selectedBlockId} onSelect={select} onScrub={scrub} time={time} duration={duration} zoom={zoom} backdrop={backdrop} hidden={hiddenTracks} locked={lockedTracks} onToggleTrack={toggleTrack} canEdit={editable} onAdd={add} onConvert={(id,type)=>update(id,{type})} onReorderPlans={event=>{remember("reorder");p.onReorderPlans(event);}} onReorderMusic={event=>{remember("reorder-music");p.onReorderMusic(event);}}/>}
   </section>
