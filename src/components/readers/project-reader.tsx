@@ -5,6 +5,7 @@
 import Link from "next/link";
 import AnimatedBackdrop from "@/components/animated-backdrop";
 import { CSSProperties, type ChangeEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {buildMusicCues,musicTracksAt} from "@/lib/scene-music";
 import { buildCompositePlans } from "@/lib/scene-composition";
 import styles from "./project-reader.module.css";
 
@@ -31,6 +32,8 @@ type Block = {
   displayMode: string | null;
   showPortrait: boolean;
   portraitImageUrl: string | null;
+  audioStartBlockId?: string | null;
+  audioGroupId?: string | null;
   audioAction: string | null;
   volume: number | null;
   fadeDuration: number | null;
@@ -334,11 +337,11 @@ export default function ProjectReader({ project, scenes, characters = [], canEdi
     "--reader-accent": project.pageAccentColor,
   } as CSSProperties), [project.pageBackgroundColor, project.pageTextColor, project.pageAccentColor]);
 
+  const editor = useMemo(() => ({ mode, setMode: setReaderMode, saveState, saveActive, activeBlockId, setActiveBlockId, editingBlockId, setEditingBlockId, updateBlock, createBlock, deleteBlock, moveBlock, characters, canEdit }), [mode, setReaderMode, saveState, saveActive, activeBlockId, editingBlockId, updateBlock, createBlock, deleteBlock, moveBlock, characters, canEdit]);
+
   if (readerScenes.length === 0) {
     return <EmptyReader project={project} variables={variables} exitHref={exitHref} />;
   }
-
-  const editor = useMemo(() => ({ mode, setMode: setReaderMode, saveState, saveActive, activeBlockId, setActiveBlockId, editingBlockId, setEditingBlockId, updateBlock, createBlock, deleteBlock, moveBlock, characters, canEdit }), [mode, setReaderMode, saveState, saveActive, activeBlockId, editingBlockId, updateBlock, createBlock, deleteBlock, moveBlock, characters, canEdit]);
 
   if (project.type === "vn" || project.pageTheme === "visual-novel") {
     return <VisualNovelReader project={project} scenes={readerScenes} variables={variables} exitHref={exitHref} editor={editor} />;
@@ -411,14 +414,16 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
   const beats = useMemo(
     () => {
       let pendingSfx: Block[] = [];
-      const visible: { block: Block; scene: Scene; sceneIndex: number; musicPlaylist: Block[]; sfx: Block[]; backdrop: string | null; backdropAnimation: string; backdropConfig?: unknown; backdropId: string }[] = [];
+      const visible: { block: Block; scene: Scene; sceneIndex: number; musicPlaylist: Block[]; musicFade:number; sfx: Block[]; backdrop: string | null; backdropAnimation: string; backdropConfig?: unknown; backdropId: string }[] = [];
       scenes.forEach((scene, sceneIndex) => {
         let activeBackdrop = scene.location?.imageUrl || project.pageBackgroundUrl;
         let activeBackdropAnimation = "none";
         let backdropConfig: unknown = [];
         let backdropId = scene.id;
-        const musicPlaylist = scene.blocks.filter((block) => block.type === "music" && block.audioAction !== "stop" && block.mediaUrl);
-        buildCompositePlans(scene.blocks).forEach((plan) => {
+        const musicCues=buildMusicCues(scene.blocks);
+        buildCompositePlans(scene.blocks).forEach((plan,planIndex) => {
+          const musicPlaylist=musicTracksAt(musicCues,planIndex);
+          const musicFade=musicCues.filter(cue=>cue.planIndex<=planIndex).at(-1)?.tracks[0]?.fadeDuration??1;
           const background = [plan.lead, ...plan.layers].filter((item) => item.type === "background" && item.mediaUrl).at(-1);
           if (background) {
             activeBackdrop = background.mediaUrl || activeBackdrop;
@@ -427,7 +432,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
             backdropId = background.id;
           }
           pendingSfx.push(...plan.layers.filter((layer) => layer.type === "sfx"));
-          visible.push({ block: plan.lead, scene, sceneIndex, musicPlaylist, sfx: pendingSfx, backdrop: activeBackdrop, backdropAnimation: activeBackdropAnimation, backdropConfig, backdropId });
+          visible.push({ block: plan.lead, scene, sceneIndex, musicPlaylist, musicFade, sfx: pendingSfx, backdrop: activeBackdrop, backdropAnimation: activeBackdropAnimation, backdropConfig, backdropId });
           pendingSfx = [];
         });
       });
@@ -577,7 +582,7 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
       if (previous) previous.onended = null;
 
       if (playlist.length === 0) {
-        if (previous) fade(previous, 0, 1, () => { previous.pause(); musicPoolRef.current.delete(previous); });
+        if (previous) fade(previous, 0, current.musicFade, () => { previous.pause(); musicPoolRef.current.delete(previous); });
         musicRef.current = null;
         setCurrentTrackIndex(0);
       } else {

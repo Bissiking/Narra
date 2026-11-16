@@ -2,6 +2,8 @@
 
 Le **Studio**, issu du V2, est désormais l’unique éditeur de projet à `/project/[projectId]/edit`. Il remplace Montage et les anciens éditeurs de scènes. Le menu du projet conserve une seule entrée d’édition, adaptée au format du récit. Les scènes, blocs, médias et sauvegardes existants sont conservés.
 
+La mise à jour 0.14 ajoute la sélection multiple, le presse-papiers, le découpage en sous-blocs, les déclenchements musicaux et les dossiers de médias : [utilisation, migration et validation](EDITOR_0_14.md).
+
 ## Mise en scène
 
 Studio V2 démarre dans le sous-bloc sélectionné, avec la disposition **Compacte** par défaut. **Disposition** permet de choisir **Compacte · Image 1 · cinq pistes** ou **Détaillée · Image 2 · sept pistes** ; ce choix est mémorisé dans le navigateur et conserve la scène et les modifications en cours. Les deux vues reprennent les références fournies par l’utilisateur, `C:/Users/mathe/Pictures/LUMA/NARRA/editeur_v2.png` et `editeur_v2-1.png`.

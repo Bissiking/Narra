@@ -6,6 +6,7 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import type { ParsedSceneScriptBlock } from "@/lib/scene-script-parser";
 import { getProjectFormat } from "@/lib/editor-profiles";
+import { repairAudioAnchors } from "@/lib/studio-selection";
 import { buildCompositePlans } from "@/lib/scene-composition";
 import { buildStudioEpisodes, findStudioGroup, defaultStudioEpisode, activeStudioEpisode, studioLibraryGroups } from "@/lib/studio-navigation";
 import StudioV2View from "./studio-v2-view";
@@ -38,6 +39,7 @@ export interface Character {
 export interface SceneBlock {
   id: string; type: string; content: string; order: number;
   characterId: string | null; emotion: string | null; position: string | null; speakerNote: string | null;
+  updatedAt?: string; audioStartBlockId?: string | null; audioGroupId?: string | null;
   animationConfig?: unknown;
   mediaUrl?: string | null; displayMode?: "solo" | "caption" | "layer" | null; showPortrait?: boolean | null; portraitImageUrl?: string | null; audioAction?: string | null; volume?: number | null; fadeDuration?: number | null; loop?: boolean | null; animationPreset?: "none" | "zoom-in" | "zoom-out" | "pan-left-right" | "pan-right-left" | "drift-up" | "fade-in" | "float" | null;
 }
@@ -131,6 +133,9 @@ export default function EditorWorkspace({ initialSceneId }: { initialSceneId?: s
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<NodeJS.Timeout | null>(null);
   const editVersionRef = useRef(0);
+  const baseVersions = useRef<{id:string;updatedAt:string}[]>([]);
+  const extracting = useRef(false);
+  const savingRef = useRef(false);
   const allowLeaveRef = useRef(false);
 
   const markDirty = useCallback(() => {
@@ -179,6 +184,13 @@ export default function EditorWorkspace({ initialSceneId }: { initialSceneId?: s
     loadData();
   }, [projectId, initialSceneId]);
 
+  useEffect(() => {
+    if(loading)return;
+    const url=new URL(window.location.href);
+    if(selectedScene)url.searchParams.set("scene",selectedScene);else url.searchParams.delete("scene");
+    window.history.replaceState(window.history.state,"",url);
+  },[selectedScene,loading]);
+
   // Load blocks when scene selected
   useEffect(() => {
     const controller = new AbortController();
@@ -195,6 +207,7 @@ export default function EditorWorkspace({ initialSceneId }: { initialSceneId?: s
         const loadedBlocks = await res.json() as SceneBlock[];
         if (!active) return;
         setBlocks(loadedBlocks);
+        baseVersions.current=loadedBlocks.filter(b=>b.updatedAt).map(b=>({id:b.id,updatedAt:b.updatedAt!}));
         setSelectedBlockId(loadedBlocks[0]?.id || null);
         setDirty(false);
       } catch (error) {
@@ -252,6 +265,7 @@ export default function EditorWorkspace({ initialSceneId }: { initialSceneId?: s
   // Block ops
   const addBlock = useCallback((type: string, afterId: string | null = null) => {
     const block = createDraftBlock(type, characters);
+    if(type==="music"){block.audioStartBlockId=blocks.find(b=>b.id===afterId&&b.type!=="music")?.id||blocks.find(b=>b.type!=="music")?.id||null;block.audioGroupId=crypto.randomUUID();}
     setBlocks((current) => {
       const afterIndex = afterId ? current.findIndex((block) => block.id === afterId) : -1;
       const insertAt = afterIndex >= 0 ? afterIndex + 1 : current.length;
@@ -266,7 +280,7 @@ export default function EditorWorkspace({ initialSceneId }: { initialSceneId?: s
       element?.scrollIntoView({ behavior: "smooth", block: "center" });
       element?.querySelector("textarea")?.focus({ preventScroll: true });
     });
-  }, [characters, markDirty]);
+  }, [characters, blocks, markDirty]);
 
   function importBlocks(imported: ParsedSceneScriptBlock[], mode: "append" | "replace") {
     setBlocks((current) => {
@@ -293,7 +307,7 @@ export default function EditorWorkspace({ initialSceneId }: { initialSceneId?: s
   }, [markDirty, sendWs]);
 
   const removeBlock = useCallback((id: string) => {
-    setBlocks((prev) => prev.filter((b) => b.id !== id).map((block, index) => ({ ...block, order: index })));
+    setBlocks((prev) => repairAudioAnchors(prev.filter((b) => b.id !== id)).map((block, index) => ({ ...block, order: index })));
     setSelectedBlockId((selected) => selected === id ? null : selected);
     if (!id.startsWith("temp-")) sendWs({ type: "block:delete", blockId: id });
     markDirty();
@@ -330,11 +344,11 @@ export default function EditorWorkspace({ initialSceneId }: { initialSceneId?: s
 
   // Save blocks
   const saveBlocks = useCallback(async () => {
-    if (!selectedScene || blocksLoading || blockLoadError) return false;
+    if (!selectedScene || blocksLoading || blockLoadError || extracting.current || savingRef.current) return false;
     if (!dirty) return true;
     const savedVersion = editVersionRef.current;
     const selectedOrder = blocks.find((block) => block.id === selectedBlockId)?.order ?? 0;
-    setSaving(true);
+    savingRef.current=true;setSaving(true);
     setSaveError(null);
     try {
       const response = await fetch(`/api/scenes/${selectedScene}/blocks`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ blocks }) });
@@ -342,6 +356,7 @@ export default function EditorWorkspace({ initialSceneId }: { initialSceneId?: s
       const result = await response.json() as { blocks: SceneBlock[] };
       if (editVersionRef.current === savedVersion) {
         setBlocks(result.blocks);
+        baseVersions.current=result.blocks.filter(b=>b.updatedAt).map(b=>({id:b.id,updatedAt:b.updatedAt!}));
         setSelectedBlockId(result.blocks.find((block) => block.order === selectedOrder)?.id || result.blocks[0]?.id || null);
         setDirty(false);
         setScenes(current => current.map(scene => scene.id === selectedScene ? {...scene, _count: {blocks: result.blocks.length}, wordCount: result.blocks.reduce((n, b) => n + (["music", "sfx", "background"].includes(b.type) ? 0 : b.content.split(/\s+/).filter(Boolean).length), 0)} : scene));
@@ -354,8 +369,20 @@ export default function EditorWorkspace({ initialSceneId }: { initialSceneId?: s
       console.error("Save error:", err);
       setSaveError("Échec de la sauvegarde. Vos modifications restent dans l’éditeur.");
       return false;
-    } finally { setSaving(false); }
+    } finally { savingRef.current=false;setSaving(false); }
   }, [selectedScene, selectedBlockId, blocks, blocksLoading, blockLoadError, dirty]);
+
+  async function extractSelection(selectedIds:string[],title:string) {
+    if(!selectedScene||extracting.current||savingRef.current)throw Error("Un enregistrement est en cours. Réessayez dans un instant.");
+    extracting.current=true;
+    try {
+      const response=await fetch(`/api/scenes/${selectedScene}/extract`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({blocks,selectedIds,title,baseVersions:baseVersions.current})});
+      const result=await response.json();if(!response.ok)throw Error(result.error||"Déplacement impossible. Vos éléments restent ici.");
+      setDirty(false);setSaveError(null);setLastSaved(new Date());
+      setScenes(current=>[...current.map(s=>s.id===selectedScene?{...s,_count:{blocks:result.blocks.length},wordCount:result.wordCount}:s.node?.id===result.scene.node?.id&&s.order>=result.scene.order?{...s,order:s.order+1}:s),result.scene]);
+      setSelectedScene(result.scene.id);setNavigationMode("subblock");
+    } finally {extracting.current=false;}
+  }
 
   useEffect(() => { const i = setInterval(saveBlocks, 30000); return () => clearInterval(i); }, [saveBlocks]);
 
@@ -386,6 +413,7 @@ export default function EditorWorkspace({ initialSceneId }: { initialSceneId?: s
   }, [dirty, saveBlocks]);
 
   const selectScene = useCallback(async (sceneId: string) => {
+    if(extracting.current||savingRef.current)return false;
     if (sceneId === selectedScene) return true;
     if (dirty && !(await saveBlocks())) {
       setSaveError("Une modification attend encore d’être sauvegardée. Relancez le changement de sous-bloc.");
@@ -453,6 +481,7 @@ export default function EditorWorkspace({ initialSceneId }: { initialSceneId?: s
     if (await selectScene(id)) { setEpisodeId(episodes.find(e => e.scenes.some(s => s.id === id))?.id || null); setNavigationMode("subblock"); }
   }
   async function selectEpisode(id: string) {
+    if(extracting.current||savingRef.current)return;
     const episode = episodes.find(e => e.id === id);
     if (!episode || id === activeEpisode?.id) return;
     if (dirty && !(await saveBlocks())) return;
@@ -496,7 +525,8 @@ export default function EditorWorkspace({ initialSceneId }: { initialSceneId?: s
     onModeChange={mode => mode === "episode" ? setNavigationMode("episode") : selectedScene && void openSubblock(selectedScene)}
     onSelectEpisode={selectEpisode} onMoveScene={moveScene} onReorderScene={reorderScene} movingScene={movingScene}
     onAddBlock={addBlock} onUpdateBlock={updateBlock} onRemoveBlock={removeBlock} onImport={importBlocks}
-    onRestoreBlocks={next => { setBlocks(next); setSelectedBlockId(current => next.some(block => block.id === current) ? current : next[0]?.id || null); markDirty(); }}
+    onExtract={extractSelection}
+    onRestoreBlocks={next => { setBlocks(repairAudioAnchors(next)); setSelectedBlockId(current => next.some(block => block.id === current) ? current : next[0]?.id || null); markDirty(); }}
     onReorderPlans={handlePlanDragEnd} onReorderMusic={handleMusicDragEnd}
     canEdit={canEdit} loading={blocksLoading} loadError={blockLoadError} onRetry={() => setBlockReloadKey(k => k+1)}
     dirty={dirty} saving={saving} saveError={saveError} lastSaved={lastSaved} onSave={saveBlocks}

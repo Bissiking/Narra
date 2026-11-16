@@ -46,6 +46,7 @@ export async function PATCH(request: NextRequest, { params }: Context) {
     if (scene instanceof NextResponse) return scene;
     const data = updateSceneBlockSchema.omit({ order: true }).parse(await request.json());
 
+    if(data.audioStartBlockId&&!await db.sceneBlock.findFirst({where:{id:data.audioStartBlockId,sceneId:params.sceneId,type:{not:"music"}}}))return NextResponse.json({error:"Plan musical invalide"},{status:400});
     if (data.characterId === "__unknown__") {
       data.characterId = null;
       if (!data.speakerNote) data.speakerNote = "Inconnu";
@@ -91,6 +92,7 @@ export async function DELETE(request: NextRequest, { params }: Context) {
 
     await db.$transaction([
       db.sceneBlock.delete({ where: { id: block.id } }),
+      db.sceneBlock.updateMany({where:{sceneId:params.sceneId,audioStartBlockId:block.id},data:{audioStartBlockId:null}}),
       db.sceneBlock.updateMany({
         where: { sceneId: params.sceneId, order: { gt: block.order } },
         data: { order: { decrement: 1 } },

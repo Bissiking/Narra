@@ -2,28 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireProjectAccess } from "@/lib/project-access";
 import { createSceneBlockSchema } from "@/lib/validations";
-import { z, ZodError } from "zod";
-
-const saveBlocksSchema = z.object({
-  blocks: z.array(createSceneBlockSchema.extend({ id: z.string().max(100).optional(), showPortrait: z.boolean().nullish() })).max(10000),
-});
-
-const blockInclude = {
-  character: {
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      alias: true,
-      nameColor: true,
-      portraitUrl: true,
-      images: {
-        select: { id: true, label: true, emotion: true, url: true },
-        orderBy: { order: "asc" as const },
-      },
-    },
-  },
-};
+import { ZodError } from "zod";
+import { saveBlocksSchema, blockInclude, persistSceneBlocks, EditorConflict } from "@/lib/scene-block-persistence";
 
 async function refreshWordCount(sceneId: string) {
   const blocks = await db.sceneBlock.findMany({ where: { sceneId }, select: { type: true, content: true } });
@@ -71,6 +51,7 @@ export async function POST(
     if (access instanceof NextResponse) return access;
 
     const data = createSceneBlockSchema.parse(await request.json());
+    if(data.audioStartBlockId&&!await db.sceneBlock.findFirst({where:{id:data.audioStartBlockId,sceneId:params.sceneId,type:{not:"music"}}}))return NextResponse.json({error:"Plan musical invalide"},{status:400});
     if (data.characterId === "__unknown__") {
       data.characterId = null;
       if (!data.speakerNote) data.speakerNote = "Inconnu";
@@ -114,60 +95,12 @@ export async function PUT(
     if (access instanceof NextResponse) return access;
 
     const { blocks } = saveBlocksSchema.parse(await request.json());
-    for (const block of blocks) {
-      if (block.characterId === "__unknown__") {
-        block.characterId = null;
-        if (!block.speakerNote) block.speakerNote = "Inconnu";
-      }
-    }
-    const existing = await db.sceneBlock.findMany({ where: { sceneId: params.sceneId }, select: { id: true } });
-    const existingIds = new Set(existing.map((block) => block.id));
-    const retainedIds = blocks.map((block) => block.id).filter((id): id is string => Boolean(id && existingIds.has(id)));
-
-    await db.$transaction(async (tx) => {
-      await tx.sceneBlock.deleteMany({ where: { sceneId: params.sceneId, id: { notIn: retainedIds } } });
-      for (const block of blocks) {
-        const data = {
-          type: block.type,
-          content: block.content,
-          order: block.order,
-          characterId: block.characterId || null,
-          emotion: block.emotion || null,
-          position: block.position || null,
-          speakerNote: block.speakerNote || null,
-          mediaUrl: block.mediaUrl || null,
-          displayMode: block.displayMode || null,
-          showPortrait: block.showPortrait !== false,
-          portraitImageUrl: block.portraitImageUrl || null,
-          audioAction: block.audioAction || null,
-          volume: block.volume ?? null,
-          fadeDuration: block.fadeDuration ?? null,
-          loop: block.loop ?? null,
-          animationPreset: block.animationPreset || null,
-          animationConfig: block.animationConfig ?? [],
-        };
-        if (block.id && existingIds.has(block.id)) await tx.sceneBlock.update({ where: { id: block.id }, data });
-        else await tx.sceneBlock.create({ data: { ...data, sceneId: params.sceneId } });
-      }
-    });
-
-    const allBlocks = await db.sceneBlock.findMany({ where: { sceneId: params.sceneId }, include: blockInclude, orderBy: { order: "asc" } });
-
-    const wordCount = allBlocks.reduce(
-      (acc, block) =>
-        block.type === "music" || block.type === "sfx" || block.type === "background"
-          ? acc
-          : acc + block.content.split(/\s+/).filter(Boolean).length,
-      0
-    );
-
-    await db.scene.update({
-      where: { id: params.sceneId },
-      data: { wordCount },
-    });
-
+    const result=await db.$transaction(tx=>persistSceneBlocks(tx,params.sceneId,scene.projectId,blocks),{isolationLevel:'Serializable',timeout:30000});
+    const allBlocks=result.blocks;
+    const wordCount=allBlocks.reduce((n,b)=>n+(['music','sfx','background'].includes(b.type)?0:b.content.split(/\s+/).filter(Boolean).length),0);
     return NextResponse.json({ ok: true, wordCount, blocks: allBlocks });
   } catch (error) {
+    if(error instanceof EditorConflict)return NextResponse.json({error:error.message},{status:409});
     if (error instanceof ZodError) {
       return NextResponse.json({ error: error.issues[0]?.message }, { status: 400 });
     }

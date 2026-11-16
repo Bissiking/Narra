@@ -73,6 +73,7 @@ model Project {
   loreEntries    LoreEntry[]
   timelineEvents TimelineEvent[]
   media          Media[]
+  mediaFolders   MediaFolder[]
   readingProgresses ReadingProgress[]
 
   @@index([ownerId])
@@ -194,6 +195,8 @@ model SceneBlock {
   showPortrait Boolean   @default(true) @map("show_portrait")
   portraitImageUrl String? @map("portrait_image_url")
   audioAction String?    @map("audio_action")
+  audioStartBlockId String? @map("audio_start_block_id")
+  audioGroupId String? @map("audio_group_id")
   volume      Int?       @default(100)
   fadeDuration Float?    @map("fade_duration")
   loop        Boolean?   @default(false)
@@ -494,10 +497,28 @@ model TimelineEventCharacter {
 // MÉDIATHÈQUE
 // ============================================================
 
+model MediaFolder {
+  id String @id @default(uuid()) @db.Uuid
+  projectId String @map("project_id") @db.Uuid
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentId String? @map("parent_id") @db.Uuid
+  parent MediaFolder? @relation("MediaFolders", fields: [parentId], references: [id], onDelete: Restrict)
+  children MediaFolder[] @relation("MediaFolders")
+  name String
+  media Media[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@index([projectId, parentId])
+  @@map("media_folders")
+}
+
 model Media {
   id        String  @id @default(uuid()) @db.Uuid
   projectId String  @map("project_id") @db.Uuid
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  folderId String? @map("folder_id") @db.Uuid
+  folder MediaFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
   filename     String
   originalName String  @map("original_name")

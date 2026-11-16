@@ -8,6 +8,8 @@ import type { CompositePlan } from "@/lib/scene-composition";
 import StudioIcon, { type StudioIconName } from "./studio-v2-icons";
 import FloatingMenu from "@/components/ui/floating-menu";
 import { canConvertTimelineBlock, timelineTypeForTrack, timelineLayout, timelineClip, type TimelineZoom } from "@/lib/studio-timeline";
+import {buildMusicCues} from "@/lib/scene-music";
+import type {SelectionModifiers} from "./use-studio-selection";
 import styles from "./studio-v2.module.css";
 
 export interface Timing {start:number;end:number;duration:number}
@@ -25,8 +27,8 @@ export function timeLabel(value:number,frames=false) {
  return frames?label+":"+String(Math.floor((seconds%1)*25)).padStart(2,"0"):label;
 }
 interface Props {
- blocks:SceneBlock[];plans:CompositePlan<SceneBlock>[];timing:Timing[];detailed:boolean;selectedId:string|null;
- onSelect:(id:string)=>void;onScrub:(time:number)=>void;time:number;duration:number;zoom:TimelineZoom;backdrop:string|null|undefined;
+ blocks:SceneBlock[];plans:CompositePlan<SceneBlock>[];timing:Timing[];detailed:boolean;selectedId:string|null;selectedIds:string[];
+ onSelect:(id:string,event?:SelectionModifiers)=>void;onScrub:(time:number)=>void;time:number;duration:number;zoom:TimelineZoom;backdrop:string|null|undefined;
  onAdd:(type:string)=>void;hidden:string[];locked:string[];onToggleTrack:(key:string,kind:"hidden"|"locked")=>void;canEdit:boolean;
  onConvert:(id:string,type:string)=>void;
  onReorderPlans:(event:DragEndEvent)=>void;onReorderMusic:(event:DragEndEvent)=>void;
@@ -72,17 +74,17 @@ export default function StudioTimeline(p:Props) {
  const thumbnails=useMemo(()=>{let image=p.backdrop;return p.plans.map(plan=>{for(const block of plan.blocks)if(block.type==="background"&&block.mediaUrl)image=block.mediaUrl;return image;});},[p.plans,p.backdrop]);
  const positioned=(slot:Timing):CSSProperties=>timelineClip(slot.start,slot.duration,scale);
  function rowClips(key:string) {
-  if(key==="video")return <SortableContext items={p.plans.map(plan=>plan.id)} strategy={horizontalListSortingStrategy}>{p.plans.map((plan,i)=><PlanSegment key={plan.id} plan={plan} index={i} slot={p.timing[i]} selected={plan.blocks.some(b=>b.id===p.selectedId)} onSelect={p.onSelect} style={positioned(p.timing[i])} thumbnail={thumbnails[i]} disabled={!p.canEdit||p.locked.includes("video")||p.locked.includes(plan.lead.type)}/>)}</SortableContext>;
+  if(key==="video")return <SortableContext items={p.plans.map(plan=>plan.id)} strategy={horizontalListSortingStrategy}>{p.plans.map((plan,i)=><PlanSegment key={plan.id} plan={plan} index={i} slot={p.timing[i]} selected={plan.blocks.some(b=>p.selectedIds.includes(b.id))} onSelect={p.onSelect} style={positioned(p.timing[i])} thumbnail={thumbnails[i]} disabled={!p.canEdit||p.locked.includes("video")||p.locked.includes(plan.lead.type)}/>)}</SortableContext>;
   if(key==="music") {
-   const music=p.blocks.filter(b=>b.type==="music");
-   return <SortableContext items={music.map(b=>b.id)} strategy={horizontalListSortingStrategy}>{music.map((b,i)=>{const length=(p.duration||3)/music.length;return <MusicSegment key={b.id} block={b} style={positioned({start:i*length,end:(i+1)*length,duration:length})} selected={b.id===p.selectedId} onSelect={p.onSelect} disabled={!p.canEdit||p.locked.includes("music")}/>;})}</SortableContext>;
+   const music=p.blocks.filter(b=>b.type==="music"),cues=buildMusicCues(p.blocks);
+   return <SortableContext items={music.map(b=>b.id)} strategy={horizontalListSortingStrategy}>{cues.flatMap((cue,i)=>{const start=p.timing[cue.planIndex]?.start||0,end=cues[i+1]?(p.timing[cues[i+1].planIndex]?.start||0):(p.duration||3),length=Math.max(0,end-start)/cue.tracks.length;return cue.tracks.map((b,j)=><MusicSegment key={b.id} block={b} style={positioned({start:start+j*length,end:start+(j+1)*length,duration:cue.stop?Math.min(.5,Math.max(.1,end-start)):Math.max(.1,length)})} selected={p.selectedIds.includes(b.id)} onSelect={p.onSelect} disabled={!p.canEdit||p.locked.includes("music")}/>);})}</SortableContext>;
   }
   const clips=p.blocks.filter(b=>key==="dialogue"?["dialogue","narration"].includes(b.type):key==="action"?["action","heading","transition"].includes(b.type):b.type===key);
   return <SortableContext items={clips.map(b=>b.id)} strategy={horizontalListSortingStrategy}>{clips.map(block=>{
    const slot=blockTime(block);
    let length=slot.duration;
    if(key==="background"){const next=p.blocks.filter(b=>b.type==="background"&&blockTime(b).start>slot.start).sort((a,b)=>blockTime(a).start-blockTime(b).start)[0];length=(next?blockTime(next).start:p.duration||slot.end)-slot.start;}
-   return <ElementSegment key={block.id} block={block} track={key} selected={p.selectedId===block.id} onSelect={p.onSelect} style={positioned({...slot,duration:length})} disabled={!p.canEdit||p.locked.includes(key)||p.locked.includes(block.type)||p.locked.includes("video")} />;
+   return <ElementSegment key={block.id} block={block} track={key} selected={p.selectedIds.includes(block.id)} onSelect={p.onSelect} style={positioned({...slot,duration:length})} disabled={!p.canEdit||p.locked.includes(key)||p.locked.includes(block.type)||p.locked.includes("video")} />;
   })}</SortableContext>;
 
  }
@@ -113,23 +115,23 @@ export default function StudioTimeline(p:Props) {
  </div><DragOverlay>{dragged&&<div className={styles.dragPreview}>{names[p.blocks.find(b=>b.id===dragged)?.type||""]} · {p.blocks.find(b=>b.id===dragged)?.content || "Élément"}</div>}</DragOverlay></DndContext>;
 }
 function clipDensity(style:CSSProperties){const width=Number(style.width);return width<60?"overview":width<160?"compact":"full";}
-function PlanSegment({plan,index,slot,selected,onSelect,style,thumbnail,disabled}:{plan:CompositePlan<SceneBlock>;index:number;slot:Timing;selected:boolean;onSelect:(id:string)=>void;style:CSSProperties;thumbnail:string|null|undefined;disabled:boolean}) {
+function PlanSegment({plan,index,slot,selected,onSelect,style,thumbnail,disabled}:{plan:CompositePlan<SceneBlock>;index:number;slot:Timing;selected:boolean;onSelect:(id:string,event?:SelectionModifiers)=>void;style:CSSProperties;thumbnail:string|null|undefined;disabled:boolean}) {
  const {attributes,listeners,setNodeRef,transform,transition,isDragging}=useSortable({id:plan.id,disabled,data:{track:"video",blockId:plan.lead.id}});
- return <button ref={setNodeRef} type="button" style={{...style,transform:CSS.Transform.toString(transform),transition,zIndex:isDragging?5:undefined,opacity:isDragging?.3:1}} className={styles.segment+" "+styles.videoSegment} data-density={clipDensity(style)} title={"Plan "+(index+1)+" · "+(plan.lead.content||names[plan.lead.type]||"Sans contenu")} onClick={()=>onSelect(plan.lead.id)} {...attributes} {...listeners} aria-pressed={selected}  aria-label={"Plan "+(index+1)+" · "+(plan.lead.content||names[plan.lead.type]||"Sans contenu")} data-block-id={plan.lead.id}>
+ return <button ref={setNodeRef} type="button" style={{...style,transform:CSS.Transform.toString(transform),transition,zIndex:isDragging?5:undefined,opacity:isDragging?.3:1}} className={styles.segment+" "+styles.videoSegment} data-density={clipDensity(style)} title={"Plan "+(index+1)+" · "+(plan.lead.content||names[plan.lead.type]||"Sans contenu")} onClick={event=>onSelect(plan.lead.id,event)} {...attributes} {...listeners} aria-pressed={selected}  aria-label={"Plan "+(index+1)+" · "+(plan.lead.content||names[plan.lead.type]||"Sans contenu")} data-block-id={plan.lead.id}>
   {thumbnail?<img src={thumbnail} alt=""/>:<StudioIcon name={plan.lead.type==="transition"?"layout":"video"}/>}<span><strong>{String(index+1).padStart(2,"0")} · {plan.lead.content||names[plan.lead.type]||"Plan sans contenu"}</strong><small>{timeLabel(slot.start)} – {timeLabel(slot.end)}</small></span><em>{slot.duration.toFixed(1)}s</em>
  </button>;
 }
-function MusicSegment({block,style,selected,onSelect,disabled}:{block:SceneBlock;style:CSSProperties;selected:boolean;onSelect:(id:string)=>void;disabled:boolean}) {
+function MusicSegment({block,style,selected,onSelect,disabled}:{block:SceneBlock;style:CSSProperties;selected:boolean;onSelect:(id:string,event?:SelectionModifiers)=>void;disabled:boolean}) {
  const {attributes,listeners,setNodeRef,transform,transition}=useSortable({id:block.id,disabled,data:{track:"music",blockId:block.id}});
- return <button ref={setNodeRef} type="button" style={{...style,transform:CSS.Transform.toString(transform),transition}} className={styles.segment+" "+styles.musicSegment} data-density={clipDensity(style)} title={block.content||block.mediaUrl?.split("/").at(-1)||"Musique"} onClick={()=>onSelect(block.id)} {...attributes} {...listeners} aria-pressed={selected}  data-block-id={block.id}><StudioIcon name="music"/><span>{block.content||block.mediaUrl?.split("/").at(-1)||"Choisir une musique"}</span>{block.mediaUrl&&<AudioWaveform url={block.mediaUrl}/>}</button>;
+ return <button ref={setNodeRef} type="button" style={{...style,transform:CSS.Transform.toString(transform),transition}} className={styles.segment+" "+styles.musicSegment} data-density={clipDensity(style)} data-command={block.audioAction==="stop"?"stop":"play"} aria-label={block.audioAction==="stop"?"Arrêter la musique":block.content||"Musique"} title={block.audioAction==="stop"?"Arrêter la musique":block.content||block.mediaUrl?.split("/").at(-1)||"Musique"} onClick={event=>onSelect(block.id,event)} {...attributes} {...listeners} aria-pressed={selected}  data-block-id={block.id}><StudioIcon name="music"/><span>{block.audioAction==="stop"?"Arrêt":block.content||block.mediaUrl?.split("/").at(-1)||"Choisir une musique"}</span>{block.mediaUrl&&<AudioWaveform url={block.mediaUrl}/>}</button>;
 }
 function TrackRow({track,hidden,disabled,children}:{track:string;hidden:boolean;disabled:boolean;children:React.ReactNode}) {
  const {setNodeRef,isOver}=useDroppable({id:"track-"+track,data:{track},disabled});
  return <div ref={setNodeRef} className={styles.trackRow} data-track={track} data-hidden={hidden} data-drop-over={isOver}>{children}</div>;
 }
-function ElementSegment({block,track,selected,onSelect,style,disabled}:{block:SceneBlock;track:string;selected:boolean;onSelect:(id:string)=>void;style:CSSProperties;disabled:boolean}) {
+function ElementSegment({block,track,selected,onSelect,style,disabled}:{block:SceneBlock;track:string;selected:boolean;onSelect:(id:string,event?:SelectionModifiers)=>void;style:CSSProperties;disabled:boolean}) {
  const {attributes,listeners,setNodeRef,transform,transition,isDragging}=useSortable({id:block.id,disabled,data:{track,blockId:block.id}});
- return <button ref={setNodeRef} type="button" {...attributes} {...listeners} className={styles.segment+" "+styles[track+"Segment"]} data-density={clipDensity(style)} style={{...style,transform:CSS.Transform.toString(transform),transition,opacity:isDragging?.3:1}} aria-pressed={selected} onClick={()=>onSelect(block.id)} title={(names[block.type]||block.type)+" · "+(block.content||"Sans contenu")} data-block-id={block.id}><StudioIcon name={track==="dialogue"?"dialogue":track==="background"?"image":track==="note"?"note":track==="sfx"?"sfx":"action"}/><span>{block.content||block.mediaUrl?.split("/").at(-1)||names[block.type]}</span>{track==="sfx"&&block.mediaUrl&&<AudioWaveform url={block.mediaUrl}/>}</button>;
+ return <button ref={setNodeRef} type="button" {...attributes} {...listeners} className={styles.segment+" "+styles[track+"Segment"]} data-density={clipDensity(style)} style={{...style,transform:CSS.Transform.toString(transform),transition,opacity:isDragging?.3:1}} aria-pressed={selected} onClick={event=>onSelect(block.id,event)} title={(names[block.type]||block.type)+" · "+(block.content||"Sans contenu")} data-block-id={block.id}><StudioIcon name={track==="dialogue"?"dialogue":track==="background"?"image":track==="note"?"note":track==="sfx"?"sfx":"action"}/><span>{block.content||block.mediaUrl?.split("/").at(-1)||names[block.type]}</span>{track==="sfx"&&block.mediaUrl&&<AudioWaveform url={block.mediaUrl}/>}</button>;
 }
 const waveformCache=new Map<string,number[]>();
 function AudioWaveform({url}:{url:string}) {

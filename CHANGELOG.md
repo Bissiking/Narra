@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.14.0 — 2026-11-16
+
+- Sélection par Shift-clic ou Cmd/Ctrl-clic, copier/couper/coller et duplication des éléments, avec raccourcis et respect des pistes verrouillées.
+- Découpage d’une sélection dans un nouveau sous-bloc du même épisode, enregistré dans une transaction avec détection des conflits.
+- Menu contextuel du Studio au clic droit et au clavier ; édition native conservée dans les champs.
+- Plusieurs déclenchements de musiques ou playlists dans un sous-bloc, départ par plan et arrêts explicites, partagés avec le lecteur VN.
+- Médiathèque et sélecteurs communs avec sous-dossiers, fil d’Ariane, recherche, grille/liste, rangement et renommage, sans changer les URL des médias.
+- Migration Prisma `20261116120000_editor_selection_audio_folders` requise. Voir [le guide et les validations](docs/EDITOR_0_14.md).
+
 ## En préparation — patch Studio (2026-11-13)
 
 - Timeline lisible sur les scènes longues : échelle de travail par défaut, défilement horizontal, vue d’ensemble à la demande, repères de temps espacés selon le zoom et suivi du curseur.

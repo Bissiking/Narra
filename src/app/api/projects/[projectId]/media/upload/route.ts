@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, writeFile, unlink } from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -28,9 +28,12 @@ export async function POST(
   if (!projectIdSchema.safeParse(params.projectId).success) {
     return NextResponse.json({ error: "Projet invalide" }, { status: 400 });
   }
+  let pendingFile: string | null = null;
   try {
     const formData = await request.formData();
     const file = formData.get("file");
+    const folderId=z.string().uuid().nullable().parse(formData.get("folderId")||null);
+    if(folderId&&!await db.mediaFolder.findFirst({where:{id:folderId,projectId:params.projectId}}))return NextResponse.json({error:'Dossier invalide'},{status:400});
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Aucun fichier reçu" }, { status: 400 });
     }
@@ -45,12 +48,14 @@ export async function POST(
     const filename = `${randomUUID()}${extension}`;
     const uploadDirectory = path.join(process.cwd(), "public", "uploads", params.projectId);
     await mkdir(uploadDirectory, { recursive: true });
-    await writeFile(path.join(uploadDirectory, filename), Buffer.from(await file.arrayBuffer()));
+    pendingFile = path.join(uploadDirectory, filename);
+    await writeFile(pendingFile, Buffer.from(await file.arrayBuffer()));
 
     const item = await db.media.create({
       data: {
         projectId: params.projectId,
         filename,
+        folderId,
         originalName: file.name.slice(0, 255),
         mimeType: file.type,
         size: file.size,
@@ -58,8 +63,11 @@ export async function POST(
         type: mediaType(file.type),
       },
     });
+    pendingFile = null;
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
+    if(pendingFile)await unlink(pendingFile).catch(()=>undefined);
+    if(error instanceof z.ZodError)return NextResponse.json({error:"Dossier invalide"},{status:400});
     console.error("Error uploading media:", error);
     return NextResponse.json({ error: "Impossible d’envoyer le fichier" }, { status: 500 });
   }

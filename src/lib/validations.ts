@@ -119,6 +119,8 @@ export const createSceneBlockSchema = z.object({
     )
     .nullish(),
   audioAction: z.enum(["play", "stop"]).nullish(),
+  audioStartBlockId: z.string().max(100).nullish(),
+  audioGroupId: z.string().max(100).nullish(),
   volume: z.number().int().min(0).max(100).nullish(),
   fadeDuration: z.number().min(0).max(30).nullish(),
   loop: z.boolean().nullish(),

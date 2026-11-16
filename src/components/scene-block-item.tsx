@@ -334,6 +334,7 @@ function SceneBlockItem({
                       value={block.mediaUrl || ""}
                       onChange={(mediaUrl) => onUpdate(block.id, { mediaUrl: mediaUrl || null })}
                       label="Choisir"
+                      onSelectMedia={media=>onUpdate(block.id,{mediaUrl:media.url,content:media.originalName})}
                       accept="audio/*"
                     />
                   </div>
