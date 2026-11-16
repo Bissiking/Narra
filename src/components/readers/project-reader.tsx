@@ -130,7 +130,7 @@ function RestartIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M5.5 15a7 7 0 1 0 1.2-7.9L4 10" /></svg>;
 }
 
-export default function ProjectReader({ project, scenes, characters = [], canEdit = false, exitHref }: { project: Project; scenes: Scene[]; characters?: Character[]; canEdit?: boolean; exitHref?: string }) {
+export default function ProjectReader({ project, scenes, characters = [], canEdit = false, exitHref, initialBlockId }: { project: Project; scenes: Scene[]; characters?: Character[]; canEdit?: boolean; exitHref?: string; initialBlockId?: string | null }) {
   const [readerScenes, setReaderScenes] = useState(scenes);
   const [mode, setMode] = useState<ReaderMode>("read");
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
@@ -344,7 +344,7 @@ export default function ProjectReader({ project, scenes, characters = [], canEdi
   }
 
   if (project.type === "vn" || project.pageTheme === "visual-novel") {
-    return <VisualNovelReader project={project} scenes={readerScenes} variables={variables} exitHref={exitHref} editor={editor} />;
+    return <VisualNovelReader project={project} scenes={readerScenes} variables={variables} exitHref={exitHref} editor={editor} initialBlockId={initialBlockId} />;
   }
 
   return <DocumentReader project={project} scenes={readerScenes} variables={variables} exitHref={exitHref} editor={editor} />;
@@ -410,7 +410,7 @@ function EmptyReader({ project, variables, exitHref }: { project: Project; varia
   );
 }
 
-function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { project: Project; scenes: Scene[]; variables: CSSProperties; exitHref?: string; editor: EditorControls }) {
+function VisualNovelReader({ project, scenes, variables, exitHref, editor, initialBlockId }: { project: Project; scenes: Scene[]; variables: CSSProperties; exitHref?: string; editor: EditorControls; initialBlockId?: string | null }) {
   const beats = useMemo(
     () => {
       let pendingSfx: Block[] = [];
@@ -441,8 +441,9 @@ function VisualNovelReader({ project, scenes, variables, exitHref, editor }: { p
     [project.pageBackgroundUrl, scenes],
   );
   const [index, setIndex] = useState(() => {
-    if (typeof window === "undefined") return 0;
-    const requested = new URLSearchParams(window.location.search).get("block");
+    const requested = initialBlockId === undefined
+      ? (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("block"))
+      : initialBlockId;
     const found = requested ? beats.findIndex((beat) => beat.block.id === requested) : -1;
     return found >= 0 ? found : 0;
   });

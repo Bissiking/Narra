@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createSceneSchema } from "@/lib/validations";
+import { orderNarrativeScenes } from "@/lib/narrative-order";
 import { requireProjectAccess } from "@/lib/project-access";
 
 export async function GET(
@@ -10,34 +11,39 @@ export async function GET(
   const access = await requireProjectAccess(request, params.projectId);
   if (access instanceof NextResponse) return access;
   try {
-    const scenes = await db.scene.findMany({
-      where: {
-        projectId: params.projectId,
-        deletedAt: null,
-      },
-      include: {
-        node: { select: { id: true, title: true, type: true } },
-        location: { select: { id: true, name: true, imageUrl: true } },
-        characters: {
-          include: {
-            character: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                alias: true,
-                portraitUrl: true,
+    const [scenes, nodes] = await Promise.all([
+      db.scene.findMany({
+        where: {
+          projectId: params.projectId,
+          deletedAt: null,
+        },
+        include: {
+          node: { select: { id: true, title: true, type: true } },
+          location: { select: { id: true, name: true, imageUrl: true } },
+          characters: {
+            include: {
+              character: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  alias: true,
+                  portraitUrl: true,
+                },
               },
             },
           },
+          blocks: { where: { type: "background", mediaUrl: { not: null } }, select: { mediaUrl: true }, orderBy: { order: "asc" }, take: 1 },
+          _count: { select: { blocks: true } },
         },
-        blocks: { where: { type: "background", mediaUrl: { not: null } }, select: { mediaUrl: true }, orderBy: { order: "asc" }, take: 1 },
-        _count: { select: { blocks: true } },
-      },
-      orderBy: { order: "asc" },
-    });
-
-    return NextResponse.json(scenes);
+        orderBy: { order: "asc" },
+      }),
+      db.narrativeNode.findMany({
+        where: { projectId: params.projectId, deletedAt: null },
+        select: { id: true, parentId: true, title: true, order: true },
+      }),
+    ]);
+    return NextResponse.json(orderNarrativeScenes(scenes, nodes));
   } catch (error) {
     console.error("Error fetching scenes:", error);
     return NextResponse.json(

@@ -1,6 +1,6 @@
 {
   "name": "narra",
-  "version": "0.14.0",
+  "version": "0.14.1",
   "private": true,
   "scripts": {
     "dev": "tsx server.ts",
@@ -19,7 +19,9 @@
     "test:timeline": "tsx --test tests/studio-timeline.test.ts",
     "test:selection": "tsx --test tests/studio-selection-music.test.ts",
     "test:editor-api": "tsx tests/editor-update.api.ts",
-    "test:editor-browser": "node tests/editor-update.browser.cjs"
+    "test:editor-browser": "node tests/editor-update.browser.cjs",
+    "test:reading-order": "tsx --test tests/narrative-order.test.ts",
+    "test:reading-browser": "node tests/reader-order.browser.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

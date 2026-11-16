@@ -1,10 +1,11 @@
 import "server-only";
+import { orderNarrativeScenes } from "./narrative-order";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 
 export async function getPublishedStory(slug: string) {
-  return db.project.findFirst({
+  const story = await db.project.findFirst({
     where: { slug, pagePublished: true, deletedAt: null },
     include: {
       genres: true,
@@ -44,6 +45,7 @@ export async function getPublishedStory(slug: string) {
       locations: { where: { deletedAt: null }, orderBy: { name: "asc" } },
     },
   });
+  return story ? { ...story, scenes: orderNarrativeScenes(story.scenes, story.narrativeNodes) } : null;
 }
 
 export function storyCharacterName(character: { firstName: string | null; lastName: string | null; alias: string | null }) {
@@ -53,7 +55,7 @@ export function storyCharacterName(character: { firstName: string | null; lastNa
 export async function getStoryForPreview(slug: string) {
   const session = verifySessionToken(cookies().get(SESSION_COOKIE)?.value);
   if (!session) return null;
-  return db.project.findFirst({
+  const story = await db.project.findFirst({
     where: { slug, deletedAt: null, OR: [{ ownerId: session.userId }, { collaborators: { some: { userId: session.userId } } }] },
     include: {
       genres: true,
@@ -93,4 +95,5 @@ export async function getStoryForPreview(slug: string) {
       locations: { where: { deletedAt: null }, orderBy: { name: "asc" } },
     },
   });
+  return story ? { ...story, scenes: orderNarrativeScenes(story.scenes, story.narrativeNodes) } : null;
 }

@@ -145,3 +145,7 @@ Le curseur est ramené dans la partie visible lors de la lecture, du passage au 
 Le banc navigateur inclut une scène synthétique de **267 éléments et près de treize minutes**, en Compacte et Détaillée à 1440, 390 et 320 px : échelle initiale, vue d’ensemble, absence de chevauchement des segments et graduations, maintien du plan sélectionné lors du zoom, accès au dernier plan, retour au début et réordonnancement. Captures `timeline-long-*` sous `.impeccable/review/`. `npm run test:timeline` contrôle la géométrie sur scènes courtes, longues et vides. Ces essais utilisent des API simulées, sans modifier la production.
 
 Validation de la timeline longue : 29 tests unitaires réussis, parcours Chrome for Testing/Puppeteer réussi sur les deux dispositions à 1440/390/320 px, sans chevauchement de plans/graduations et sans commandes rognées dans la barre d’outils. Le build complet `NARRA_NEXT_DIST_DIR=.next-qa/timeline-readable-build npm run build` passe. ESLint ciblé : 0 erreur, 3 avertissements d’images natives. Aucun déploiement ni essai sur les données réelles de production.
+
+## Ordre de lecture entre épisodes
+
+Le correctif 0.14.1 applique au lecteur l’ordre de la structure narrative, puis l’ordre local des sous-blocs. La lecture de contrôle conserve sa cible par identifiant et poursuit dans cette séquence corrigée. Voir [diagnostic, reproduction et validation](READING_ORDER.md).

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.14.1 — 2026-11-16
+
+- Correction des sauts entre épisodes en pleine lecture : les sous-blocs suivent désormais l’arborescence narrative puis leur ordre local, au lieu d’un tri global qui entrelaçait les épisodes.
+- Même ordre pour la lecture de contrôle, le lecteur privé, public et la prévisualisation ; identifiants des liens et contenus conservés. Aucune nouvelle migration.
+- Initialisation cohérente des liens directs du lecteur public entre serveur et navigateur, sans erreur d’hydratation.
+- Régression avec quatre épisodes et 4 021 éléments : [diagnostic et contrôles](docs/READING_ORDER.md).
+
 ## 0.14.0 — 2026-11-16
 
 - Sélection par Shift-clic ou Cmd/Ctrl-clic, copier/couper/coller et duplication des éléments, avec raccourcis et respect des pistes verrouillées.
