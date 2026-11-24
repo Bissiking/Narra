@@ -46,7 +46,8 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
    else if(p.endsWith('/characters'))data=characters;
    else if(p.endsWith('/narrative-nodes'))data=structure;
    else if(p.endsWith('/presentation'))data={canEdit:!viewer};
-   else if(p.includes('/media'))data=[{id:'image1',url:'/icon.png',originalName:'Phare.png',filename:'Phare.png',type:'image',size:2048}];
+   else if(p.endsWith('/media-folders'))data={folders:[{id:'images',name:'Décors',parentId:null}],canEdit:true};
+   else if(p.includes('/media'))data=[{id:'image1',url:'/icon.png',originalName:'Phare.png',filename:'Phare.png',type:'image',size:2048},...Array.from({length:24},(_,i)=>({id:'decor-'+i,url:'/icon.png',originalName:'Décor '+(i+1)+'.png',type:'image',size:2048,folderId:'images'}))];
    else data={name:'Les lumières du port',type:'vn'};
    return request.respond({status,contentType:'application/json',body:JSON.stringify(data)});
   })().catch(error=>errors.push(error.message))});
@@ -199,6 +200,35 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
    await page.setViewport({width:1440,height:900});
   }
   console.log('267-element scene: readable default, overview without overlaps, adaptive ruler, follow/zoom, reorder and both layouts at 1440/390/320px passed.');
+  // Several image layers attached to one plan remain individually selectable.
+  blocks['long-scene'].splice(3,0,...[1,2,3].map(i=>({id:'stack-'+i,type:'background',displayMode:'layer',mediaUrl:'/icon.png',content:'Décor simultané '+i,order:3+i})));
+  await page.reload({waitUntil:'networkidle0'});await visible('[data-track=background] [data-block-id=stack-3]');
+  const imageRects=await page.$$eval('[data-track=background] [data-block-id^=stack-]',els=>els.map(e=>({top:e.offsetTop,height:e.offsetHeight,left:parseFloat(e.style.left)})));
+  assert.equal(imageRects.length,3);
+  assert.equal(new Set(imageRects.map(r=>r.left)).size,1);
+  assert.equal(new Set(imageRects.map(r=>r.top)).size,3);
+  for(let i=1;i<3;i++)assert.ok(imageRects[i].top>=imageRects[i-1].top+imageRects[i-1].height);
+  await click('[data-track=background] [data-block-id=stack-2]');
+  await page.screenshot({path:'.impeccable/review/timeline-image-lanes.png'});
+  await textClick('Choisir');await visible('[data-media-browser]');
+  await page.$$eval('dialog[open] nav button',buttons=>buttons.find(b=>b.textContent.includes('Décors')).click());
+  await page.keyboard.press('Escape');await textClick('Choisir');await visible('[data-media-browser]');
+  assert.ok(await page.$eval('dialog[open] [aria-label="Dossiers de médias"] [aria-current]',e=>e.textContent.includes('Décors')));
+  for(const width of [1440,390,320]){
+   await page.setViewport({width,height:900});await wait(100);
+   assert.ok(await page.$eval('dialog[open]',e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&e.scrollWidth<=e.clientWidth+1&&(innerWidth<1000||r.width>1200)}));
+   await page.screenshot({path:'.impeccable/review/media-resume-'+width+'.png'});
+  }
+  await page.keyboard.press('Escape');await page.setViewport({width:1440,height:900});
+  await click('[aria-label="Aller au dernier plan"]');
+  await (await page.$('[aria-label="Zoom de la timeline"]')).focus();await page.keyboard.press('End');await wait(350);
+  await page.$eval('[data-timeline-scale]',e=>{e.scrollLeft-=600;e.scrollTop=60});await wait(100);
+  const resume=await page.evaluate(()=>({time:document.querySelector('[aria-label="Curseur de la timeline"]').value,zoom:document.querySelector('[aria-label="Zoom de la timeline"]').value,id:document.querySelector('[data-track=video] [aria-pressed=true]').dataset.blockId,scroll:document.querySelector('[data-timeline-scale]').scrollLeft,top:document.querySelector('[data-timeline-scale]').scrollTop}));
+  await page.reload({waitUntil:'networkidle0'});await visible('[data-track=video] [aria-pressed=true]');await wait(250);
+  const resumed=await page.evaluate(()=>({time:document.querySelector('[aria-label="Curseur de la timeline"]').value,zoom:document.querySelector('[aria-label="Zoom de la timeline"]').value,id:document.querySelector('[data-track=video] [aria-pressed=true]').dataset.blockId,scroll:document.querySelector('[data-timeline-scale]').scrollLeft,top:document.querySelector('[data-timeline-scale]').scrollTop}));
+  assert.deepEqual(resumed,resume);
+  await page.screenshot({path:'.impeccable/review/timeline-resumed.png'});
+  console.log('Simultaneous image lanes, large responsive media picker, folder memory and refresh time/selection/zoom/scroll passed.');
   viewer=true;await page.reload({waitUntil:'networkidle0'});await visible('[data-track=video]');assert.equal(await page.$('[aria-label^="Ordonner "]'),null);assert.equal(await page.$('[aria-label="Renommer le sous-bloc"]'),null);assert.equal(await page.$('[aria-label="Ajouter un élément"]'),null);await click('[aria-label="Réglages du sous-bloc"]');await visible('dialog[open]');assert.ok(await page.$eval('dialog[open] [aria-label="Statut"]',e=>e.disabled));assert.equal(await page.$$eval('dialog[open] button',buttons=>buttons.filter(b=>b.textContent.trim()==='Enregistrer').length),0);await page.keyboard.press('Escape');
   assert.deepEqual(errors,[]);console.log('Both layouts: 1440/390/320px, popup bounds and zero page errors passed.');
   fs.writeFileSync('.impeccable/review/patch-browser-report.json',JSON.stringify({passed:true,checks:['267-element readable timeline','overview without clip or ruler overlaps','playhead follow and zoom','long-scene reorder','canonical editor page','legacy HTTP 308 redirects','scene deep links and query preservation','protected canonical route','single project edit entry','settings dialog open/save/retry/focus','scene ellipsis opens settings','settings desktop and mobile bounds','nested settings media picker','failed episode navigation preserves edits','failed metadata reassignment preserves scope','episode-only library','outside-episode prologue and intro','empty episode visibility','scene reassignment updates active episode','creation in empty episode','track conversion','locked tracks','plan pointer/keyboard reorder','rename failure/retry','episode pointer/keyboard reorder','reorder failure','compact add menu','media modal','help focus and Escape','Markdown file import','character association','responsive compact/detailed'],widths:[1440,390,320],errors,scope:'Local Next.js UI with intercepted APIs; no real PostgreSQL, SSO or deployment.'},null,2));

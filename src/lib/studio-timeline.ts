@@ -27,3 +27,15 @@ export function timelineTypeForTrack(track: string) {
 export function canConvertTimelineBlock(from: string, to: string) {
   return from !== to && TEXT_TYPES.has(from) && TEXT_TYPES.has(to);
 }
+
+/** Pack simultaneous clips into separate lanes; adjacent intervals reuse a lane. */
+export function timelineLanes<T extends {id:string;start:number;duration:number}>(clips:T[]) {
+  const ends:number[]=[];
+  const items=[...clips].sort((a,b)=>a.start-b.start).map(clip=>{
+    let lane=ends.findIndex(end=>end<=clip.start);
+    if(lane<0)lane=ends.length;
+    ends[lane]=clip.start+clip.duration;
+    return {...clip,lane};
+  });
+  return {items,count:Math.max(1,ends.length)};
+}

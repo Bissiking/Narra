@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {timelineLayout,timelineClip} from '../src/lib/studio-timeline';
+import {timelineLayout,timelineClip,timelineLanes} from '../src/lib/studio-timeline';
 
 test('a thirteen-minute scene opens at a readable scale on desktop and mobile',()=>{
  for(const available of [172,1160,1780]){
@@ -35,4 +35,12 @@ test('short scenes, empty scenes and zoom extremes keep a finite usable canvas',
   const clip=timelineClip(12,3,layout.scale);
   assert.ok(clip.width>=0&&clip.width<=3*layout.scale);
  }
+});
+
+test('simultaneous images have separate lanes and later images reuse them',()=>{
+ const result=timelineLanes([{id:'a',start:3,duration:6},{id:'b',start:3,duration:6},{id:'c',start:3,duration:6},{id:'d',start:9,duration:3}]);
+ assert.equal(result.count,3);
+ assert.deepEqual(result.items.map(item=>item.lane),[0,1,2,0]);
+ for(const a of result.items)for(const b of result.items)if(a.id!==b.id&&a.lane===b.lane)assert.ok(a.start+a.duration<=b.start||b.start+b.duration<=a.start);
+ assert.equal(timelineLanes([]).count,1);
 });

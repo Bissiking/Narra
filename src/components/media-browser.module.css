@@ -474,3 +474,12 @@
     border: 1px solid var(--narra-border);
   }
 }
+
+/* Use the viewport for browsing, with independently scrolling folders and files. */
+dialog.pickerModal {width:min(1440px,calc(100vw - 32px));height:calc(100dvh - 48px);overflow:hidden}
+.pickerPanel {height:100%;display:flex;flex-direction:column;min-height:0}
+.pickerPanel > header {flex-shrink:0}
+.pickerPanel .browser {display:flex;flex-direction:column;flex:1;min-height:0;border:0}
+.pickerPanel .body {flex:1;min-height:0}
+.pickerPanel .tree,.pickerPanel .content {max-height:none;overflow:auto}
+@media(max-width:700px) {dialog.pickerModal {width:calc(100vw - 16px);height:calc(100dvh - 16px)}.pickerPanel .toolbar {max-height:40dvh;overflow:auto}}

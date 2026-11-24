@@ -1,0 +1,1 @@
+import ProjectNav from "@/components/layout/project-nav";export default function Page({params,searchParams}:{params:{projectId:string};searchParams:{role?:string}}){return <ProjectNav projectId={params.projectId} projectType="vn" role={searchParams.role==="viewer"?"viewer":"owner"}/>;}

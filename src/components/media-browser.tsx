@@ -132,6 +132,7 @@ export default function MediaBrowser({
     return parts;
   };
   const current = folders.find((f) => f.id === folder);
+  const locationKey = `narra-media-location:${projectId}`;
   const load = useCallback(
     async (signal?: AbortSignal) => {
       const [m, f] = await Promise.all([
@@ -141,10 +142,18 @@ export default function MediaBrowser({
       if (!m.ok || !f.ok) throw Error("Impossible de charger la médiathèque.");
       const [items, tree] = await Promise.all([m.json(), f.json()]);
       setMedia(items);
-      setFolders(tree.folders || []);
+      const loadedFolders: Folder[] = tree.folders || [];
+      setFolders(loadedFolders);
+      // Restore only folders still present and accessible in this project.
+      try {
+        const saved = JSON.parse(localStorage.getItem(locationKey) || "null");
+        const id = typeof saved?.folder === "string" && loadedFolders.some(f => f.id === saved.folder) ? saved.folder : null;
+        setFolder(id);
+        setAll(saved?.all === true);
+      } catch {}
       setCanEdit(tree.canEdit === true);
     },
-    [projectId],
+    [projectId, locationKey],
   );
   useEffect(() => {
     const controller = new AbortController();
@@ -159,7 +168,11 @@ export default function MediaBrowser({
       });
     return () => controller.abort();
   }, [load]);
+  function rememberLocation(id: string | null, allMedia: boolean) {
+    try { localStorage.setItem(locationKey, JSON.stringify({folder: id, all: allMedia})); } catch {}
+  }
   function navigate(id: string | null) {
+    rememberLocation(id, false);
     setFolder(id);
     setAll(false);
     setQuery("");
@@ -426,6 +439,7 @@ export default function MediaBrowser({
             className={styles.treeFolder}
             aria-current={all ? "location" : undefined}
             onClick={() => {
+              rememberLocation(folder, true);
               setAll(true);
               setQuery("");
             }}
@@ -451,6 +465,7 @@ export default function MediaBrowser({
               aria-label="Portée des médias"
               value={all ? "all" : "folder"}
               onChange={(e) => {
+                rememberLocation(folder, e.target.value === "all");
                 setAll(e.target.value === "all");
                 setQuery("");
               }}

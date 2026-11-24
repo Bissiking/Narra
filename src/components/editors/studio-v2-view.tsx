@@ -82,6 +82,8 @@ export default function StudioV2View(props:Props) {
  const [hiddenTracks,setHiddenTracks]=useState<string[]>([]);
  const [lockedTracks,setLockedTracks]=useState<string[]>([]);
  const [zoom,setZoom]=useState<TimelineZoom>(1);
+ const viewKey=`narra-studio-view:${p.projectId}:${p.selectedScene?.id||""}`;
+ const [restoredView,setRestoredView]=useState("");
  const [history,setHistory]=useState<SceneBlock[][]>([]);
  const [future,setFuture]=useState<SceneBlock[][]>([]);
  const [fullscreenError,setFullscreenError]=useState<string|null>(null);
@@ -121,7 +123,27 @@ export default function StudioV2View(props:Props) {
  }
  function cancelRename(){p.title.onChange(p.selectedScene?.title||"");setRenaming(false);setRenameError(null);}
  useEffect(()=>{try{const saved=localStorage.getItem("narra-studio-v2-layout");if(saved==="compact"||saved==="detailed")setLayout(saved);}catch{}},[]);
- useEffect(()=>{setTime(0);setZoom(1);setPlaying(false);setHistory([]);setFuture([]);setInspector("scene");setAudioError(null);musicIndex.current=0;},[p.selectedScene?.id]);
+ useEffect(()=>{setRestoredView("");setTime(0);setZoom(1);setPlaying(false);setHistory([]);setFuture([]);setInspector("scene");setAudioError(null);musicIndex.current=0;},[p.selectedScene?.id]);
+ // Wait for scene blocks before restoring selection and clamping the playhead.
+ useEffect(()=>{
+  if(p.loading||p.loadError||!p.selectedScene||restoredView===viewKey)return;
+  try {
+   const saved=JSON.parse(localStorage.getItem(viewKey)||"null");
+   if(saved){
+    setTime(typeof saved.time==="number"&&Number.isFinite(saved.time)?Math.max(0,Math.min(duration,saved.time)):0);
+    setZoom(saved.zoom==="fit"?"fit":typeof saved.zoom==="number"&&Number.isFinite(saved.zoom)?Math.max(.5,Math.min(3,saved.zoom)):1);
+    if(typeof saved.selectedId==="string"&&p.blocks.some(b=>b.id===saved.selectedId))onSelectBlock(saved.selectedId);
+   }
+  }catch{}
+  setRestoredView(viewKey);
+ },[viewKey,restoredView,p.loading,p.loadError,p.selectedScene,p.blocks,duration,onSelectBlock]);
+ useEffect(()=>{
+  if(restoredView!==viewKey||p.loading||p.loadError)return;
+  const save=()=>{try{localStorage.setItem(viewKey,JSON.stringify({time,zoom,selectedId:p.selectedBlockId}));}catch{}};
+  const timer=window.setTimeout(save,200);
+  window.addEventListener("pagehide",save);
+  return()=>{window.clearTimeout(timer);window.removeEventListener("pagehide",save);save();};
+ },[viewKey,restoredView,p.loading,p.loadError,time,zoom,p.selectedBlockId]);
  useEffect(()=>{setHistory([]);setFuture([]);},[p.lastSaved]);
  useEffect(()=>{if(p.episodeMode)setPlaying(false);},[p.episodeMode]);
  useEffect(()=>{setTime(t=>Math.min(t,duration));},[duration]);
@@ -320,7 +342,7 @@ export default function StudioV2View(props:Props) {
     <div className={styles.timelineEnd}>{!p.episodeMode&&<><span className={styles.timingHint}>Temps estimés</span><HelpPopup title="Timeline et glisser-déposer"><p>La timeline s’ouvre à une échelle de travail lisible et défile horizontalement. Adapter montre toute la scène ; Lisible revient à l’échelle de travail. Le zoom conserve le curseur à l’écran.</p><p>Les durées sont estimées depuis le texte. Glissez un plan pour réordonner son texte et ses couches ; les musiques se réordonnent sur leur propre piste.</p><p>Déposez un dialogue ou une note sur une autre piste de texte pour changer son type. En Compacte, Plans visuels convertit le texte en action. Les pistes verrouillées bloquent les modifications. Le sélecteur Type du bloc permet aussi de changer de type au clavier.</p></HelpPopup><IconButton icon="minus" label="Réduire le zoom" onClick={()=>setZoom(v=>v==="fit"?.5:Math.max(.5,v-.25))} disabled={zoom!=="fit"&&zoom<=.5}/><input type="range" min={.5} max={3} step={.25} aria-label="Zoom de la timeline" value={zoom==="fit"?1:zoom} onChange={e=>setZoom(Number(e.target.value))}/><IconButton icon="plus" label="Augmenter le zoom" onClick={()=>setZoom(v=>v==="fit"?1:Math.min(3,v+.25))} disabled={zoom!=="fit"&&zoom>=3}/><button type="button" className={styles.fitButton} aria-pressed={zoom==="fit"} title={zoom==="fit"?"Revenir à l’échelle de travail lisible":"Voir toute la scène"} onClick={()=>setZoom(value=>value==="fit"?1:"fit")}>{zoom==="fit"?"Lisible":"Adapter"}</button></>}<IconButton icon={detailed?"list":"grid"} label="Changer la disposition de la timeline" onClick={()=>chooseLayout(detailed?"compact":"detailed")}/><IconButton icon="expand" label="Timeline en plein écran" onClick={()=>void fullscreen(timelineRef.current)}/></div>
    </div>
    {!p.episodeMode&&<div className={styles.selectionBar} role="toolbar" aria-label="Actions de sélection"><span>{selection.count} élément{selection.count>1?"s sélectionnés":" sélectionné"}</span><button type="button" disabled={!selection.count} onClick={()=>void selection.copy()}>Copier</button><button type="button" disabled={!selection.writable} onClick={()=>void selection.copy(true)}>Couper</button><button type="button" disabled={!editable} onClick={()=>void selection.paste()}>Coller</button><button type="button" disabled={!selection.writable} onClick={requestExtract}>Nouveau sous-bloc depuis la sélection</button><HelpPopup title="Sélection et presse-papiers"><p>Shift-clic sélectionne une plage de plans. Cmd/Ctrl-clic ajoute ou retire un élément. Les couches d’un plan accompagnent son texte.</p><p>Cmd/Ctrl+C, X et V copient, coupent et collent les éléments. Cmd/Ctrl+A sélectionne tout, Cmd/Ctrl+D duplique. Dans les champs de texte, ces raccourcis gardent leur comportement habituel. Le clic droit ouvre les actions de la sélection.</p></HelpPopup>{selection.notice&&<small role="status">{selection.notice}</small>}</div>}
-   {p.episodeMode?<div className={styles.episodeTimeline}>{p.activeEpisode?.scenes.map((s,i)=><button type="button" key={s.id} aria-pressed={s.id===p.selectedScene?.id} onClick={()=>void openScene(s.id)}><span>{String(i+1).padStart(2,"0")} · {s.node?.title||"Sans bloc"}</span><strong>{s.title}</strong><small>{s._count.blocks} éléments</small></button>)}{!p.activeEpisode?.scenes.length&&<p className={styles.empty}>Cet épisode ne contient pas encore de sous-bloc.</p>}</div>:p.loading?<p className={styles.empty}>Chargement de la timeline…</p>:p.loadError?<div className={styles.empty} role="alert">{p.loadError}<button onClick={p.onRetry}>Réessayer</button></div>:<StudioTimeline blocks={p.blocks} plans={plans} timing={timing} detailed={detailed} selectedId={p.selectedBlockId} selectedIds={selection.ids} onSelect={select} onScrub={scrub} time={time} duration={duration} zoom={zoom} backdrop={backdrop} hidden={hiddenTracks} locked={lockedTracks} onToggleTrack={toggleTrack} canEdit={editable} onAdd={add} onConvert={(id,type)=>update(id,{type})} onReorderPlans={event=>{remember("reorder");p.onReorderPlans(event);}} onReorderMusic={event=>{remember("reorder-music");p.onReorderMusic(event);}}/>}
+   {p.episodeMode?<div className={styles.episodeTimeline}>{p.activeEpisode?.scenes.map((s,i)=><button type="button" key={s.id} aria-pressed={s.id===p.selectedScene?.id} onClick={()=>void openScene(s.id)}><span>{String(i+1).padStart(2,"0")} · {s.node?.title||"Sans bloc"}</span><strong>{s.title}</strong><small>{s._count.blocks} éléments</small></button>)}{!p.activeEpisode?.scenes.length&&<p className={styles.empty}>Cet épisode ne contient pas encore de sous-bloc.</p>}</div>:p.loading?<p className={styles.empty}>Chargement de la timeline…</p>:p.loadError?<div className={styles.empty} role="alert">{p.loadError}<button onClick={p.onRetry}>Réessayer</button></div>:restoredView!==viewKey?null:<StudioTimeline key={viewKey} storageKey={viewKey} blocks={p.blocks} plans={plans} timing={timing} detailed={detailed} selectedId={p.selectedBlockId} selectedIds={selection.ids} onSelect={select} onScrub={scrub} time={time} duration={duration} zoom={zoom} backdrop={backdrop} hidden={hiddenTracks} locked={lockedTracks} onToggleTrack={toggleTrack} canEdit={editable} onAdd={add} onConvert={(id,type)=>update(id,{type})} onReorderPlans={event=>{remember("reorder");p.onReorderPlans(event);}} onReorderMusic={event=>{remember("reorder-music");p.onReorderMusic(event);}}/>}
   </section>
   {context&&<ContextMenu point={context} onClose={()=>setContext(null)} className={styles.contextMenu}>
    {[{label:"Copier",disabled:!selection.count,action:()=>void selection.copy()},{label:"Couper",disabled:!selection.writable,action:()=>void selection.copy(true)},{label:"Coller ici",disabled:!editable,action:()=>void selection.paste()},{label:"Dupliquer",disabled:!selection.writable,action:selection.duplicate},{label:"Déplacer dans un nouveau sous-bloc",disabled:!selection.writable,action:requestExtract},{label:"Tout sélectionner",disabled:!p.blocks.length,action:selection.all},{label:"Supprimer la sélection",disabled:!selection.writable,action:selection.remove}].map(item=><button type="button" role="menuitem" key={item.label} disabled={item.disabled} onClick={()=>{item.action();setContext(null);}}>{item.label}</button>)}

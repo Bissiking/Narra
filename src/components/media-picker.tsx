@@ -1,6 +1,7 @@
 "use client";
 import { useId, useState } from "react";
 import Modal from "./ui/modal";
+import styles from "./media-browser.module.css";
 import MediaBrowser, { type LibraryMedia } from "./media-browser";
 export default function MediaPicker({
   projectId,
@@ -65,8 +66,8 @@ export default function MediaPicker({
           </button>
         </div>
       )}
-      <Modal open={open} onClose={() => setOpen(false)} labelledBy={title}>
-        <div className="bg-narra-surface border border-narra-border w-[min(960px,calc(100vw-24px))] max-h-[90dvh] overflow-auto">
+      <Modal open={open} onClose={() => setOpen(false)} labelledBy={title} className={styles.pickerModal}>
+        <div className={styles.pickerPanel}>
           <header className="flex items-center justify-between p-4 border-b border-narra-border">
             <h2 id={title} className="font-semibold">
               Choisir un média
