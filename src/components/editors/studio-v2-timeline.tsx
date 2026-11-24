@@ -50,7 +50,7 @@ export default function StudioTimeline(p:Props) {
  const addAnchor=useRef<HTMLButtonElement>(null);
  const viewport=useRef<HTMLDivElement>(null);
  const labelRef=useRef<HTMLDivElement>(null);
- const [{available,labelWidth},setViewportMetrics]=useState({available:1100,labelWidth:216});
+ const [{available,labelWidth},setViewportMetrics]=useState({available:0,labelWidth:216});
  const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:8}}),useSensor(KeyboardSensor,{coordinateGetter:trackKeyboardCoordinates}));
  useEffect(()=>{
   const element=viewport.current;if(!element)return;
@@ -60,7 +60,7 @@ export default function StudioTimeline(p:Props) {
  const {extent,scale,width,tick}=timelineLayout(p.duration,available,p.zoom);
  const ticks=Array.from({length:Math.floor(extent/tick)+1},(_,i)=>i*tick);
  useEffect(()=>{
-  const element=viewport.current;if(!element||dragged)return;
+  const element=viewport.current;if(!element||dragged||!available)return;
   if(p.zoom==="fit"){element.scrollLeft=0;return;}
   const x=p.time*scale,margin=Math.min(48,available*.1);
   if(x<element.scrollLeft+margin||x>element.scrollLeft+available-margin)element.scrollLeft=Math.max(0,x-available*.35);
@@ -80,7 +80,7 @@ export default function StudioTimeline(p:Props) {
  },[p.blocks,blockTimes,p.duration]);
  const restoredScroll=useRef("");
  useEffect(()=>{
-  if(restoredScroll.current===p.storageKey)return;
+  if(!available||restoredScroll.current===p.storageKey)return;
   restoredScroll.current=p.storageKey;
   try {
    const saved=JSON.parse(localStorage.getItem(p.storageKey+":scroll")||"null");

@@ -1,1 +1,0 @@
-export { default } from "@/app/project/[projectId]/edit/page";
